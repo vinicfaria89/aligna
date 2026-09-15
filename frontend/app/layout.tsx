@@ -1,18 +1,14 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, Libre_Caslon_Text } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
-const ibmPlex = IBM_Plex_Sans({
+// Redesign (benchmark PlanFi): uma família só, do corpo ao título em peso
+// alto -- troca a dupla serifada/institucional (Libre Caslon + IBM Plex)
+// anterior por algo mais "produto de tecnologia".
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-ibm-plex",
-});
-
-const libreCaslon = Libre_Caslon_Text({
-  subsets: ["latin"],
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
-  variable: "--font-libre-caslon",
+  weight: ["400", "500", "600", "700", "800"],
+  variable: "--font-jakarta",
 });
 
 const TITLE = "Lastro — Diagnóstico de carteira";
@@ -51,7 +47,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className={`${ibmPlex.variable} ${libreCaslon.variable}`}>
+    <html lang="pt-BR" className={jakarta.variable}>
       <body className="font-sans">{children}</body>
     </html>
   );

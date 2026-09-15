@@ -40,7 +40,7 @@ export default function ExtratosStep({
   return (
     <div className="px-16 py-24">
       <div className="max-w-[840px]">
-        <h1 className="font-serif text-3xl mb-2.5">Envie seus extratos</h1>
+        <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Envie seus extratos</h1>
         <p className="text-[15px] text-lastro-muted leading-relaxed mb-9 max-w-[600px]">
           Envie quantos extratos quiser, de qualquer banco, corretora ou plataforma — inclusive de crédito privado. Não é
           preciso conectar sua conta em lugar nenhum.
@@ -59,7 +59,7 @@ export default function ExtratosStep({
             addFiles(e.dataTransfer.files);
           }}
           className="mb-7 flex cursor-pointer flex-col items-center rounded-xl border-[1.5px] border-dashed p-12 text-center transition-colors"
-          style={{ borderColor: dragOver ? "#2f5d43" : "#e1ded4", background: dragOver ? "#eaf1ec" : "#ffffff" }}
+          style={{ borderColor: dragOver ? "#1c8a4f" : "#dcece1", background: dragOver ? "#d9f5e2" : "#ffffff" }}
         >
           <input
             ref={inputRef}

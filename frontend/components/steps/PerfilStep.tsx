@@ -27,12 +27,12 @@ function QuestionCard({
   return (
     <div
       onClick={onClick}
-      className="flex cursor-pointer gap-4 rounded-md border-[1.5px] p-5"
-      style={{ borderColor: selected ? "#2f5d43" : "#e1ded4", background: selected ? "#eaf1ec" : "#ffffff" }}
+      className="flex cursor-pointer gap-4 rounded-xl border-[1.5px] p-5 transition-colors"
+      style={{ borderColor: selected ? "#1c8a4f" : "#dcece1", background: selected ? "#d9f5e2" : "#ffffff" }}
     >
       <div
         className="mt-0.5 h-5 w-5 shrink-0 rounded-full box-border"
-        style={{ border: selected ? "5px solid #2f5d43" : "1.5px solid #e1ded4" }}
+        style={{ border: selected ? "5px solid #1c8a4f" : "1.5px solid #dcece1" }}
       />
       <div>
         <div className="text-[15px] font-semibold mb-1">{option.label}</div>
@@ -79,11 +79,11 @@ export default function PerfilStep({
       <div className="w-full max-w-[600px]">
         <div className="text-xs font-semibold uppercase tracking-wide text-lastro-muted mb-3.5">Pergunta {question} de 2</div>
         <div className="flex gap-1.5 mb-10">
-          <div className="h-[3px] flex-1 rounded-full" style={{ background: "#2f5d43" }} />
-          <div className="h-[3px] flex-1 rounded-full" style={{ background: question >= 2 ? "#2f5d43" : "#e1ded4" }} />
+          <div className="h-[3px] flex-1 rounded-full" style={{ background: "#1c8a4f" }} />
+          <div className="h-[3px] flex-1 rounded-full" style={{ background: question >= 2 ? "#1c8a4f" : "#dcece1" }} />
         </div>
 
-        <h1 className="font-serif text-[32px] font-normal leading-snug mb-3">{headline}</h1>
+        <h1 className="font-serif text-[32px] font-extrabold tracking-tight leading-snug mb-3">{headline}</h1>
         <p className="text-[15px] text-lastro-muted mb-9">Não existe resposta certa — isso ajuda a entender o que sua carteira deveria priorizar.</p>
 
         <div className="flex flex-col gap-3 mb-12">

@@ -16,18 +16,13 @@ export default function Stepper({ current }: { current: StepKey }) {
   return (
     <div className="w-[272px] shrink-0 bg-lastro-deep px-8 py-10 flex flex-col">
       <div className="flex items-center gap-2.5 mb-14">
-        <svg width="24" height="24" viewBox="0 0 26 26">
-          <path
-            d="M13 1 L24 7 V16 C24 21.2 19 24.6 13 25.3 C7 24.6 2 21.2 2 16 V7 Z"
-            fill="none"
-            stroke="#b08a3e"
-            strokeWidth="1.3"
-          />
-          <text x="13" y="17.5" textAnchor="middle" fontFamily="serif" fontSize="12" fill="#f3efe6">
-            L
-          </text>
-        </svg>
-        <span className="font-serif text-xl text-lastro-cream">Lastro</span>
+        <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px]" style={{ background: "linear-gradient(135deg, #34c072, #0f5c33)" }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 3v18h18" />
+            <path d="m19 9-5 5-4-4-3 3" />
+          </svg>
+        </div>
+        <span className="font-serif font-extrabold text-xl tracking-tight text-white">Lastro</span>
       </div>
 
       <div className="relative flex flex-col gap-7">
@@ -40,14 +35,14 @@ export default function Stepper({ current }: { current: StepKey }) {
               <div
                 className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-[1.5px] box-border"
                 style={{
-                  background: done ? "#b08a3e" : active ? "#3c7856" : "transparent",
+                  background: done ? "#34c072" : active ? "#22a35e" : "transparent",
                   borderColor: done || active ? "transparent" : "rgba(255,255,255,0.3)",
                 }}
               >
                 {done ? (
-                  <Check size={13} strokeWidth={3} color="#12241c" />
+                  <Check size={13} strokeWidth={3} color="#0f2318" />
                 ) : (
-                  <span className="text-xs font-semibold" style={{ color: active ? "#12241c" : "rgba(255,255,255,0.55)" }}>
+                  <span className="text-xs font-semibold" style={{ color: active ? "#0f2318" : "rgba(255,255,255,0.55)" }}>
                     {i + 1}
                   </span>
                 )}
@@ -55,8 +50,8 @@ export default function Stepper({ current }: { current: StepKey }) {
               <span
                 className="text-sm"
                 style={{
-                  fontWeight: active ? 600 : 500,
-                  color: active ? "#f3efe6" : "rgba(255,255,255,0.55)",
+                  fontWeight: active ? 700 : 500,
+                  color: active ? "#ffffff" : "rgba(255,255,255,0.55)",
                 }}
               >
                 {step.label}

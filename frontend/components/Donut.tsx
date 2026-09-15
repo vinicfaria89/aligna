@@ -1,4 +1,4 @@
-const PALETTE = ["#2f5d43", "#3c7856", "#b08a3e", "#8fb39d", "#a6432f", "#5b6a60"];
+const PALETTE = ["#1c8a4f", "#22a35e", "#0f5c33", "#8fe0ab", "#34c072", "#5a6e63"];
 
 export interface DonutSlice {
   label: string;
@@ -18,10 +18,10 @@ export default function Donut({ slices, centerBig, centerSmall }: { slices: Donu
     <div className="flex items-center gap-8 flex-wrap">
       <div
         className="flex h-[168px] w-[168px] shrink-0 items-center justify-center rounded-full"
-        style={{ background: slices.length > 0 ? `conic-gradient(${stops.join(", ")})` : "#e1ded4" }}
+        style={{ background: slices.length > 0 ? `conic-gradient(${stops.join(", ")})` : "#dcece1" }}
       >
         <div className="flex h-[108px] w-[108px] flex-col items-center justify-center rounded-full bg-lastro-card text-center">
-          <div className="font-serif text-lg">{centerBig}</div>
+          <div className="font-serif font-extrabold text-lg">{centerBig}</div>
           <div className="mt-0.5 max-w-[88px] text-[10px] leading-tight text-lastro-muted">{centerSmall}</div>
         </div>
       </div>

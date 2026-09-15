@@ -12,9 +12,9 @@ function formatBRL(value: number): string {
 }
 
 const SEVERITY_STYLES = {
-  alto: { bg: "#f7e9e5", color: "#a6432f", Icon: AlertTriangle },
-  medio: { bg: "#f7edd9", color: "#b5822c", Icon: AlertTriangle },
-  info: { bg: "#e8eff3", color: "#3d6a86", Icon: Info },
+  alto: { bg: "#fbe9e5", color: "#c1503a", Icon: AlertTriangle },
+  medio: { bg: "#fbf1dd", color: "#c08a2e", Icon: AlertTriangle },
+  info: { bg: "#e6f2f4", color: "#3d7a8a", Icon: Info },
 };
 
 export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; assets: ExtractedAsset[] }) {
@@ -41,7 +41,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
   return (
     <div className="px-14 py-20 pb-28">
       <div className="max-w-[1040px]">
-        <h1 className="font-serif text-[34px] mb-2">Relatório de adequação</h1>
+        <h1 className="font-serif font-extrabold tracking-tight text-[34px] mb-2">Relatório de adequação</h1>
         <div className="text-sm text-lastro-muted mb-11">
           Baseado em {new Set(assets.map((a) => a.institution)).size} instituição(ões) · {formatBRL(report.totalValue)} analisados
         </div>
@@ -56,7 +56,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
           </div>
           <div className="rounded-lg border border-lastro-line bg-lastro-card p-6">
             <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-lastro-muted">Patrimônio analisado</div>
-            <div className="font-serif text-[22px]">{formatBRL(report.totalValue)}</div>
+            <div className="font-serif font-extrabold text-[22px]">{formatBRL(report.totalValue)}</div>
             <div className="mt-1 text-[12.5px] text-lastro-muted">{assets.length} ativo(s) confirmado(s)</div>
           </div>
         </div>

@@ -17,7 +17,7 @@ export default function IntroStep({
   return (
     <div className="flex justify-center px-10 py-24">
       <div className="w-full max-w-[520px]">
-        <h1 className="font-serif text-3xl mb-2.5">Antes de começar</h1>
+        <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Antes de começar</h1>
         <p className="text-[15px] text-lastro-muted leading-relaxed mb-9">
           É só pra criar sua conta — não pedimos nada além disso, e é a mesma conta que você usa depois pra ver seu
           planejamento completo.

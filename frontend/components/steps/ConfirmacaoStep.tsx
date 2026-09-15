@@ -117,7 +117,7 @@ export default function ConfirmacaoStep({
   return (
     <div className="px-14 py-24">
       <div className="max-w-[1000px]">
-        <h1 className="font-serif text-3xl mb-2.5">Confira os ativos identificados</h1>
+        <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Confira os ativos identificados</h1>
         <p className="text-[15px] text-lastro-muted leading-relaxed mb-10 max-w-[640px]">
           Organizamos os ativos abaixo a partir dos seus extratos. Revise e corrija o que for necessário — a análise final é
           baseada exatamente no que estiver aqui.
