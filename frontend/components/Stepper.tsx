@@ -14,7 +14,7 @@ export default function Stepper({ current }: { current: StepKey }) {
   const currentIndex = STEPS.findIndex((s) => s.key === current);
 
   return (
-    <div className="w-[272px] shrink-0 bg-aligna-deep px-8 py-10 flex flex-col">
+    <div className="print-hide w-[272px] shrink-0 bg-aligna-deep px-8 py-10 flex flex-col">
       <div className="flex items-center gap-2.5 mb-14">
         <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px]" style={{ background: "linear-gradient(135deg, #34c072, #0f5c33)" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">

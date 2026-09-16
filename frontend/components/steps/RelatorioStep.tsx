@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Info, Loader2, Lock, Mail } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Download, Info, Loader2, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import Donut from "@/components/Donut";
 import { ApiError, createCheckoutSession, IntakeTokens, submitIntake } from "@/lib/api";
@@ -77,10 +77,37 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
     }
   }
 
+  const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
+
   return (
-    <div className="px-14 py-20 pb-28">
+    <div className="px-14 py-20 pb-28 print:px-0 print:py-0">
       <div className="max-w-[1040px]">
-        <h1 className="font-serif font-extrabold tracking-tight text-[34px] mb-2">Relatório de adequação</h1>
+        {/* Capa só no PDF/impressão -- na tela o cabeçalho fica no Stepper */}
+        <div className="print-only mb-10 flex items-center justify-between border-b-2 border-aligna-deep pb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-[9px]" style={{ background: "linear-gradient(135deg, #22a35e, #0f5c33)" }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 19 12 4 19 19" />
+                <path d="M8 14h8" />
+                <circle cx="12" cy="14" r="1.6" fill="#22a35e" stroke="white" strokeWidth="1" />
+              </svg>
+            </div>
+            <span className="text-lg font-extrabold tracking-tight">Aligna</span>
+          </div>
+          <div className="text-right text-[11px] text-aligna-muted">
+            <div>Relatório de adequação de carteira</div>
+            <div>{today}</div>
+          </div>
+        </div>
+
+        <div className="mb-2 flex items-center justify-between gap-4 print-hide">
+          <h1 className="font-serif font-extrabold tracking-tight text-[34px]">Relatório de adequação</h1>
+          <button className="btn-ghost shrink-0" onClick={() => window.print()}>
+            <Download size={15} />
+            Baixar PDF
+          </button>
+        </div>
+        <h1 className="print-only font-extrabold tracking-tight text-[26px] mb-2">Relatório de adequação</h1>
         <div className="text-sm text-aligna-muted mb-11">
           Baseado em {new Set(assets.map((a) => a.institution)).size} instituição(ões) · {formatBRL(report.totalValue)} analisados
         </div>
@@ -152,11 +179,26 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
           </div>
         )}
 
+        {/* Disclaimer fica fora da área paga de propósito -- é aviso
+            regulatório, não conteúdo premium; sai tanto na tela quanto no
+            PDF gratuito. */}
+        <div className="mb-11 rounded-md border border-aligna-line bg-aligna-infoSoft p-5 text-[12.5px] leading-relaxed">
+          Este relatório tem caráter exclusivamente informativo, com base nos dados enviados por você, e não constitui
+          recomendação, orientação ou aconselhamento sobre investimentos específicos, nos termos da Resolução CVM 19/2021.
+        </div>
+
+        <div className="print-only text-[12.5px] text-aligna-muted">
+          O relatório completo (composição por classe, todos os pontos encontrados e comparação com Selic/CDI/IPCA) está
+          disponível na assinatura Aligna Premium.
+        </div>
+
         {/* A partir daqui é o relatório completo -- decisão do Conselho: mostrar
             score + 1 alerta de graça (o "aha moment"), travar o resto atrás da
             assinatura. Sem processador de pagamento integrado ainda, então o
-            desbloqueio hoje é manual (fala comigo), não automático. */}
-        <div className="relative">
+            desbloqueio hoje é manual (fala comigo), não automático. Fica de
+            fora do PDF gratuito (print-hide) -- imprimir a versão borrada
+            não vaza o conteúdo pago, mas também não faz sentido no papel. */}
+        <div className="relative print-hide">
           <div aria-hidden className="pointer-events-none select-none blur-[3px] opacity-40">
             <div className="mb-4 text-[15px] font-semibold">Alocação por classe de ativo</div>
             <div className="mb-11">
@@ -200,11 +242,6 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                   <div className="text-aligna-muted">{b.fonte}</div>
                 </div>
               ))}
-            </div>
-
-            <div className="mb-9 rounded-md border border-aligna-line bg-aligna-infoSoft p-5 text-[12.5px] leading-relaxed">
-              Este relatório tem caráter exclusivamente informativo, com base nos dados enviados por você, e não constitui
-              recomendação, orientação ou aconselhamento sobre investimentos específicos, nos termos da Resolução CVM 19/2021.
             </div>
 
             <div className="border-t border-aligna-line pt-6">

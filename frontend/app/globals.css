@@ -30,3 +30,27 @@ body {
     @apply rounded-2xl border border-aligna-line bg-aligna-card p-6 shadow-sm;
   }
 }
+
+/* Exportação em PDF via impressão do navegador -- sem serviço novo, sem
+   custo. Só o que já é gratuito na tela pode sair impresso: qualquer coisa
+   marcada .print-hide (barra lateral, o cartão de assinatura e o conteúdo
+   borrado atrás dele) some no PDF, e .print-only aparece só ali -- nunca
+   vaza o que está pago atrás do blur. */
+.print-only {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 18mm 16mm;
+  }
+  .print-hide {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+  body {
+    background: white;
+  }
+}
