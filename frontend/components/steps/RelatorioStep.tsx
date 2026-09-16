@@ -1,9 +1,11 @@
 "use client";
 
-import { AlertTriangle, CheckCircle2, Download, Info, Loader2, Lock, Mail } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, Info, Loader2, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import Donut from "@/components/Donut";
+import ProjectionChart from "@/components/ProjectionChart";
 import { ApiError, createCheckoutSession, IntakeTokens, saveScoreSnapshot, submitIntake } from "@/lib/api";
+import { buildProjection } from "@/lib/projection";
 import { STATIC_BENCHMARKS, buildReport, computeScore } from "@/lib/report";
 import { saveSession } from "@/lib/session";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
@@ -32,6 +34,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
   const riskProfile = riskProfileFromAnswers(perfil.toleranceAnswer);
   const report = buildReport(assets, riskProfile);
   const score = computeScore(assets, riskProfile, report);
+  const projection = buildProjection(assets, riskProfile);
   const scoreColor = score.total >= 70 ? "#1c8a4f" : score.total >= 40 ? "#c08a2e" : "#c1503a";
   const scoreLabel = score.total >= 70 ? "Consolidado" : score.total >= 40 ? "Em desenvolvimento" : "Atenção";
   const worstCriterion = [...score.criteria].sort((a, b) => a.score - b.score)[0];
@@ -200,6 +203,63 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
           </div>
         )}
 
+        {projection && (
+          <div className="mb-11">
+            <div className="mb-1 text-[15px] font-semibold">Projeção de patrimônio em {projection.horizonYears} anos</div>
+            <p className="mb-4 max-w-[640px] text-[13px] leading-relaxed text-aligna-muted">
+              Mantendo a alocação atual, sua carteira renderia o equivalente a {(projection.blendedRate * 100).toFixed(1)}%
+              acima da inflação ao ano. Uma alocação de referência pro perfil {riskProfile} costuma render{" "}
+              {(projection.profileRate * 100).toFixed(1)}% — a diferença, projetada, é o que está em jogo.
+            </p>
+            <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+              <ProjectionChart projection={projection} />
+              <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-[12px]">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-[3px] w-4 rounded-full" style={{ background: "#1c8a4f" }} />
+                  Mantendo a alocação atual
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block h-[3px] w-4 rounded-full border-t-2 border-dashed" style={{ borderColor: "#c08a2e" }} />
+                  Referência pro perfil {riskProfile}
+                </div>
+              </div>
+              {projection.gapAtHorizon > 0 && (
+                <div className="mt-4 rounded-md bg-aligna-warnSoft px-4 py-3 text-[13px] font-medium text-aligna-warn">
+                  Nesse ritmo, a diferença projetada em {projection.horizonYears} anos é de{" "}
+                  {formatBRL(projection.gapAtHorizon)} — valores reais, sem considerar impostos ou custos.
+                </div>
+              )}
+            </div>
+            <p className="mt-3 text-[11.5px] text-aligna-muted">
+              Estimativa ilustrativa com taxas de retorno de mercado de longo prazo por categoria de ativo — não é garantia de
+              rentabilidade nem recomendação de alocação (Resolução CVM 19/2021).
+            </p>
+          </div>
+        )}
+
+        <div className="mb-11 rounded-xl border-[1.5px] border-aligna-mid bg-aligna-pale p-6 print-hide">
+          <div className="mb-1.5 text-[14.5px] font-semibold">Veja isso virar um plano completo</div>
+          <div className="mb-4 max-w-[560px] text-[13px] leading-relaxed text-aligna-muted">
+            O que você já confirmou aqui vira o ponto de partida do seu Planejamento Financeiro completo — metas, fluxo de
+            renda e despesas, e a mesma projeção de patrimônio, mas com aposentadoria, objetivos e o seu fluxo de caixa real.
+          </div>
+          {submitted ? (
+            <div className="flex items-center gap-2.5 rounded-md border border-aligna-mid bg-white px-5 py-4 text-sm font-semibold text-aligna-deep">
+              <CheckCircle2 size={18} />
+              Conta criada! Acesse o Planejador Financeiro e faça login com o e-mail e a senha que você definiu.
+            </div>
+          ) : (
+            <>
+              <button className="btn-primary" disabled={submitting} onClick={handleContinuar}>
+                {submitting && <Loader2 size={16} className="animate-spin" />}
+                {submitting ? "Enviando..." : "Continuar no Planejador Financeiro"}
+                {!submitting && <ArrowRight size={16} />}
+              </button>
+              {error && <p className="mt-2.5 text-xs text-aligna-danger">{error}</p>}
+            </>
+          )}
+        </div>
+
         {/* Disclaimer fica fora da área paga de propósito -- é aviso
             regulatório, não conteúdo premium; sai tanto na tela quanto no
             PDF gratuito. */}
@@ -266,63 +326,33 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
             </div>
 
             <div className="border-t border-aligna-line pt-6">
-              <div className="mb-1 text-sm font-semibold">Qual o seu próximo passo?</div>
+              <div className="mb-1 text-sm font-semibold">Quer acompanhamento de um especialista?</div>
               <p className="mb-4.5 max-w-[520px] text-[13px] text-aligna-muted">
-                As duas opções abaixo continuam do jeito que fizer mais sentido pra você.
+                Um profissional registrado na CVM analisa sua carteira com você e pode dar recomendação de verdade.
               </p>
-
-              {submitted ? (
-                <div className="flex items-center gap-2.5 rounded-md border border-aligna-mid bg-aligna-pale px-5 py-4 text-sm font-semibold text-aligna-deep">
-                  <CheckCircle2 size={18} />
-                  Conta criada! Acesse o Planejador Financeiro e faça login com o e-mail e a senha que você definiu.
+              <div className="max-w-[420px] rounded-lg border border-aligna-line bg-aligna-card p-6">
+                <div className="mb-3 inline-flex rounded-full bg-aligna-goldSoft px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-aligna-ink">
+                  Acompanhado
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg border-[1.5px] border-aligna-mid bg-aligna-pale p-6">
-                    <div className="mb-3 inline-flex rounded-full bg-aligna-deep px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-aligna-cream">
-                      Modo autônomo
-                    </div>
-                    <div className="mb-1.5 text-[14.5px] font-semibold">Continuar meu planejamento sozinho</div>
-                    <div className="mb-4 text-[13px] leading-relaxed text-aligna-muted">
-                      Os dados que você já confirmou viram o ponto de partida do seu planejamento completo — metas, aposentadoria,
-                      projeção de patrimônio.
-                    </div>
-                    <button className="btn-primary" disabled={submitting} onClick={handleContinuar}>
-                      {submitting && <Loader2 size={16} className="animate-spin" />}
-                      {submitting ? "Enviando..." : "Continuar no Planejador Financeiro"}
-                    </button>
-                    {error && <p className="mt-2.5 text-xs text-aligna-danger">{error}</p>}
-                  </div>
-
-                  <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
-                    <div className="mb-3 inline-flex rounded-full bg-aligna-goldSoft px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-aligna-ink">
-                      Acompanhado
-                    </div>
-                    <div className="mb-1.5 text-[14.5px] font-semibold">Quero acompanhamento de um especialista</div>
-                    <div className="mb-4 text-[13px] leading-relaxed text-aligna-muted">
-                      Um profissional registrado na CVM analisa sua carteira com você e pode dar recomendação de verdade.
-                    </div>
-                    <div className="flex flex-wrap gap-2.5">
-                      <a
-                        href="https://wa.me/5511919733914"
-                        className="flex items-center gap-2 rounded-md bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white"
-                      >
-                        WhatsApp
-                      </a>
-                      <a
-                        href="mailto:vinicius.faria@gcbinvestimentos.com"
-                        className="flex items-center gap-2 rounded-md border border-aligna-line px-4 py-2.5 text-sm font-semibold"
-                      >
-                        <Mail size={15} /> E-mail
-                      </a>
-                    </div>
-                  </div>
+                <div className="flex flex-wrap gap-2.5">
+                  <a
+                    href="https://wa.me/5511919733914"
+                    className="flex items-center gap-2 rounded-md bg-[#25D366] px-4 py-2.5 text-sm font-semibold text-white"
+                  >
+                    WhatsApp
+                  </a>
+                  <a
+                    href="mailto:vinicius.faria@gcbinvestimentos.com"
+                    className="flex items-center gap-2 rounded-md border border-aligna-line px-4 py-2.5 text-sm font-semibold"
+                  >
+                    <Mail size={15} /> E-mail
+                  </a>
                 </div>
-              )}
+              </div>
             </div>
           </div>
 
-          <div className="absolute inset-0 flex justify-center pt-6">
+          <div className="absolute inset-0 flex items-start justify-center pt-6">
             <div className="w-full max-w-[420px] rounded-xl border border-aligna-line bg-white p-7 text-center shadow-[0_8px_28px_-10px_rgba(15,35,24,0.25)]">
               <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-aligna-pale text-aligna-mid">
                 <Lock size={20} />
