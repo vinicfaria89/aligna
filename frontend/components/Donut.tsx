@@ -20,9 +20,9 @@ export default function Donut({ slices, centerBig, centerSmall }: { slices: Donu
         className="flex h-[168px] w-[168px] shrink-0 items-center justify-center rounded-full"
         style={{ background: slices.length > 0 ? `conic-gradient(${stops.join(", ")})` : "#dcece1" }}
       >
-        <div className="flex h-[108px] w-[108px] flex-col items-center justify-center rounded-full bg-lastro-card text-center">
+        <div className="flex h-[108px] w-[108px] flex-col items-center justify-center rounded-full bg-aligna-card text-center">
           <div className="font-serif font-extrabold text-lg">{centerBig}</div>
-          <div className="mt-0.5 max-w-[88px] text-[10px] leading-tight text-lastro-muted">{centerSmall}</div>
+          <div className="mt-0.5 max-w-[88px] text-[10px] leading-tight text-aligna-muted">{centerSmall}</div>
         </div>
       </div>
       <div className="flex min-w-[220px] flex-1 flex-col gap-0.5">

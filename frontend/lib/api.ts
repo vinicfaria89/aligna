@@ -1,8 +1,8 @@
 import { ExtractedAsset, PerfilData, RiskProfile, UploadedFile } from "./types";
 
 // URL do backend do Planejador Financeiro -- é ele quem de fato recebe o
-// intake (ver POST /api/v1/intake/lastro, já construído e testado do lado
-// de lá). O Lastro não tem banco de dados próprio: é um funil sem estado
+// intake (ver POST /api/v1/intake/aligna, já construído e testado do lado
+// de lá). O Aligna não tem banco de dados próprio: é um funil sem estado
 // persistente até este último passo.
 const PLANEJADOR_API_URL = process.env.NEXT_PUBLIC_PLANEJADOR_API_URL ?? "http://localhost:8000";
 
@@ -21,7 +21,7 @@ export interface IntakeTokens {
 }
 
 export async function submitIntake(perfil: PerfilData, riskProfile: RiskProfile, assets: ExtractedAsset[]): Promise<IntakeTokens> {
-  const res = await fetch(`${PLANEJADOR_API_URL}/api/v1/intake/lastro`, {
+  const res = await fetch(`${PLANEJADOR_API_URL}/api/v1/intake/aligna`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

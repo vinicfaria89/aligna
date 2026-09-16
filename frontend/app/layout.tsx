@@ -11,9 +11,9 @@ const jakarta = Plus_Jakarta_Sans({
   variable: "--font-jakarta",
 });
 
-const TITLE = "Lastro — Diagnóstico de carteira";
+const TITLE = "Aligna — Diagnóstico de carteira";
 const DESCRIPTION =
-  "Envie os extratos de todos os bancos e corretoras onde você tem dinheiro. A Lastro organiza os ativos e devolve um raio-x independente: onde sua carteira diverge do seu perfil declarado, e por quê.";
+  "Envie os extratos de todos os bancos e corretoras onde você tem dinheiro. A Aligna organiza os ativos e devolve um raio-x independente: onde sua carteira diverge do seu perfil declarado, e por quê.";
 
 // SITE_URL precisa ser o domínio real assim que ele existir (mesmo domínio
 // do deploy -- ver docs/producao-nginx-tls.md do Planejador Financeiro para
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     url: SITE_URL,
-    siteName: "Lastro",
+    siteName: "Aligna",
     locale: "pt_BR",
     type: "website",
     // TODO: gerar e apontar uma imagem og:image real (1200x630) antes do

@@ -18,7 +18,7 @@ export default function IntroStep({
     <div className="flex justify-center px-10 py-24">
       <div className="w-full max-w-[520px]">
         <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Antes de começar</h1>
-        <p className="text-[15px] text-lastro-muted leading-relaxed mb-9">
+        <p className="text-[15px] text-aligna-muted leading-relaxed mb-9">
           É só pra criar sua conta — não pedimos nada além disso, e é a mesma conta que você usa depois pra ver seu
           planejamento completo.
         </p>
@@ -46,7 +46,7 @@ export default function IntroStep({
               value={data.password}
               onChange={(e) => onChange({ password: e.target.value })}
             />
-            <p className="text-xs text-lastro-muted mt-1">Mínimo de 8 caracteres.</p>
+            <p className="text-xs text-aligna-muted mt-1">Mínimo de 8 caracteres.</p>
           </div>
           <div>
             <label className="text-sm font-medium">Data de nascimento</label>

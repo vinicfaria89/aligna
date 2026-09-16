@@ -3,30 +3,30 @@
 @tailwind utilities;
 
 body {
-  background: theme("colors.lastro.paper");
-  color: theme("colors.lastro.ink");
+  background: theme("colors.aligna.paper");
+  color: theme("colors.aligna.ink");
 }
 
 @layer components {
   .input {
-    @apply w-full rounded-md border border-lastro-line bg-lastro-card px-3 py-2.5 text-sm text-lastro-ink outline-none transition-colors;
+    @apply w-full rounded-md border border-aligna-line bg-aligna-card px-3 py-2.5 text-sm text-aligna-ink outline-none transition-colors;
   }
   .input:focus {
-    @apply border-lastro-mid ring-1 ring-lastro-mid;
+    @apply border-aligna-mid ring-1 ring-aligna-mid;
   }
   .btn-primary {
-    @apply inline-flex items-center gap-2 rounded-full bg-lastro-mid px-6 py-3 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50;
+    @apply inline-flex items-center gap-2 rounded-full bg-aligna-mid px-6 py-3 text-sm font-bold text-white shadow-sm transition-all disabled:opacity-50;
   }
   .btn-primary:hover:not(:disabled) {
     @apply -translate-y-px shadow-md;
   }
   .btn-ghost {
-    @apply inline-flex items-center gap-2 rounded-full border border-lastro-line bg-white px-6 py-3 text-sm font-bold text-lastro-ink transition-colors;
+    @apply inline-flex items-center gap-2 rounded-full border border-aligna-line bg-white px-6 py-3 text-sm font-bold text-aligna-ink transition-colors;
   }
   .btn-ghost:hover {
-    @apply bg-lastro-pale;
+    @apply bg-aligna-pale;
   }
   .card {
-    @apply rounded-2xl border border-lastro-line bg-lastro-card p-6 shadow-sm;
+    @apply rounded-2xl border border-aligna-line bg-aligna-card p-6 shadow-sm;
   }
 }

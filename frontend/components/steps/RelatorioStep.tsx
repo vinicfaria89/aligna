@@ -33,7 +33,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
   const [tokens, setTokens] = useState<IntakeTokens | null>(null);
 
   const mailtoAssinar = `mailto:vinicius.faria@gcbinvestimentos.com?subject=${encodeURIComponent(
-    "Quero assinar o Lastro Premium"
+    "Quero assinar o Aligna Premium"
   )}&body=${encodeURIComponent(`Acabei de fazer meu diagnóstico (score ${score.total}) e quero ver o relatório completo.`)}`;
 
   // Tanto "Continuar no Planejador Financeiro" quanto "Quero assinar" partem
@@ -81,11 +81,11 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
     <div className="px-14 py-20 pb-28">
       <div className="max-w-[1040px]">
         <h1 className="font-serif font-extrabold tracking-tight text-[34px] mb-2">Relatório de adequação</h1>
-        <div className="text-sm text-lastro-muted mb-11">
+        <div className="text-sm text-aligna-muted mb-11">
           Baseado em {new Set(assets.map((a) => a.institution)).size} instituição(ões) · {formatBRL(report.totalValue)} analisados
         </div>
 
-        <div className="mb-11 flex items-center gap-7 rounded-xl border border-lastro-line bg-lastro-card p-7">
+        <div className="mb-11 flex items-center gap-7 rounded-xl border border-aligna-line bg-aligna-card p-7">
           <div
             className="flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-full text-[34px] font-extrabold font-serif"
             style={{ border: `6px solid ${scoreColor}`, color: scoreColor }}
@@ -94,7 +94,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
           </div>
           <div>
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: scoreColor }}>
-              Score Lastro · {scoreLabel}
+              Score Aligna · {scoreLabel}
             </div>
             <div className="text-[17px] font-semibold leading-snug">
               {worstCriterion.score < 70
@@ -103,8 +103,8 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
             </div>
             <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5">
               {score.criteria.map((c) => (
-                <div key={c.label} className="text-[12px] text-lastro-muted">
-                  <span className="font-semibold text-lastro-ink">{c.label}</span> · {c.score}/100
+                <div key={c.label} className="text-[12px] text-aligna-muted">
+                  <span className="font-semibold text-aligna-ink">{c.label}</span> · {c.score}/100
                 </div>
               ))}
             </div>
@@ -112,17 +112,17 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
         </div>
 
         <div className="mb-11 grid grid-cols-[1.2fr_1fr] gap-4">
-          <div className="rounded-lg border border-lastro-line bg-lastro-card p-6">
-            <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-lastro-muted">Perfil declarado</div>
+          <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+            <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-aligna-muted">Perfil declarado</div>
             <div className="text-lg font-semibold capitalize">{riskProfile}</div>
-            <div className="mt-1 text-[12.5px] text-lastro-muted">
+            <div className="mt-1 text-[12.5px] text-aligna-muted">
               com base nas respostas do questionário de suitability
             </div>
           </div>
-          <div className="rounded-lg border border-lastro-line bg-lastro-card p-6">
-            <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-lastro-muted">Patrimônio analisado</div>
+          <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+            <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-aligna-muted">Patrimônio analisado</div>
             <div className="font-serif font-extrabold text-[22px]">{formatBRL(report.totalValue)}</div>
-            <div className="mt-1 text-[12.5px] text-lastro-muted">{assets.length} ativo(s) confirmado(s)</div>
+            <div className="mt-1 text-[12.5px] text-aligna-muted">{assets.length} ativo(s) confirmado(s)</div>
           </div>
         </div>
 
@@ -133,19 +133,19 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
               const style = SEVERITY_STYLES[teaserAlert.severity];
               const Icon = style.Icon;
               return (
-                <div className="flex gap-3.5 rounded-md border border-lastro-line bg-lastro-card px-5 py-4">
+                <div className="flex gap-3.5 rounded-md border border-aligna-line bg-aligna-card px-5 py-4">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" style={{ background: style.bg, color: style.color }}>
                     <Icon size={17} />
                   </div>
                   <div>
                     <div className="mb-1 text-sm font-semibold">{teaserAlert.title}</div>
-                    <div className="text-[13.5px] leading-relaxed text-lastro-muted">{teaserAlert.body}</div>
+                    <div className="text-[13.5px] leading-relaxed text-aligna-muted">{teaserAlert.body}</div>
                   </div>
                 </div>
               );
             })()}
             {report.alerts.length > 1 && (
-              <div className="mt-2.5 text-[12.5px] text-lastro-muted">
+              <div className="mt-2.5 text-[12.5px] text-aligna-muted">
                 + mais {report.alerts.length - 1} ponto(s) no relatório completo, abaixo.
               </div>
             )}
@@ -173,13 +173,13 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                 const style = SEVERITY_STYLES[alert.severity];
                 const Icon = style.Icon;
                 return (
-                  <div key={i} className="flex gap-3.5 rounded-md border border-lastro-line bg-lastro-card px-5 py-4">
+                  <div key={i} className="flex gap-3.5 rounded-md border border-aligna-line bg-aligna-card px-5 py-4">
                     <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md" style={{ background: style.bg, color: style.color }}>
                       <Icon size={17} />
                     </div>
                     <div>
                       <div className="mb-1 text-sm font-semibold">{alert.title}</div>
-                      <div className="text-[13.5px] leading-relaxed text-lastro-muted">{alert.body}</div>
+                      <div className="text-[13.5px] leading-relaxed text-aligna-muted">{alert.body}</div>
                     </div>
                   </div>
                 );
@@ -187,45 +187,45 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
             </div>
 
             <div className="mb-4 text-[15px] font-semibold">Indicadores usados na comparação</div>
-            <div className="mb-8 overflow-hidden rounded-md border border-lastro-line">
-              <div className="grid grid-cols-[1.4fr_1fr_1fr] bg-lastro-pale px-4.5 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-lastro-muted">
+            <div className="mb-8 overflow-hidden rounded-md border border-aligna-line">
+              <div className="grid grid-cols-[1.4fr_1fr_1fr] bg-aligna-pale px-4.5 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-aligna-muted">
                 <div>Indicador</div>
                 <div>Valor</div>
                 <div>Fonte</div>
               </div>
               {STATIC_BENCHMARKS.map((b) => (
-                <div key={b.nome} className="grid grid-cols-[1.4fr_1fr_1fr] border-t border-lastro-line px-4.5 py-3 text-[13.5px]">
+                <div key={b.nome} className="grid grid-cols-[1.4fr_1fr_1fr] border-t border-aligna-line px-4.5 py-3 text-[13.5px]">
                   <div className="font-medium">{b.nome}</div>
                   <div>{b.valor}</div>
-                  <div className="text-lastro-muted">{b.fonte}</div>
+                  <div className="text-aligna-muted">{b.fonte}</div>
                 </div>
               ))}
             </div>
 
-            <div className="mb-9 rounded-md border border-lastro-line bg-lastro-infoSoft p-5 text-[12.5px] leading-relaxed">
+            <div className="mb-9 rounded-md border border-aligna-line bg-aligna-infoSoft p-5 text-[12.5px] leading-relaxed">
               Este relatório tem caráter exclusivamente informativo, com base nos dados enviados por você, e não constitui
               recomendação, orientação ou aconselhamento sobre investimentos específicos, nos termos da Resolução CVM 19/2021.
             </div>
 
-            <div className="border-t border-lastro-line pt-6">
+            <div className="border-t border-aligna-line pt-6">
               <div className="mb-1 text-sm font-semibold">Qual o seu próximo passo?</div>
-              <p className="mb-4.5 max-w-[520px] text-[13px] text-lastro-muted">
+              <p className="mb-4.5 max-w-[520px] text-[13px] text-aligna-muted">
                 As duas opções abaixo continuam do jeito que fizer mais sentido pra você.
               </p>
 
               {submitted ? (
-                <div className="flex items-center gap-2.5 rounded-md border border-lastro-mid bg-lastro-pale px-5 py-4 text-sm font-semibold text-lastro-deep">
+                <div className="flex items-center gap-2.5 rounded-md border border-aligna-mid bg-aligna-pale px-5 py-4 text-sm font-semibold text-aligna-deep">
                   <CheckCircle2 size={18} />
                   Conta criada! Acesse o Planejador Financeiro e faça login com o e-mail e a senha que você definiu.
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="rounded-lg border-[1.5px] border-lastro-mid bg-lastro-pale p-6">
-                    <div className="mb-3 inline-flex rounded-full bg-lastro-deep px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-lastro-cream">
+                  <div className="rounded-lg border-[1.5px] border-aligna-mid bg-aligna-pale p-6">
+                    <div className="mb-3 inline-flex rounded-full bg-aligna-deep px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-aligna-cream">
                       Modo autônomo
                     </div>
                     <div className="mb-1.5 text-[14.5px] font-semibold">Continuar meu planejamento sozinho</div>
-                    <div className="mb-4 text-[13px] leading-relaxed text-lastro-muted">
+                    <div className="mb-4 text-[13px] leading-relaxed text-aligna-muted">
                       Os dados que você já confirmou viram o ponto de partida do seu planejamento completo — metas, aposentadoria,
                       projeção de patrimônio.
                     </div>
@@ -233,15 +233,15 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                       {submitting && <Loader2 size={16} className="animate-spin" />}
                       {submitting ? "Enviando..." : "Continuar no Planejador Financeiro"}
                     </button>
-                    {error && <p className="mt-2.5 text-xs text-lastro-danger">{error}</p>}
+                    {error && <p className="mt-2.5 text-xs text-aligna-danger">{error}</p>}
                   </div>
 
-                  <div className="rounded-lg border border-lastro-line bg-lastro-card p-6">
-                    <div className="mb-3 inline-flex rounded-full bg-lastro-goldSoft px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-lastro-ink">
+                  <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+                    <div className="mb-3 inline-flex rounded-full bg-aligna-goldSoft px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-aligna-ink">
                       Acompanhado
                     </div>
                     <div className="mb-1.5 text-[14.5px] font-semibold">Quero acompanhamento de um especialista</div>
-                    <div className="mb-4 text-[13px] leading-relaxed text-lastro-muted">
+                    <div className="mb-4 text-[13px] leading-relaxed text-aligna-muted">
                       Um profissional registrado na CVM analisa sua carteira com você e pode dar recomendação de verdade.
                     </div>
                     <div className="flex flex-wrap gap-2.5">
@@ -253,7 +253,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                       </a>
                       <a
                         href="mailto:vinicius.faria@gcbinvestimentos.com"
-                        className="flex items-center gap-2 rounded-md border border-lastro-line px-4 py-2.5 text-sm font-semibold"
+                        className="flex items-center gap-2 rounded-md border border-aligna-line px-4 py-2.5 text-sm font-semibold"
                       >
                         <Mail size={15} /> E-mail
                       </a>
@@ -265,12 +265,12 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
           </div>
 
           <div className="absolute inset-0 flex justify-center pt-6">
-            <div className="w-full max-w-[420px] rounded-xl border border-lastro-line bg-white p-7 text-center shadow-[0_8px_28px_-10px_rgba(15,35,24,0.25)]">
-              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-lastro-pale text-lastro-mid">
+            <div className="w-full max-w-[420px] rounded-xl border border-aligna-line bg-white p-7 text-center shadow-[0_8px_28px_-10px_rgba(15,35,24,0.25)]">
+              <div className="mx-auto mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-aligna-pale text-aligna-mid">
                 <Lock size={20} />
               </div>
-              <div className="mb-1 text-[15px] font-semibold">Lastro Premium</div>
-              <div className="mb-4 text-[12.5px] text-lastro-muted">
+              <div className="mb-1 text-[15px] font-semibold">Aligna Premium</div>
+              <div className="mb-4 text-[12.5px] text-aligna-muted">
                 [R$ XX]/mês — cancele quando quiser
               </div>
               <div className="mb-5 flex flex-col gap-2 text-left text-[13px]">
@@ -282,7 +282,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                 {assinando && <Loader2 size={16} className="animate-spin" />}
                 {assinando ? "Preparando..." : "Quero assinar"}
               </button>
-              <div className="mt-3 text-[11.5px] text-lastro-muted">
+              <div className="mt-3 text-[11.5px] text-aligna-muted">
                 Se a assinatura automática não estiver disponível, você fala direto comigo por e-mail.
               </div>
             </div>

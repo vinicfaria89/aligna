@@ -17,23 +17,23 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
 
   if (!editing) {
     return (
-      <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-lastro-line px-4 py-3.5 text-[13.5px]">
+      <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-aligna-line px-4 py-3.5 text-[13.5px]">
         <div className="font-semibold">{asset.name}</div>
-        <div className="text-lastro-muted">{CATEGORY_LABELS[asset.category]}</div>
+        <div className="text-aligna-muted">{CATEGORY_LABELS[asset.category]}</div>
         <div>{formatBRL(asset.value)}</div>
-        <div className="text-lastro-muted">{asset.indexer || "—"}</div>
+        <div className="text-aligna-muted">{asset.indexer || "—"}</div>
         <div>
           {asset.confidence === "ok" ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-lastro-pale px-2.5 py-1 text-[11.5px] font-semibold text-lastro-mid">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-aligna-pale px-2.5 py-1 text-[11.5px] font-semibold text-aligna-mid">
               <CheckCircle2 size={13} /> Confirmado
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-lastro-warnSoft px-2.5 py-1 text-[11.5px] font-semibold text-lastro-warn">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-aligna-warnSoft px-2.5 py-1 text-[11.5px] font-semibold text-aligna-warn">
               <AlertTriangle size={13} /> Verificar
             </span>
           )}
         </div>
-        <button onClick={() => setEditing(true)} className="text-lastro-muted hover:text-lastro-ink">
+        <button onClick={() => setEditing(true)} className="text-aligna-muted hover:text-aligna-ink">
           <Pencil size={15} />
         </button>
       </div>
@@ -41,7 +41,7 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
   }
 
   return (
-    <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-lastro-line bg-lastro-pale/40 px-4 py-3">
+    <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-aligna-line bg-aligna-pale/40 px-4 py-3">
       <input className="input py-1.5 text-xs" value={asset.name} onChange={(e) => onUpdate({ name: e.target.value })} />
       <select
         className="input py-1.5 text-xs"
@@ -76,7 +76,7 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
           onUpdate({ confidence: "ok" });
           setEditing(false);
         }}
-        className="text-lastro-mid text-xs font-semibold"
+        className="text-aligna-mid text-xs font-semibold"
       >
         Salvar
       </button>
@@ -111,9 +111,9 @@ export default function ConfirmacaoStep({
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center px-16 py-32 text-center">
-        <Loader2 size={28} className="mb-4 animate-spin text-lastro-mid" />
+        <Loader2 size={28} className="mb-4 animate-spin text-aligna-mid" />
         <div className="text-[15px] font-semibold mb-1">Lendo seus extratos...</div>
-        <div className="text-sm text-lastro-muted">Isso leva alguns segundos.</div>
+        <div className="text-sm text-aligna-muted">Isso leva alguns segundos.</div>
       </div>
     );
   }
@@ -121,13 +121,13 @@ export default function ConfirmacaoStep({
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center px-16 py-32 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-lastro-dangerSoft text-lastro-danger">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-aligna-dangerSoft text-aligna-danger">
           <AlertTriangle size={22} />
         </div>
         <div className="text-[15px] font-semibold mb-1.5">Não conseguimos ler seus extratos</div>
-        <div className="mb-6 max-w-[440px] text-sm text-lastro-muted">{error}</div>
+        <div className="mb-6 max-w-[440px] text-sm text-aligna-muted">{error}</div>
         <div className="flex items-center gap-3">
-          <button className="text-sm font-medium text-lastro-muted" onClick={onBack}>
+          <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
             ← Trocar arquivos
           </button>
           <button className="btn-primary" onClick={onRetry}>
@@ -143,11 +143,11 @@ export default function ConfirmacaoStep({
     return (
       <div className="flex flex-col items-center justify-center px-16 py-32 text-center">
         <div className="text-[15px] font-semibold mb-1.5">Nenhum ativo identificado</div>
-        <div className="mb-6 max-w-[440px] text-sm text-lastro-muted">
+        <div className="mb-6 max-w-[440px] text-sm text-aligna-muted">
           Não encontramos nenhuma posição de investimento nos arquivos enviados. Confira se são extratos de
           investimento (não fatura ou boleto) e tente novamente.
         </div>
-        <button className="text-sm font-medium text-lastro-muted" onClick={onBack}>
+        <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
           ← Trocar arquivos
         </button>
       </div>
@@ -158,7 +158,7 @@ export default function ConfirmacaoStep({
     <div className="px-14 py-24">
       <div className="max-w-[1000px]">
         <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Confira os ativos identificados</h1>
-        <p className="text-[15px] text-lastro-muted leading-relaxed mb-10 max-w-[640px]">
+        <p className="text-[15px] text-aligna-muted leading-relaxed mb-10 max-w-[640px]">
           Organizamos os ativos abaixo a partir dos seus extratos. Revise e corrija o que for necessário — a análise final é
           baseada exatamente no que estiver aqui.
         </p>
@@ -169,10 +169,10 @@ export default function ConfirmacaoStep({
             <div key={institution} className="mb-7">
               <div className="mb-3 flex items-baseline justify-between">
                 <div className="text-sm font-semibold">{institution}</div>
-                <div className="text-[13px] text-lastro-muted">{formatBRL(total)}</div>
+                <div className="text-[13px] text-aligna-muted">{formatBRL(total)}</div>
               </div>
-              <div className="overflow-hidden rounded-md border border-lastro-line bg-lastro-card">
-                <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] gap-2 bg-lastro-pale px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-lastro-muted">
+              <div className="overflow-hidden rounded-md border border-aligna-line bg-aligna-card">
+                <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] gap-2 bg-aligna-pale px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-aligna-muted">
                   <div>Ativo</div>
                   <div>Tipo</div>
                   <div>Valor</div>
@@ -189,7 +189,7 @@ export default function ConfirmacaoStep({
         })}
 
         <div className="mt-12 flex items-center justify-between">
-          <button className="text-sm font-medium text-lastro-muted" onClick={onBack}>
+          <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
             ← Voltar
           </button>
           <button className="btn-primary" disabled={assets.length === 0} onClick={onNext}>

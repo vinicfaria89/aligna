@@ -20,7 +20,7 @@ const EMPTY_PERFIL: PerfilData = {
   horizonAnswer: null,
 };
 
-export default function LastroApp() {
+export default function AlignaApp() {
   const [screen, setScreen] = useState<StepKey>("intro");
   const [perfil, setPerfil] = useState<PerfilData>(EMPTY_PERFIL);
   const [files, setFiles] = useState<UploadedFile[]>([]);

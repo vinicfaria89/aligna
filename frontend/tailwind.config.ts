@@ -12,7 +12,7 @@ const config: Config = {
         // classe. "gold"/"goldSoft" ficaram -- redirecionados pro próprio
         // verde -- porque a decisão da sessão foi priorizar verde e não
         // introduzir uma segunda cor de identidade.
-        lastro: {
+        aligna: {
           deep: "#0f5c33",
           mid: "#1c8a4f",
           bright: "#22a35e",

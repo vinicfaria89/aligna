@@ -15,12 +15,12 @@ export default function AssinaturaConfirmadaStep({ onReiniciar }: { onReiniciar:
   return (
     <div className="flex justify-center px-10 py-24">
       <div className="w-full max-w-[480px] text-center">
-        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-lastro-pale text-lastro-deep">
+        <div className="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-full bg-aligna-pale text-aligna-deep">
           <CheckCircle2 size={26} />
         </div>
         <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Assinatura confirmada</h1>
-        <p className="text-[15px] text-lastro-muted leading-relaxed mb-9">
-          Seu Lastro Premium está ativo. Faça login com o e-mail e a senha que você definiu no diagnóstico para ver o
+        <p className="text-[15px] text-aligna-muted leading-relaxed mb-9">
+          Seu Aligna Premium está ativo. Faça login com o e-mail e a senha que você definiu no diagnóstico para ver o
           relatório completo e continuar seu planejamento.
         </p>
         <button className="btn-primary" onClick={onReiniciar}>

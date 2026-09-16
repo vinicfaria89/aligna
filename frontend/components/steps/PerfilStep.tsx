@@ -36,7 +36,7 @@ function QuestionCard({
       />
       <div>
         <div className="text-[15px] font-semibold mb-1">{option.label}</div>
-        <div className="text-[13.5px] text-lastro-muted leading-snug">{option.desc}</div>
+        <div className="text-[13.5px] text-aligna-muted leading-snug">{option.desc}</div>
       </div>
     </div>
   );
@@ -77,14 +77,14 @@ export default function PerfilStep({
   return (
     <div className="flex justify-center px-10 py-24">
       <div className="w-full max-w-[600px]">
-        <div className="text-xs font-semibold uppercase tracking-wide text-lastro-muted mb-3.5">Pergunta {question} de 2</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-aligna-muted mb-3.5">Pergunta {question} de 2</div>
         <div className="flex gap-1.5 mb-10">
           <div className="h-[3px] flex-1 rounded-full" style={{ background: "#1c8a4f" }} />
           <div className="h-[3px] flex-1 rounded-full" style={{ background: question >= 2 ? "#1c8a4f" : "#dcece1" }} />
         </div>
 
         <h1 className="font-serif text-[32px] font-extrabold tracking-tight leading-snug mb-3">{headline}</h1>
-        <p className="text-[15px] text-lastro-muted mb-9">Não existe resposta certa — isso ajuda a entender o que sua carteira deveria priorizar.</p>
+        <p className="text-[15px] text-aligna-muted mb-9">Não existe resposta certa — isso ajuda a entender o que sua carteira deveria priorizar.</p>
 
         <div className="flex flex-col gap-3 mb-12">
           {options.map((opt, i) => (
@@ -94,7 +94,7 @@ export default function PerfilStep({
 
         <div className="flex items-center justify-between">
           <button
-            className="text-sm font-medium text-lastro-muted"
+            className="text-sm font-medium text-aligna-muted"
             onClick={() => (question === 1 ? onBack() : onChange({ toleranceAnswer: null }))}
           >
             ← Voltar

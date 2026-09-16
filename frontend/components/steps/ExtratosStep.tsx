@@ -41,7 +41,7 @@ export default function ExtratosStep({
     <div className="px-16 py-24">
       <div className="max-w-[840px]">
         <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Envie seus extratos</h1>
-        <p className="text-[15px] text-lastro-muted leading-relaxed mb-9 max-w-[600px]">
+        <p className="text-[15px] text-aligna-muted leading-relaxed mb-9 max-w-[600px]">
           Envie quantos extratos quiser, de qualquer banco, corretora ou plataforma — inclusive de crédito privado. Não é
           preciso conectar sua conta em lugar nenhum.
         </p>
@@ -69,25 +69,25 @@ export default function ExtratosStep({
             className="hidden"
             onChange={(e) => addFiles(e.target.files)}
           />
-          <div className="mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-lastro-pale text-lastro-mid">
+          <div className="mb-4 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-aligna-pale text-aligna-mid">
             <Upload size={26} />
           </div>
           <div className="text-[15px] font-semibold mb-1">Arraste os arquivos aqui, ou clique para selecionar</div>
-          <div className="text-[13px] text-lastro-muted">PDF, PNG ou JPG — até 20MB por arquivo</div>
+          <div className="text-[13px] text-aligna-muted">PDF, PNG ou JPG — até 20MB por arquivo</div>
         </div>
 
         {files.length > 0 && (
           <>
-            <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-lastro-muted">
+            <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-aligna-muted">
               {files.length} arquivo{files.length > 1 ? "s" : ""} enviado{files.length > 1 ? "s" : ""}
             </div>
             <div className="mb-9 flex flex-col gap-2.5">
               {files.map((f) => (
-                <div key={f.id} className="flex items-center gap-3.5 rounded-md border border-lastro-line bg-lastro-card px-4 py-3.5">
-                  <FileText size={20} className="text-lastro-muted shrink-0" />
+                <div key={f.id} className="flex items-center gap-3.5 rounded-md border border-aligna-line bg-aligna-card px-4 py-3.5">
+                  <FileText size={20} className="text-aligna-muted shrink-0" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold">{f.file.name}</div>
-                    <div className="text-xs text-lastro-muted">{(f.file.size / 1024).toFixed(0)} KB</div>
+                    <div className="text-xs text-aligna-muted">{(f.file.size / 1024).toFixed(0)} KB</div>
                   </div>
                   <input
                     className="input w-48 py-1.5 text-xs"
@@ -95,7 +95,7 @@ export default function ExtratosStep({
                     value={f.institutionGuess}
                     onChange={(e) => updateInstitution(f.id, e.target.value)}
                   />
-                  <button onClick={() => removeFile(f.id)} className="shrink-0 text-lastro-muted hover:text-lastro-danger">
+                  <button onClick={() => removeFile(f.id)} className="shrink-0 text-aligna-muted hover:text-aligna-danger">
                     <X size={16} />
                   </button>
                 </div>
@@ -105,7 +105,7 @@ export default function ExtratosStep({
         )}
 
         <div className="flex items-center justify-between">
-          <button className="text-sm font-medium text-lastro-muted" onClick={onBack}>
+          <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
             ← Voltar
           </button>
           <button className="btn-primary" disabled={files.length === 0} onClick={onNext}>

@@ -94,7 +94,7 @@ export interface ScoreCriterion {
   detail: string;
 }
 
-export interface LastroScore {
+export interface AlignaScore {
   total: number;
   criteria: ScoreCriterion[];
 }
@@ -114,13 +114,13 @@ const RENDA_VARIAVEL_RANGE: Record<RiskProfile, [number, number]> = {
 };
 
 /**
- * Score Lastro v0 -- decisão do Conselho de cortar de 10 critérios (documento
+ * Score Aligna v0 -- decisão do Conselho de cortar de 10 critérios (documento
  * estratégico original) para 4: concentração, diversificação, liquidez e
  * aderência ao perfil. São os únicos que dá pra calcular hoje com o que o
  * cliente já enviou, sem pedir mais nenhum dado. Nunca aponta pra um ativo
  * específico -- só descreve a carteira como um todo.
  */
-export function computeScore(assets: ExtractedAsset[], riskProfile: RiskProfile, report: AdequacyReport): LastroScore {
+export function computeScore(assets: ExtractedAsset[], riskProfile: RiskProfile, report: AdequacyReport): AlignaScore {
   const total = report.totalValue;
 
   const concPct = report.topConcentration?.pct ?? 0;
