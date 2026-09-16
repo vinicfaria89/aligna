@@ -59,7 +59,10 @@ export default function IntroStep({
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <a href="/evolucao" className="text-sm font-medium text-aligna-muted hover:text-aligna-ink">
+            Já tenho conta — ver minha evolução
+          </a>
           <button className="btn-primary" disabled={!valid} onClick={onNext}>
             Continuar
             <ArrowRight size={16} />

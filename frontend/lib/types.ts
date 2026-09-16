@@ -58,6 +58,15 @@ export interface PerfilData {
   horizonAnswer: number | null;
 }
 
+export interface ScoreSnapshot {
+  id: string;
+  score_total: number;
+  breakdown: Record<string, number>;
+  patrimonio_total: number;
+  risk_profile: string;
+  created_at: string;
+}
+
 export function riskProfileFromAnswers(toleranceAnswer: number | null): RiskProfile {
   if (toleranceAnswer === 2) return "arrojado";
   if (toleranceAnswer === 0) return "conservador";

@@ -3,13 +3,24 @@
 import { AlertTriangle, CheckCircle2, Download, Info, Loader2, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import Donut from "@/components/Donut";
-import { ApiError, createCheckoutSession, IntakeTokens, submitIntake } from "@/lib/api";
+import { ApiError, createCheckoutSession, IntakeTokens, saveScoreSnapshot, submitIntake } from "@/lib/api";
 import { STATIC_BENCHMARKS, buildReport, computeScore } from "@/lib/report";
+import { saveSession } from "@/lib/session";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
 
 function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
+
+// Chaves normalizadas pro breakdown salvo no histórico -- os labels de
+// score.criteria são pra exibição (acentuados, com espaço), não pra chave
+// de dado persistido.
+const BREAKDOWN_KEYS: Record<string, string> = {
+  "Concentração": "concentracao",
+  "Diversificação": "diversificacao",
+  Liquidez: "liquidez",
+  "Aderência ao perfil": "aderencia_perfil",
+};
 
 const SEVERITY_STYLES = {
   alto: { bg: "#fbe9e5", color: "#c1503a", Icon: AlertTriangle },
@@ -44,6 +55,16 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
     if (tokens) return tokens;
     const created = await submitIntake(perfil, riskProfile, assets);
     setTokens(created);
+    saveSession(created);
+    // Registra este diagnóstico no histórico ("Minha evolução") -- nunca
+    // trava o fluxo principal se isso falhar, é um extra, não o objetivo
+    // da tela.
+    saveScoreSnapshot(created.access_token, {
+      score_total: score.total,
+      breakdown: Object.fromEntries(score.criteria.map((c) => [BREAKDOWN_KEYS[c.label] ?? c.label, c.score])),
+      patrimonio_total: report.totalValue,
+      risk_profile: riskProfile,
+    }).catch(() => {});
     return created;
   }
 
