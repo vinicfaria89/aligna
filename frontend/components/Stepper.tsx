@@ -18,8 +18,9 @@ export default function Stepper({ current }: { current: StepKey }) {
       <div className="flex items-center gap-2.5 mb-14">
         <div className="flex h-[30px] w-[30px] items-center justify-center rounded-[9px]" style={{ background: "linear-gradient(135deg, #34c072, #0f5c33)" }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 3v18h18" />
-            <path d="m19 9-5 5-4-4-3 3" />
+            <path d="M5 19 12 4 19 19" />
+            <path d="M8 14h8" />
+            <circle cx="12" cy="14" r="1.6" fill="#22a35e" stroke="white" strokeWidth="1" />
           </svg>
         </div>
         <span className="font-serif font-extrabold text-xl tracking-tight text-white">Aligna</span>
