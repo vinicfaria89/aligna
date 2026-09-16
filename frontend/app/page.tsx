@@ -8,7 +8,7 @@ import ExtratosStep from "@/components/steps/ExtratosStep";
 import ConfirmacaoStep from "@/components/steps/ConfirmacaoStep";
 import RelatorioStep from "@/components/steps/RelatorioStep";
 import AssinaturaConfirmadaStep from "@/components/steps/AssinaturaConfirmadaStep";
-import { mockExtractAssets } from "@/lib/mockExtraction";
+import { ApiError, extractStatements } from "@/lib/api";
 import { ExtractedAsset, PerfilData, UploadedFile } from "@/lib/types";
 
 const EMPTY_PERFIL: PerfilData = {
@@ -26,6 +26,7 @@ export default function LastroApp() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [assets, setAssets] = useState<ExtractedAsset[]>([]);
   const [extracting, setExtracting] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
   const [assinaturaConfirmada, setAssinaturaConfirmada] = useState(false);
 
   // Volta do Checkout hospedado da Stripe (ver success_url/cancel_url em
@@ -50,9 +51,18 @@ export default function LastroApp() {
   async function goToConfirmacao() {
     setScreen("confirmacao");
     setExtracting(true);
-    const extracted = await mockExtractAssets(files);
-    setAssets(extracted);
-    setExtracting(false);
+    setExtractionError(null);
+    try {
+      const extracted = await extractStatements(files);
+      setAssets(extracted);
+    } catch (err) {
+      setAssets([]);
+      setExtractionError(
+        err instanceof ApiError ? err.message : "Não conseguimos ler os extratos agora. Tente de novo em instantes."
+      );
+    } finally {
+      setExtracting(false);
+    }
   }
 
   if (assinaturaConfirmada) {
@@ -96,6 +106,8 @@ export default function LastroApp() {
         {screen === "confirmacao" && (
           <ConfirmacaoStep
             loading={extracting}
+            error={extractionError}
+            onRetry={goToConfirmacao}
             assets={assets}
             onUpdateAsset={updateAsset}
             onBack={() => setScreen("extratos")}

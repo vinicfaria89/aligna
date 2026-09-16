@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Pencil } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Pencil, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { CATEGORY_LABELS, LIQUIDITY_LABELS } from "@/lib/labels";
 import { AssetCategory, ExtractedAsset, Liquidity } from "@/lib/types";
@@ -86,12 +86,16 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
 
 export default function ConfirmacaoStep({
   loading,
+  error,
+  onRetry,
   assets,
   onUpdateAsset,
   onBack,
   onNext,
 }: {
   loading: boolean;
+  error?: string | null;
+  onRetry: () => void;
   assets: ExtractedAsset[];
   onUpdateAsset: (id: string, patch: Partial<ExtractedAsset>) => void;
   onBack: () => void;
@@ -110,6 +114,42 @@ export default function ConfirmacaoStep({
         <Loader2 size={28} className="mb-4 animate-spin text-lastro-mid" />
         <div className="text-[15px] font-semibold mb-1">Lendo seus extratos...</div>
         <div className="text-sm text-lastro-muted">Isso leva alguns segundos.</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center px-16 py-32 text-center">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-lastro-dangerSoft text-lastro-danger">
+          <AlertTriangle size={22} />
+        </div>
+        <div className="text-[15px] font-semibold mb-1.5">Não conseguimos ler seus extratos</div>
+        <div className="mb-6 max-w-[440px] text-sm text-lastro-muted">{error}</div>
+        <div className="flex items-center gap-3">
+          <button className="text-sm font-medium text-lastro-muted" onClick={onBack}>
+            ← Trocar arquivos
+          </button>
+          <button className="btn-primary" onClick={onRetry}>
+            <RefreshCw size={15} />
+            Tentar de novo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (assets.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center px-16 py-32 text-center">
+        <div className="text-[15px] font-semibold mb-1.5">Nenhum ativo identificado</div>
+        <div className="mb-6 max-w-[440px] text-sm text-lastro-muted">
+          Não encontramos nenhuma posição de investimento nos arquivos enviados. Confira se são extratos de
+          investimento (não fatura ou boleto) e tente novamente.
+        </div>
+        <button className="text-sm font-medium text-lastro-muted" onClick={onBack}>
+          ← Trocar arquivos
+        </button>
       </div>
     );
   }

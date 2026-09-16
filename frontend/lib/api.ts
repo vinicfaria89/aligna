@@ -1,4 +1,4 @@
-import { ExtractedAsset, PerfilData, RiskProfile } from "./types";
+import { ExtractedAsset, PerfilData, RiskProfile, UploadedFile } from "./types";
 
 // URL do backend do Planejador Financeiro -- é ele quem de fato recebe o
 // intake (ver POST /api/v1/intake/lastro, já construído e testado do lado
@@ -71,4 +71,29 @@ export async function createCheckoutSession(accessToken: string): Promise<string
 
   const { checkout_url } = await res.json();
   return checkout_url;
+}
+
+/**
+ * Lê os extratos enviados via IA (POST /api/v1/extraction/statement) e
+ * devolve os ativos encontrados -- substitui o antigo mockExtractAssets.
+ * Nunca inventa dado: extrato sem ativo identificável volta como lista
+ * vazia, não como erro.
+ */
+export async function extractStatements(files: UploadedFile[]): Promise<ExtractedAsset[]> {
+  const formData = new FormData();
+  for (const f of files) formData.append("files", f.file, f.file.name);
+  formData.append("institution_hints", JSON.stringify(files.map((f) => f.institutionGuess || "")));
+
+  const res = await fetch(`${PLANEJADOR_API_URL}/api/v1/extraction/statement`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new ApiError(res.status, body.detail ?? "Não conseguimos ler os extratos agora");
+  }
+
+  const extracted: Omit<ExtractedAsset, "id">[] = await res.json();
+  return extracted.map((asset, i) => ({ ...asset, id: `extracted-${i}-${Date.now()}` }));
 }
