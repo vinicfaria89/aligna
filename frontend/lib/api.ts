@@ -49,3 +49,26 @@ export async function submitIntake(perfil: PerfilData, riskProfile: RiskProfile,
 
   return res.json();
 }
+
+/**
+ * Pede uma sessão de Checkout da Stripe pro backend (POST
+ * /api/v1/billing/checkout, ver mapeamento de billing) e devolve a URL pra
+ * onde redirecionar o navegador. Lança ApiError quando o backend recusa --
+ * o caso mais comum antes de a conta Stripe existir de verdade é 502
+ * (STRIPE_SECRET_KEY vazia), que quem chama deve tratar caindo pro contato
+ * manual em vez de mostrar um erro cru pro usuário.
+ */
+export async function createCheckoutSession(accessToken: string): Promise<string> {
+  const res = await fetch(`${PLANEJADOR_API_URL}/api/v1/billing/checkout`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new ApiError(res.status, body.detail ?? "Não foi possível iniciar a assinatura agora");
+  }
+
+  const { checkout_url } = await res.json();
+  return checkout_url;
+}

@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Stepper, { StepKey } from "@/components/Stepper";
 import IntroStep from "@/components/steps/IntroStep";
 import PerfilStep from "@/components/steps/PerfilStep";
 import ExtratosStep from "@/components/steps/ExtratosStep";
 import ConfirmacaoStep from "@/components/steps/ConfirmacaoStep";
 import RelatorioStep from "@/components/steps/RelatorioStep";
+import AssinaturaConfirmadaStep from "@/components/steps/AssinaturaConfirmadaStep";
 import { mockExtractAssets } from "@/lib/mockExtraction";
 import { ExtractedAsset, PerfilData, UploadedFile } from "@/lib/types";
 
@@ -25,6 +26,18 @@ export default function LastroApp() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [assets, setAssets] = useState<ExtractedAsset[]>([]);
   const [extracting, setExtracting] = useState(false);
+  const [assinaturaConfirmada, setAssinaturaConfirmada] = useState(false);
+
+  // Volta do Checkout hospedado da Stripe (ver success_url/cancel_url em
+  // billing_service.py). O wizard não persiste estado em lugar nenhum, então
+  // ao sair pra Stripe e voltar, perfil/extratos já se perderam -- só dá pra
+  // reagir ao "?assinatura=sucesso|cancelada" da URL, nunca retomar o resto.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const assinatura = params.get("assinatura");
+    if (assinatura === "sucesso") setAssinaturaConfirmada(true);
+    if (assinatura) window.history.replaceState({}, "", window.location.pathname);
+  }, []);
 
   function updatePerfil(patch: Partial<PerfilData>) {
     setPerfil((prev) => ({ ...prev, ...patch }));
@@ -40,6 +53,25 @@ export default function LastroApp() {
     const extracted = await mockExtractAssets(files);
     setAssets(extracted);
     setExtracting(false);
+  }
+
+  if (assinaturaConfirmada) {
+    return (
+      <div className="flex min-h-screen">
+        <Stepper current="relatorio" />
+        <div className="flex-1">
+          <AssinaturaConfirmadaStep
+            onReiniciar={() => {
+              setAssinaturaConfirmada(false);
+              setPerfil(EMPTY_PERFIL);
+              setFiles([]);
+              setAssets([]);
+              setScreen("intro");
+            }}
+          />
+        </div>
+      </div>
+    );
   }
 
   return (

@@ -3,7 +3,7 @@
 import { AlertTriangle, CheckCircle2, Info, Loader2, Lock, Mail } from "lucide-react";
 import { useState } from "react";
 import Donut from "@/components/Donut";
-import { ApiError, submitIntake } from "@/lib/api";
+import { ApiError, createCheckoutSession, IntakeTokens, submitIntake } from "@/lib/api";
 import { STATIC_BENCHMARKS, buildReport, computeScore } from "@/lib/report";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
 
@@ -29,17 +29,51 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [assinando, setAssinando] = useState(false);
+  const [tokens, setTokens] = useState<IntakeTokens | null>(null);
+
+  const mailtoAssinar = `mailto:vinicius.faria@gcbinvestimentos.com?subject=${encodeURIComponent(
+    "Quero assinar o Lastro Premium"
+  )}&body=${encodeURIComponent(`Acabei de fazer meu diagnóstico (score ${score.total}) e quero ver o relatório completo.`)}`;
+
+  // Tanto "Continuar no Planejador Financeiro" quanto "Quero assinar" partem
+  // da mesma conta -- criar duas vezes falharia (e-mail já cadastrado), daí
+  // o cache em `tokens`. A conta só é criada na primeira vez que uma das
+  // duas ações é de fato acionada, nunca antes.
+  async function ensureAccount(): Promise<IntakeTokens> {
+    if (tokens) return tokens;
+    const created = await submitIntake(perfil, riskProfile, assets);
+    setTokens(created);
+    return created;
+  }
 
   async function handleContinuar() {
     setSubmitting(true);
     setError(null);
     try {
-      await submitIntake(perfil, riskProfile, assets);
+      await ensureAccount();
       setSubmitted(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Não conseguimos continuar agora. Tente de novo em instantes.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  // "Assinar" cria a conta (se ainda não existir) e manda direto pro
+  // Checkout hospedado da Stripe. Enquanto a conta Stripe não existir de
+  // verdade (sem STRIPE_SECRET_KEY em produção), o backend responde 502 e
+  // caímos pro contato manual -- nunca um erro cru na tela.
+  async function handleAssinar() {
+    setAssinando(true);
+    try {
+      const { access_token } = await ensureAccount();
+      const checkoutUrl = await createCheckoutSession(access_token);
+      window.location.href = checkoutUrl;
+    } catch {
+      window.location.href = mailtoAssinar;
+    } finally {
+      setAssinando(false);
     }
   }
 
@@ -244,18 +278,12 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                 <div>✓ Comparação com Selic, CDI e IPCA</div>
                 <div>✓ Continuação no planejamento financeiro completo</div>
               </div>
-              <a
-                href={`mailto:vinicius.faria@gcbinvestimentos.com?subject=${encodeURIComponent(
-                  "Quero assinar o Lastro Premium"
-                )}&body=${encodeURIComponent(
-                  `Acabei de fazer meu diagnóstico (score ${score.total}) e quero ver o relatório completo.`
-                )}`}
-                className="btn-primary w-full justify-center"
-              >
-                Quero assinar
-              </a>
+              <button className="btn-primary w-full justify-center" disabled={assinando} onClick={handleAssinar}>
+                {assinando && <Loader2 size={16} className="animate-spin" />}
+                {assinando ? "Preparando..." : "Quero assinar"}
+              </button>
               <div className="mt-3 text-[11.5px] text-lastro-muted">
-                Ainda sem cobrança automática — ao clicar, você fala direto comigo.
+                Se a assinatura automática não estiver disponível, você fala direto comigo por e-mail.
               </div>
             </div>
           </div>
