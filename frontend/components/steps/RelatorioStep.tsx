@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, Info, Loader2, Mail } from "lucide-react";
 import { useState } from "react";
 import Donut from "@/components/Donut";
 import { ApiError, submitIntake } from "@/lib/api";
-import { STATIC_BENCHMARKS, buildReport } from "@/lib/report";
+import { STATIC_BENCHMARKS, buildReport, computeScore } from "@/lib/report";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
 
 function formatBRL(value: number): string {
@@ -20,6 +20,10 @@ const SEVERITY_STYLES = {
 export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; assets: ExtractedAsset[] }) {
   const riskProfile = riskProfileFromAnswers(perfil.toleranceAnswer);
   const report = buildReport(assets, riskProfile);
+  const score = computeScore(assets, riskProfile, report);
+  const scoreColor = score.total >= 70 ? "#1c8a4f" : score.total >= 40 ? "#c08a2e" : "#c1503a";
+  const scoreLabel = score.total >= 70 ? "Consolidado" : score.total >= 40 ? "Em desenvolvimento" : "Atenção";
+  const worstCriterion = [...score.criteria].sort((a, b) => a.score - b.score)[0];
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -44,6 +48,32 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
         <h1 className="font-serif font-extrabold tracking-tight text-[34px] mb-2">Relatório de adequação</h1>
         <div className="text-sm text-lastro-muted mb-11">
           Baseado em {new Set(assets.map((a) => a.institution)).size} instituição(ões) · {formatBRL(report.totalValue)} analisados
+        </div>
+
+        <div className="mb-11 flex items-center gap-7 rounded-xl border border-lastro-line bg-lastro-card p-7">
+          <div
+            className="flex h-[104px] w-[104px] shrink-0 items-center justify-center rounded-full text-[34px] font-extrabold font-serif"
+            style={{ border: `6px solid ${scoreColor}`, color: scoreColor }}
+          >
+            {score.total}
+          </div>
+          <div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide" style={{ color: scoreColor }}>
+              Score Lastro · {scoreLabel}
+            </div>
+            <div className="text-[17px] font-semibold leading-snug">
+              {worstCriterion.score < 70
+                ? `Seu ponto de maior atenção é ${worstCriterion.label.toLowerCase()}: ${worstCriterion.detail}`
+                : "Nenhum dos quatro critérios avaliados está abaixo do esperado nesta análise."}
+            </div>
+            <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-1.5">
+              {score.criteria.map((c) => (
+                <div key={c.label} className="text-[12px] text-lastro-muted">
+                  <span className="font-semibold text-lastro-ink">{c.label}</span> · {c.score}/100
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="mb-11 grid grid-cols-[1.2fr_1fr] gap-4">

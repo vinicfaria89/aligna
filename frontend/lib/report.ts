@@ -87,6 +87,90 @@ export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile):
   return { totalValue, byClass, topConcentration, alerts };
 }
 
+export interface ScoreCriterion {
+  label: string;
+  score: number;
+  weight: number;
+  detail: string;
+}
+
+export interface LastroScore {
+  total: number;
+  criteria: ScoreCriterion[];
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+// Faixa de renda variável (ações, BDR, ETF, FII) considerada esperada para
+// cada perfil declarado -- fora da faixa não significa "errado", só reduz o
+// score de aderência. Não é recomendação de alocação, é comparação com o que
+// o próprio cliente declarou como tolerância.
+const RENDA_VARIAVEL_RANGE: Record<RiskProfile, [number, number]> = {
+  conservador: [0, 15],
+  moderado: [10, 40],
+  arrojado: [25, 70],
+};
+
+/**
+ * Score Lastro v0 -- decisão do Conselho de cortar de 10 critérios (documento
+ * estratégico original) para 4: concentração, diversificação, liquidez e
+ * aderência ao perfil. São os únicos que dá pra calcular hoje com o que o
+ * cliente já enviou, sem pedir mais nenhum dado. Nunca aponta pra um ativo
+ * específico -- só descreve a carteira como um todo.
+ */
+export function computeScore(assets: ExtractedAsset[], riskProfile: RiskProfile, report: AdequacyReport): LastroScore {
+  const total = report.totalValue;
+
+  const concPct = report.topConcentration?.pct ?? 0;
+  const concentracaoScore = clamp(100 - concPct * 2, 0, 100);
+
+  const hhi = report.byClass.reduce((sum, c) => sum + Math.pow(c.pct / 100, 2), 0);
+  const diversificacaoScore = clamp(100 - hhi * 100, 0, 100);
+
+  const liquidValue = assets
+    .filter((a) => a.liquidity === "diaria" || a.liquidity === "ate_30_dias")
+    .reduce((sum, a) => sum + a.value, 0);
+  const liquidPct = total > 0 ? (liquidValue / total) * 100 : 0;
+  const liquidezScore = clamp((liquidPct / 15) * 100, 0, 100);
+
+  const variavelPct = report.byClass.find((c) => c.label === "Renda variável")?.pct ?? 0;
+  const [min, max] = RENDA_VARIAVEL_RANGE[riskProfile];
+  const distFromRange = variavelPct < min ? min - variavelPct : variavelPct > max ? variavelPct - max : 0;
+  const aderenciaScore = clamp(100 - distFromRange * 3, 0, 100);
+
+  const criteria: ScoreCriterion[] = [
+    {
+      label: "Concentração",
+      score: Math.round(concentracaoScore),
+      weight: 0.3,
+      detail: `Maior concentração: ${concPct.toFixed(1)}% num único emissor.`,
+    },
+    {
+      label: "Diversificação",
+      score: Math.round(diversificacaoScore),
+      weight: 0.25,
+      detail: `${report.byClass.length} classe(s) de ativo identificada(s).`,
+    },
+    {
+      label: "Liquidez",
+      score: Math.round(liquidezScore),
+      weight: 0.25,
+      detail: `${liquidPct.toFixed(1)}% do patrimônio resgatável em até 30 dias.`,
+    },
+    {
+      label: "Aderência ao perfil",
+      score: Math.round(aderenciaScore),
+      weight: 0.2,
+      detail: `${variavelPct.toFixed(1)}% em renda variável — perfil ${riskProfile} costuma ficar entre ${min}% e ${max}%.`,
+    },
+  ];
+
+  const totalScore = criteria.reduce((sum, c) => sum + c.score * c.weight, 0);
+  return { total: Math.round(totalScore), criteria };
+}
+
 export interface Benchmark {
   nome: string;
   valor: string;
