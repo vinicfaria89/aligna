@@ -62,13 +62,32 @@ export interface Projection {
   gapAtHorizon: number;
 }
 
+// Valor futuro de uma série de aportes mensais (anuidade ordinária),
+// compondo à taxa mensal equivalente à taxa real anual informada -- mesma
+// conversão anual->mensal usada no motor do Planejador Financeiro (Termos e
+// Conceitos do relatório completo: taxa mensal efetiva, nunca a taxa anual
+// dividida por 12).
+function contributionFutureValue(monthlyContribution: number, annualRate: number, months: number): number {
+  if (monthlyContribution <= 0 || months <= 0) return 0;
+  const monthlyRate = Math.pow(1 + annualRate, 1 / 12) - 1;
+  if (Math.abs(monthlyRate) < 1e-9) return monthlyContribution * months;
+  return monthlyContribution * ((Math.pow(1 + monthlyRate, months) - 1) / monthlyRate);
+}
+
 /**
  * Projeta o patrimônio total em juros compostos reais, comparando a taxa
  * média ponderada da alocação atual do cliente com a taxa de referência do
- * perfil declarado -- 100% client-side, sem custo de API. Retorna null sem
- * patrimônio pra projetar.
+ * perfil declarado -- 100% client-side, sem custo de API. `monthlyContribution`
+ * é o "e se" interativo (padrão Wealthfront Path): aplicado igualmente às
+ * duas linhas, pra a diferença entre elas continuar refletindo só a
+ * alocação, nunca o aporte. Retorna null sem patrimônio pra projetar.
  */
-export function buildProjection(assets: ExtractedAsset[], riskProfile: RiskProfile, horizonYears = 20): Projection | null {
+export function buildProjection(
+  assets: ExtractedAsset[],
+  riskProfile: RiskProfile,
+  horizonYears = 20,
+  monthlyContribution = 0
+): Projection | null {
   const totalValue = assets.reduce((sum, a) => sum + a.value, 0);
   if (totalValue <= 0) return null;
 
@@ -80,10 +99,12 @@ export function buildProjection(assets: ExtractedAsset[], riskProfile: RiskProfi
 
   const points: ProjectionPoint[] = [];
   for (let y = 0; y <= horizonYears; y++) {
+    const months = y * 12;
     points.push({
       year: y,
-      atual: totalValue * Math.pow(1 + blendedRate, y),
-      referencia: totalValue * Math.pow(1 + profileRate, y),
+      atual: totalValue * Math.pow(1 + blendedRate, y) + contributionFutureValue(monthlyContribution, blendedRate, months),
+      referencia:
+        totalValue * Math.pow(1 + profileRate, y) + contributionFutureValue(monthlyContribution, profileRate, months),
     });
   }
 

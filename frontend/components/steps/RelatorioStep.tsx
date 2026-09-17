@@ -44,7 +44,10 @@ export default function RelatorioStep({
   const report = buildReport(assets, riskProfile, perfil.horizonAnswer);
   const riskCapacity = riskCapacityFromAnswers(perfil.horizonAnswer);
   const score = computeScore(assets, riskProfile, report, perfil.sucessaoAnswer, perfil.governancaAnswer);
-  const projection = buildProjection(assets, riskProfile);
+  // "E se" interativo (padrão Wealthfront Path) -- aporte mensal adicional
+  // hipotético, recalcula a projeção ao vivo sem chamada nenhuma ao backend.
+  const [monthlyContribution, setMonthlyContribution] = useState(0);
+  const projection = buildProjection(assets, riskProfile, 20, monthlyContribution);
   const ipcaBenchmark = STATIC_BENCHMARKS.find((b) => b.nome.startsWith("IPCA"));
   const benchmarkComparisons = ipcaBenchmark
     ? STATIC_BENCHMARKS.filter((b) => b !== ipcaBenchmark).map((b) => ({
@@ -269,6 +272,26 @@ export default function RelatorioStep({
                   Referência pro perfil {riskProfile}
                 </div>
               </div>
+
+              <div className="mt-5 border-t border-aligna-line pt-4 print-hide">
+                <div className="mb-2 flex items-center justify-between text-[12.5px]">
+                  <span className="font-semibold">E se você investisse mais por mês, a partir de agora?</span>
+                  <span className="font-semibold text-aligna-deep">
+                    {monthlyContribution > 0 ? `${formatBRL(monthlyContribution)}/mês` : "Sem aporte extra"}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={10000}
+                  step={100}
+                  value={monthlyContribution}
+                  onChange={(e) => setMonthlyContribution(Number(e.target.value))}
+                  className="w-full accent-[#1c8a4f]"
+                  aria-label="Aporte mensal adicional hipotético"
+                />
+              </div>
+
               {projection.gapAtHorizon > 0 && (
                 <div className="mt-4 rounded-md bg-aligna-warnSoft px-4 py-3 text-[13px] font-medium text-aligna-warn">
                   Nesse ritmo, a diferença projetada em {projection.horizonYears} anos é de{" "}
