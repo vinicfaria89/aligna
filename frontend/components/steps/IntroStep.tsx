@@ -1,70 +1,33 @@
 "use client";
 
 import { ArrowRight } from "lucide-react";
-import { PerfilData } from "@/lib/types";
 
-export default function IntroStep({
-  data,
-  onChange,
-  onNext,
-}: {
-  data: PerfilData;
-  onChange: (patch: Partial<PerfilData>) => void;
-  onNext: () => void;
-}) {
-  const valid = data.full_name.trim().length > 0 && data.email.includes("@") && data.password.length >= 8 && data.birth_date;
-
+// Conta (nome/e-mail/senha) só é pedida no fim, no momento em que a pessoa
+// decide agir (ver o formulário embutido em RelatorioStep) -- mesmo padrão
+// da Empower, que só pede cadastro depois de mostrar a recomendação
+// personalizada. Aqui não pedimos nada, só situamos o que vem a seguir.
+export default function IntroStep({ onNext }: { onNext: () => void }) {
   return (
     <div className="flex justify-center px-10 py-24">
       <div className="w-full max-w-[520px]">
-        <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Antes de começar</h1>
+        <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Vamos analisar sua carteira</h1>
         <p className="text-[15px] text-aligna-muted leading-relaxed mb-9">
-          É só pra criar sua conta — não pedimos nada além disso, e é a mesma conta que você usa depois pra ver seu
-          planejamento completo.
+          Algumas perguntas sobre seu perfil, os ativos que você já tem, e pronto — seu diagnóstico aparece na hora.
+          Não pedimos conta nem nada além disso até você decidir continuar.
         </p>
 
-        <div className="flex flex-col gap-4 mb-10">
-          <div>
-            <label className="text-sm font-medium">Nome completo</label>
-            <input
-              className="input mt-1"
-              value={data.full_name}
-              onChange={(e) => onChange({ full_name: e.target.value })}
-              autoFocus
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium">E-mail</label>
-            <input className="input mt-1" type="email" value={data.email} onChange={(e) => onChange({ email: e.target.value })} />
-          </div>
-          <div>
-            <label className="text-sm font-medium">Senha</label>
-            <input
-              className="input mt-1"
-              type="password"
-              minLength={8}
-              value={data.password}
-              onChange={(e) => onChange({ password: e.target.value })}
-            />
-            <p className="text-xs text-aligna-muted mt-1">Mínimo de 8 caracteres.</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium">Data de nascimento</label>
-            <input
-              className="input mt-1"
-              type="date"
-              value={data.birth_date}
-              onChange={(e) => onChange({ birth_date: e.target.value })}
-            />
-          </div>
+        <div className="mb-10 flex flex-col gap-2.5 text-[13.5px] text-aligna-muted">
+          <div>✓ 4 perguntas rápidas sobre perfil e organização patrimonial</div>
+          <div>✓ Envie extratos ou digite seus ativos na mão — do jeito que for mais rápido</div>
+          <div>✓ Score, projeção e pontos de atenção na hora, sem cadastro</div>
         </div>
 
         <div className="flex items-center justify-between">
           <a href="/evolucao" className="text-sm font-medium text-aligna-muted hover:text-aligna-ink">
             Já tenho conta — ver minha evolução
           </a>
-          <button className="btn-primary" disabled={!valid} onClick={onNext}>
-            Continuar
+          <button className="btn-primary" onClick={onNext}>
+            Começar
             <ArrowRight size={16} />
           </button>
         </div>

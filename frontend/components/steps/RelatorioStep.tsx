@@ -31,7 +31,15 @@ const SEVERITY_STYLES = {
   info: { bg: "#e6f2f4", color: "#3d7a8a", Icon: Info },
 };
 
-export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; assets: ExtractedAsset[] }) {
+export default function RelatorioStep({
+  perfil,
+  onChangePerfil,
+  assets,
+}: {
+  perfil: PerfilData;
+  onChangePerfil: (patch: Partial<PerfilData>) => void;
+  assets: ExtractedAsset[];
+}) {
   const riskProfile = riskProfileFromAnswers(perfil.toleranceAnswer);
   const report = buildReport(assets, riskProfile);
   const score = computeScore(assets, riskProfile, report, perfil.sucessaoAnswer, perfil.governancaAnswer);
@@ -53,6 +61,13 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
   const [error, setError] = useState<string | null>(null);
   const [assinando, setAssinando] = useState(false);
   const [tokens, setTokens] = useState<IntakeTokens | null>(null);
+  // Conta por último -- mesmo padrão da Empower (recomendação antes do
+  // cadastro): nada aqui pede nome/e-mail/senha até a pessoa decidir agir.
+  // `pendingAction` lembra qual dos dois CTAs foi clicado, pra retomar a
+  // ação certa assim que o formulário de conta for preenchido.
+  const [pendingAction, setPendingAction] = useState<"continuar" | "assinar" | null>(null);
+  const accountComplete =
+    perfil.full_name.trim().length > 0 && perfil.email.includes("@") && perfil.password.length >= 8 && perfil.birth_date.length > 0;
 
   const mailtoAssinar = `mailto:vinicius.faria@gcbinvestimentos.com?subject=${encodeURIComponent(
     "Quero assinar o Aligna Premium"
@@ -107,6 +122,28 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
     } finally {
       setAssinando(false);
     }
+  }
+
+  function handleContinuarClick() {
+    if (accountComplete) {
+      handleContinuar();
+      return;
+    }
+    setPendingAction("continuar");
+  }
+
+  function handleAssinarClick() {
+    if (accountComplete) {
+      handleAssinar();
+      return;
+    }
+    setPendingAction("assinar");
+  }
+
+  function handleAccountConfirm() {
+    if (pendingAction === "assinar") handleAssinar();
+    else handleContinuar();
+    setPendingAction(null);
   }
 
   const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
@@ -275,7 +312,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
             </div>
           ) : (
             <>
-              <button className="btn-primary" disabled={submitting} onClick={handleContinuar}>
+              <button className="btn-primary" disabled={submitting} onClick={handleContinuarClick}>
                 {submitting && <Loader2 size={16} className="animate-spin" />}
                 {submitting ? "Enviando..." : "Continuar no Planejador Financeiro"}
                 {!submitting && <ArrowRight size={16} />}
@@ -391,7 +428,7 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                 <div>✓ Comparação com Selic, CDI e IPCA</div>
                 <div>✓ Continuação no planejamento financeiro completo</div>
               </div>
-              <button className="btn-primary w-full justify-center" disabled={assinando} onClick={handleAssinar}>
+              <button className="btn-primary w-full justify-center" disabled={assinando} onClick={handleAssinarClick}>
                 {assinando && <Loader2 size={16} className="animate-spin" />}
                 {assinando ? "Preparando..." : "Quero assinar"}
               </button>
@@ -401,6 +438,67 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
             </div>
           </div>
         </div>
+
+        {pendingAction && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 print-hide"
+            onClick={() => setPendingAction(null)}
+          >
+            <div
+              className="w-full max-w-[440px] rounded-xl bg-white p-7 shadow-[0_20px_60px_-15px_rgba(15,35,24,0.4)]"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-1 text-[17px] font-semibold">Só falta criar sua conta</div>
+              <p className="mb-5 text-[13px] leading-relaxed text-aligna-muted">
+                É a mesma conta que você usa depois pra ver seu planejamento completo — não pedimos nada além disso.
+              </p>
+              <div className="mb-5 flex flex-col gap-3.5">
+                <div>
+                  <label className="text-sm font-medium">Nome completo</label>
+                  <input
+                    className="input mt-1"
+                    value={perfil.full_name}
+                    onChange={(e) => onChangePerfil({ full_name: e.target.value })}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">E-mail</label>
+                  <input
+                    className="input mt-1"
+                    type="email"
+                    value={perfil.email}
+                    onChange={(e) => onChangePerfil({ email: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Senha</label>
+                  <input
+                    className="input mt-1"
+                    type="password"
+                    minLength={8}
+                    value={perfil.password}
+                    onChange={(e) => onChangePerfil({ password: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-aligna-muted">Mínimo de 8 caracteres.</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Data de nascimento</label>
+                  <input
+                    className="input mt-1"
+                    type="date"
+                    value={perfil.birth_date}
+                    onChange={(e) => onChangePerfil({ birth_date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <button className="btn-primary w-full justify-center" disabled={!accountComplete} onClick={handleAccountConfirm}>
+                Confirmar e continuar
+                <ArrowRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

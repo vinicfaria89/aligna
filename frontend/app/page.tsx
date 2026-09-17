@@ -107,7 +107,7 @@ export default function AlignaApp() {
     <div className="flex min-h-screen">
       <Stepper current={screen} />
       <div className="flex-1">
-        {screen === "intro" && <IntroStep data={perfil} onChange={updatePerfil} onNext={() => setScreen("perfil")} />}
+        {screen === "intro" && <IntroStep onNext={() => setScreen("perfil")} />}
 
         {screen === "perfil" && (
           <PerfilStep
@@ -142,7 +142,7 @@ export default function AlignaApp() {
           />
         )}
 
-        {screen === "relatorio" && <RelatorioStep perfil={perfil} assets={assets} />}
+        {screen === "relatorio" && <RelatorioStep perfil={perfil} onChangePerfil={updatePerfil} assets={assets} />}
       </div>
     </div>
   );

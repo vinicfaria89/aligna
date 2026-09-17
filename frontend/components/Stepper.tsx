@@ -3,7 +3,7 @@ import { Check } from "lucide-react";
 export type StepKey = "intro" | "perfil" | "extratos" | "confirmacao" | "relatorio";
 
 const STEPS: { key: StepKey; label: string }[] = [
-  { key: "intro", label: "Seus dados" },
+  { key: "intro", label: "Começar" },
   { key: "perfil", label: "Perfil de risco" },
   { key: "extratos", label: "Extratos" },
   { key: "confirmacao", label: "Confirmação" },
