@@ -5,7 +5,7 @@ import { useState } from "react";
 import Donut from "@/components/Donut";
 import ProjectionChart from "@/components/ProjectionChart";
 import { ApiError, createCheckoutSession, IntakeTokens, saveScoreSnapshot, submitIntake } from "@/lib/api";
-import { buildProjection } from "@/lib/projection";
+import { buildProjection, buildRiskRange } from "@/lib/projection";
 import { RISK_CAPACITY_LABELS, STATIC_BENCHMARKS, buildReport, computeScore, realRate, riskCapacityFromAnswers } from "@/lib/report";
 import { saveSession } from "@/lib/session";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
@@ -48,6 +48,7 @@ export default function RelatorioStep({
   // hipotético, recalcula a projeção ao vivo sem chamada nenhuma ao backend.
   const [monthlyContribution, setMonthlyContribution] = useState(0);
   const projection = buildProjection(assets, riskProfile, 20, monthlyContribution);
+  const riskRange = projection ? buildRiskRange(assets, projection.blendedRate) : null;
   const ipcaBenchmark = STATIC_BENCHMARKS.find((b) => b.nome.startsWith("IPCA"));
   const benchmarkComparisons = ipcaBenchmark
     ? STATIC_BENCHMARKS.filter((b) => b !== ipcaBenchmark).map((b) => ({
@@ -319,6 +320,35 @@ export default function RelatorioStep({
             <p className="mt-3 text-[11.5px] text-aligna-muted">
               Estimativa ilustrativa com taxas de retorno de mercado de longo prazo por categoria de ativo — não é garantia de
               rentabilidade nem recomendação de alocação (Resolução CVM 19/2021).
+            </p>
+          </div>
+        )}
+
+        {riskRange && (
+          <div className="mb-11">
+            <div className="mb-1 text-[15px] font-semibold">Cenário em 6 meses</div>
+            <p className="mb-4 max-w-[640px] text-[13px] leading-relaxed text-aligna-muted">
+              Risco não é só uma nota — é uma faixa de valores possíveis. Com a volatilidade típica dessa alocação, há 90% de
+              chance de sua carteira valer entre os números abaixo daqui a 6 meses.
+            </p>
+            <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="rounded-md bg-aligna-dangerSoft px-4 py-3.5">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-aligna-danger">Cenário ruim (5%)</div>
+                  <div className="mt-1 font-serif text-[20px] font-extrabold text-aligna-danger">{formatBRL(riskRange.lowValue)}</div>
+                  <div className="mt-0.5 text-[12px] text-aligna-danger">{(riskRange.lowPct * 100).toFixed(1)}%</div>
+                </div>
+                <div className="rounded-md bg-aligna-pale px-4 py-3.5">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-aligna-deep">Cenário bom (5%)</div>
+                  <div className="mt-1 font-serif text-[20px] font-extrabold text-aligna-deep">{formatBRL(riskRange.highValue)}</div>
+                  <div className="mt-0.5 text-[12px] text-aligna-deep">+{(riskRange.highPct * 100).toFixed(1)}%</div>
+                </div>
+              </div>
+            </div>
+            <p className="mt-3 text-[11.5px] text-aligna-muted">
+              Estimativa ilustrativa com volatilidade típica de mercado por categoria de ativo, sem considerar a correlação
+              entre os ativos da sua carteira (o que tende a superestimar o risco, nunca subestimar) — não é garantia nem
+              recomendação de alocação (Resolução CVM 19/2021).
             </p>
           </div>
         )}
