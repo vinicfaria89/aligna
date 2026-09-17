@@ -6,7 +6,7 @@ import Donut from "@/components/Donut";
 import ProjectionChart from "@/components/ProjectionChart";
 import { ApiError, createCheckoutSession, IntakeTokens, saveScoreSnapshot, submitIntake } from "@/lib/api";
 import { buildProjection } from "@/lib/projection";
-import { STATIC_BENCHMARKS, buildReport, computeScore } from "@/lib/report";
+import { STATIC_BENCHMARKS, buildReport, computeScore, realRate } from "@/lib/report";
 import { saveSession } from "@/lib/session";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
 
@@ -36,6 +36,13 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
   const report = buildReport(assets, riskProfile);
   const score = computeScore(assets, riskProfile, report, perfil.sucessaoAnswer, perfil.governancaAnswer);
   const projection = buildProjection(assets, riskProfile);
+  const ipcaBenchmark = STATIC_BENCHMARKS.find((b) => b.nome.startsWith("IPCA"));
+  const benchmarkComparisons = ipcaBenchmark
+    ? STATIC_BENCHMARKS.filter((b) => b !== ipcaBenchmark).map((b) => ({
+        nome: b.nome,
+        realPct: realRate(b.nominal, ipcaBenchmark.nominal) * 100,
+      }))
+    : [];
   const scoreColor = score.total >= 70 ? "#1c8a4f" : score.total >= 40 ? "#c08a2e" : "#c1503a";
   const scoreLabel = score.total >= 70 ? "Consolidado" : score.total >= 40 ? "Em desenvolvimento" : "Atenção";
   const worstCriterion = [...score.criteria].sort((a, b) => a.score - b.score)[0];
@@ -228,6 +235,23 @@ export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; 
                 <div className="mt-4 rounded-md bg-aligna-warnSoft px-4 py-3 text-[13px] font-medium text-aligna-warn">
                   Nesse ritmo, a diferença projetada em {projection.horizonYears} anos é de{" "}
                   {formatBRL(projection.gapAtHorizon)} — valores reais, sem considerar impostos ou custos.
+                </div>
+              )}
+              {benchmarkComparisons.length > 0 && (
+                <div className="mt-5 border-t border-aligna-line pt-4">
+                  <div className="mb-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-aligna-muted">
+                    Sua taxa vs. referências de mercado (acima da inflação)
+                  </div>
+                  <div className="flex flex-wrap gap-2.5">
+                    <div className="rounded-md bg-aligna-pale px-3.5 py-2 text-[13px] font-semibold text-aligna-deep">
+                      Sua carteira: {(projection.blendedRate * 100).toFixed(1)}%
+                    </div>
+                    {benchmarkComparisons.map((b) => (
+                      <div key={b.nome} className="rounded-md bg-aligna-card border border-aligna-line px-3.5 py-2 text-[13px] text-aligna-muted">
+                        {b.nome}: {b.realPct.toFixed(1)}%
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

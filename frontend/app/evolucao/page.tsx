@@ -2,6 +2,7 @@
 
 import { Loader2, Lock, LogIn } from "lucide-react";
 import { useEffect, useState } from "react";
+import PatrimonioHistoryChart from "@/components/PatrimonioHistoryChart";
 import ScoreHistoryChart from "@/components/ScoreHistoryChart";
 import { ApiError, getScoreHistory, login as loginRequest } from "@/lib/api";
 import { getValidAccessToken, saveSession } from "@/lib/session";
@@ -116,20 +117,43 @@ export default function EvolucaoPage() {
         )}
 
         {state.kind === "ready" && state.snapshots.length > 0 && (
-          <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
-            <ScoreHistoryChart snapshots={state.snapshots} />
-            {state.snapshots.length >= 2 && (
-              <div className="mt-4 text-[13px] text-aligna-muted">
-                {(() => {
-                  const last = state.snapshots[state.snapshots.length - 1];
-                  const prev = state.snapshots[state.snapshots.length - 2];
-                  const delta = last.score_total - prev.score_total;
-                  return delta === 0
-                    ? "Sem mudança desde o diagnóstico anterior."
-                    : `${delta > 0 ? "+" : ""}${delta} desde o diagnóstico anterior.`;
-                })()}
+          <div className="flex flex-col gap-5">
+            <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+              <div className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-aligna-muted">Score Aligna</div>
+              <ScoreHistoryChart snapshots={state.snapshots} />
+              {state.snapshots.length >= 2 && (
+                <div className="mt-4 text-[13px] text-aligna-muted">
+                  {(() => {
+                    const last = state.snapshots[state.snapshots.length - 1];
+                    const prev = state.snapshots[state.snapshots.length - 2];
+                    const delta = last.score_total - prev.score_total;
+                    return delta === 0
+                      ? "Sem mudança desde o diagnóstico anterior."
+                      : `${delta > 0 ? "+" : ""}${delta} desde o diagnóstico anterior.`;
+                  })()}
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
+              <div className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-aligna-muted">
+                Patrimônio analisado
               </div>
-            )}
+              <PatrimonioHistoryChart snapshots={state.snapshots} />
+              {state.snapshots.length >= 2 && (
+                <div className="mt-4 text-[13px] text-aligna-muted">
+                  {(() => {
+                    const last = state.snapshots[state.snapshots.length - 1];
+                    const prev = state.snapshots[state.snapshots.length - 2];
+                    const delta = last.patrimonio_total - prev.patrimonio_total;
+                    const deltaFmt = Math.abs(delta).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+                    return delta === 0
+                      ? "Sem mudança desde o diagnóstico anterior."
+                      : `${delta > 0 ? "+" : "-"}${deltaFmt} desde o diagnóstico anterior.`;
+                  })()}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>

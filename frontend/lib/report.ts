@@ -20,6 +20,10 @@ export interface AdequacyReport {
   alerts: ReportAlert[];
 }
 
+function formatBRL(value: number): string {
+  return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
 /**
  * Motor de análise, rodando 100% no navegador sobre os ativos confirmados
  * pelo usuário. Nada aqui recomenda comprar/vender/manter -- só descreve a
@@ -64,6 +68,21 @@ export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile):
       severity: "medio",
       title: "Concentração alta em renda fixa privada",
       body: `${rendaFixaPrivada.pct.toFixed(1)}% da carteira está em renda fixa privada — vale conferir se isso está diversificado entre emissores diferentes, não só entre produtos diferentes.`,
+    });
+  }
+
+  // Empower's "Investment Checkup" sinaliza caixa parado ("cash drag") como
+  // um dos achados mais acionáveis do relatório deles -- conta corrente e
+  // poupança rendem perto de zero, bem abaixo da inflação.
+  const caixaOcioso = assets
+    .filter((a) => a.category === "conta_corrente" || a.category === "poupanca")
+    .reduce((sum, a) => sum + a.value, 0);
+  const caixaOciosoPct = totalValue > 0 ? (caixaOcioso / totalValue) * 100 : 0;
+  if (caixaOciosoPct >= 15) {
+    alerts.push({
+      severity: caixaOciosoPct >= 30 ? "alto" : "medio",
+      title: "Dinheiro parado em conta corrente ou poupança",
+      body: `${caixaOciosoPct.toFixed(1)}% do patrimônio (${formatBRL(caixaOcioso)}) está em conta corrente ou poupança, rendendo bem abaixo da inflação — vale avaliar se você precisa mesmo de tanta liquidez imediata.`,
     });
   }
 
@@ -204,6 +223,10 @@ export interface Benchmark {
   nome: string;
   valor: string;
   fonte: string;
+  // Taxa nominal em decimal (ex.: 0.14 = 14% a.a.) -- usada pra converter em
+  // taxa real (equação de Fisher) e comparar direto com a projeção de
+  // patrimônio, que já roda em termos reais (ver lib/projection.ts).
+  nominal: number;
 }
 
 // Referência estática por enquanto -- próximo passo natural é buscar isso
@@ -211,7 +234,14 @@ export interface Benchmark {
 // conversa sobre fontes oficiais. Marcado aqui pra não virar um "dado real"
 // escondido atrás de uma UI que parece ao vivo.
 export const STATIC_BENCHMARKS: Benchmark[] = [
-  { nome: "Selic (meta)", valor: "14,00% a.a.", fonte: "BACEN — SGS 432" },
-  { nome: "CDI", valor: "13,90% a.a.", fonte: "BACEN — SGS 12" },
-  { nome: "IPCA (12 meses)", valor: "4,22%", fonte: "IBGE / BACEN — SGS 433" },
+  { nome: "Selic (meta)", valor: "14,00% a.a.", fonte: "BACEN — SGS 432", nominal: 0.14 },
+  { nome: "CDI", valor: "13,90% a.a.", fonte: "BACEN — SGS 12", nominal: 0.139 },
+  { nome: "IPCA (12 meses)", valor: "4,22%", fonte: "IBGE / BACEN — SGS 433", nominal: 0.0422 },
 ];
+
+// Equação de Fisher exata (não a aproximação "nominal - inflação") -- mesma
+// convenção usada no motor do Planejador Financeiro (ver Termos e Conceitos
+// do relatório completo).
+export function realRate(nominal: number, ipca: number): number {
+  return (1 + nominal) / (1 + ipca) - 1;
+}
