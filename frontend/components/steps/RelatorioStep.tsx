@@ -445,7 +445,7 @@ export default function RelatorioStep({
               </div>
               <div className="mb-1 text-[15px] font-semibold">Aligna Premium</div>
               <div className="mb-4 text-[12.5px] text-aligna-muted">
-                [R$ XX]/mês — cancele quando quiser
+                R$ 39,90/mês — cancele quando quiser
               </div>
               <div className="mb-5 flex flex-col gap-2 text-left text-[13px]">
                 <div>✓ Composição completa e todos os pontos encontrados</div>
