@@ -1,6 +1,23 @@
 import { macroClass } from "./labels";
 import { ExtractedAsset, RiskProfile } from "./types";
 
+export type RiskCapacity = "baixa" | "media" | "alta";
+
+// Modelo dos "3 números" da Nitrogen/Riskalyze -- tolerância declarada
+// (RiskProfile, já calculado a partir de toleranceAnswer) e capacidade
+// financeira de arcar com risco (horizonAnswer, coletado no PerfilStep mas
+// até agora nunca usado em lugar nenhum) são coisas DIFERENTES: tolerância é
+// conforto emocional, capacidade é o que o horizonte de tempo permite
+// absorver sem precisar vender na baixa. Mesma escala 0/1/2 de
+// riskProfileFromAnswers, só que sobre a resposta de horizonte.
+export function riskCapacityFromAnswers(horizonAnswer: number | null): RiskCapacity {
+  if (horizonAnswer === 2) return "alta";
+  if (horizonAnswer === 0) return "baixa";
+  return "media";
+}
+
+export const RISK_CAPACITY_LABELS: Record<RiskCapacity, string> = { baixa: "Baixa", media: "Média", alta: "Alta" };
+
 export interface ClassSlice {
   label: string;
   value: number;
@@ -31,7 +48,7 @@ function formatBRL(value: number): string {
  * mesmo espírito informativo desenhado para o relatório (Resolução CVM
  * 19/2021: orientação individualizada exige consultor registrado).
  */
-export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile): AdequacyReport {
+export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile, horizonAnswer: number | null = null): AdequacyReport {
   const totalValue = assets.reduce((sum, a) => sum + a.value, 0);
 
   const byClassMap = new Map<string, number>();
@@ -83,6 +100,25 @@ export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile):
       severity: caixaOciosoPct >= 30 ? "alto" : "medio",
       title: "Dinheiro parado em conta corrente ou poupança",
       body: `${caixaOciosoPct.toFixed(1)}% do patrimônio (${formatBRL(caixaOcioso)}) está em conta corrente ou poupança, rendendo bem abaixo da inflação — vale avaliar se você precisa mesmo de tanta liquidez imediata.`,
+    });
+  }
+
+  // Tolerância (o que a pessoa disse aguentar emocionalmente) x capacidade
+  // (o que o horizonte de tempo realmente permite absorver) -- quando
+  // divergem bastante, é um achado tão relevante quanto concentração, mas
+  // que nenhum critério do Score cobre sozinho.
+  const riskCapacity = riskCapacityFromAnswers(horizonAnswer);
+  if (riskProfile === "arrojado" && riskCapacity === "baixa") {
+    alerts.push({
+      severity: "alto",
+      title: "Tolerância declarada acima da sua capacidade financeira",
+      body: `Você disse tolerar risco alto, mas seu horizonte é curto (menos de 1 ano) — perdas de curto prazo têm menos tempo pra se recuperar do que sua tolerância sugere.`,
+    });
+  } else if (riskProfile === "conservador" && riskCapacity === "alta") {
+    alerts.push({
+      severity: "info",
+      title: "Sua capacidade financeira é maior que sua tolerância declarada",
+      body: `Seu horizonte é longo (mais de 3 anos), o que te daria margem pra tolerar mais oscilação do que você disse preferir — não é um erro, só uma folga que você tem e talvez não esteja usando.`,
     });
   }
 

@@ -6,7 +6,7 @@ import Donut from "@/components/Donut";
 import ProjectionChart from "@/components/ProjectionChart";
 import { ApiError, createCheckoutSession, IntakeTokens, saveScoreSnapshot, submitIntake } from "@/lib/api";
 import { buildProjection } from "@/lib/projection";
-import { STATIC_BENCHMARKS, buildReport, computeScore, realRate } from "@/lib/report";
+import { RISK_CAPACITY_LABELS, STATIC_BENCHMARKS, buildReport, computeScore, realRate, riskCapacityFromAnswers } from "@/lib/report";
 import { saveSession } from "@/lib/session";
 import { ExtractedAsset, PerfilData, riskProfileFromAnswers } from "@/lib/types";
 
@@ -41,7 +41,8 @@ export default function RelatorioStep({
   assets: ExtractedAsset[];
 }) {
   const riskProfile = riskProfileFromAnswers(perfil.toleranceAnswer);
-  const report = buildReport(assets, riskProfile);
+  const report = buildReport(assets, riskProfile, perfil.horizonAnswer);
+  const riskCapacity = riskCapacityFromAnswers(perfil.horizonAnswer);
   const score = computeScore(assets, riskProfile, report, perfil.sucessaoAnswer, perfil.governancaAnswer);
   const projection = buildProjection(assets, riskProfile);
   const ipcaBenchmark = STATIC_BENCHMARKS.find((b) => b.nome.startsWith("IPCA"));
@@ -212,7 +213,7 @@ export default function RelatorioStep({
             <div className="mb-3.5 text-xs font-semibold uppercase tracking-wide text-aligna-muted">Perfil declarado</div>
             <div className="text-lg font-semibold capitalize">{riskProfile}</div>
             <div className="mt-1 text-[12.5px] text-aligna-muted">
-              com base nas respostas do questionário de suitability
+              Capacidade financeira: {RISK_CAPACITY_LABELS[riskCapacity]} · com base no horizonte declarado
             </div>
           </div>
           <div className="rounded-lg border border-aligna-line bg-aligna-card p-6">
