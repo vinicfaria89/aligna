@@ -22,6 +22,7 @@ const BREAKDOWN_KEYS: Record<string, string> = {
   "Diversificação": "diversificacao",
   Liquidez: "liquidez",
   "Aderência ao perfil": "aderencia_perfil",
+  "Sucessão e governança": "sucessao_governanca",
 };
 
 const SEVERITY_STYLES = {
@@ -33,7 +34,7 @@ const SEVERITY_STYLES = {
 export default function RelatorioStep({ perfil, assets }: { perfil: PerfilData; assets: ExtractedAsset[] }) {
   const riskProfile = riskProfileFromAnswers(perfil.toleranceAnswer);
   const report = buildReport(assets, riskProfile);
-  const score = computeScore(assets, riskProfile, report);
+  const score = computeScore(assets, riskProfile, report, perfil.sucessaoAnswer, perfil.governancaAnswer);
   const projection = buildProjection(assets, riskProfile);
   const scoreColor = score.total >= 70 ? "#1c8a4f" : score.total >= 40 ? "#c08a2e" : "#c1503a";
   const scoreLabel = score.total >= 70 ? "Consolidado" : score.total >= 40 ? "Em desenvolvimento" : "Atenção";

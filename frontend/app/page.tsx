@@ -18,6 +18,8 @@ const EMPTY_PERFIL: PerfilData = {
   birth_date: "",
   toleranceAnswer: null,
   horizonAnswer: null,
+  sucessaoAnswer: null,
+  governancaAnswer: null,
 };
 
 export default function AlignaApp() {

@@ -56,6 +56,8 @@ export interface PerfilData {
   birth_date: string;
   toleranceAnswer: number | null;
   horizonAnswer: number | null;
+  sucessaoAnswer: number | null;
+  governancaAnswer: number | null;
 }
 
 export interface ScoreSnapshot {

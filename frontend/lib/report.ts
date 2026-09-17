@@ -113,14 +113,30 @@ const RENDA_VARIAVEL_RANGE: Record<RiskProfile, [number, number]> = {
   arrojado: [25, 70],
 };
 
+// Sucessão/governança vêm de respostas do questionário (PerfilStep), não dos
+// ativos -- índice 0 é a melhor resposta, 2 a pior (mesma convenção das
+// opções de cada pergunta).
+function answerScore(answer: number | null): number {
+  if (answer === null) return 50; // não deveria chegar aqui (PerfilStep exige resposta), mas nunca quebra o cálculo
+  return clamp(100 - answer * 50, 0, 100);
+}
+
 /**
- * Score Aligna v0 -- decisão do Conselho de cortar de 10 critérios (documento
- * estratégico original) para 4: concentração, diversificação, liquidez e
- * aderência ao perfil. São os únicos que dá pra calcular hoje com o que o
- * cliente já enviou, sem pedir mais nenhum dado. Nunca aponta pra um ativo
- * específico -- só descreve a carteira como um todo.
+ * Score Aligna v1 -- decisão do Conselho de cortar de 10 critérios (documento
+ * estratégico original) para 4 na v0: concentração, diversificação, liquidez
+ * e aderência ao perfil, calculados a partir dos ativos. A v1 soma um 5º,
+ * "Sucessão e governança", vindo das duas novas perguntas do PerfilStep --
+ * não dá pra calcular a partir do extrato, é a única dimensão qualitativa do
+ * Score. Nunca aponta pra um ativo específico -- só descreve a carteira e a
+ * organização do patrimônio como um todo.
  */
-export function computeScore(assets: ExtractedAsset[], riskProfile: RiskProfile, report: AdequacyReport): AlignaScore {
+export function computeScore(
+  assets: ExtractedAsset[],
+  riskProfile: RiskProfile,
+  report: AdequacyReport,
+  sucessaoAnswer: number | null,
+  governancaAnswer: number | null
+): AlignaScore {
   const total = report.totalValue;
 
   const concPct = report.topConcentration?.pct ?? 0;
@@ -140,30 +156,43 @@ export function computeScore(assets: ExtractedAsset[], riskProfile: RiskProfile,
   const distFromRange = variavelPct < min ? min - variavelPct : variavelPct > max ? variavelPct - max : 0;
   const aderenciaScore = clamp(100 - distFromRange * 3, 0, 100);
 
+  const sucessaoScore = answerScore(sucessaoAnswer);
+  const governancaScore = answerScore(governancaAnswer);
+  const sucessaoGovernancaScore = (sucessaoScore + governancaScore) / 2;
+
   const criteria: ScoreCriterion[] = [
     {
       label: "Concentração",
       score: Math.round(concentracaoScore),
-      weight: 0.3,
+      weight: 0.25,
       detail: `Maior concentração: ${concPct.toFixed(1)}% num único emissor.`,
     },
     {
       label: "Diversificação",
       score: Math.round(diversificacaoScore),
-      weight: 0.25,
+      weight: 0.2,
       detail: `${report.byClass.length} classe(s) de ativo identificada(s).`,
     },
     {
       label: "Liquidez",
       score: Math.round(liquidezScore),
-      weight: 0.25,
+      weight: 0.2,
       detail: `${liquidPct.toFixed(1)}% do patrimônio resgatável em até 30 dias.`,
     },
     {
       label: "Aderência ao perfil",
       score: Math.round(aderenciaScore),
-      weight: 0.2,
+      weight: 0.15,
       detail: `${variavelPct.toFixed(1)}% em renda variável — perfil ${riskProfile} costuma ficar entre ${min}% e ${max}%.`,
+    },
+    {
+      label: "Sucessão e governança",
+      score: Math.round(sucessaoGovernancaScore),
+      weight: 0.2,
+      detail:
+        sucessaoScore < 100 || governancaScore < 100
+          ? "Sua família ou sua carteira têm pontos de organização/documentação a melhorar."
+          : "Patrimônio documentado e carteira com política de investimento definida.",
     },
   ];
 
