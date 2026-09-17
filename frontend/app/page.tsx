@@ -48,6 +48,23 @@ export default function AlignaApp() {
     setAssets((prev) => prev.map((a) => (a.id === id ? { ...a, ...patch } : a)));
   }
 
+  function addAsset(asset: ExtractedAsset) {
+    setAssets((prev) => [...prev, asset]);
+  }
+
+  function removeAsset(id: string) {
+    setAssets((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  // Pula a extração por IA de propósito -- quem não tem extrato pra enviar
+  // (ou prefere não enviar) ainda precisa chegar no relatório, digitando os
+  // ativos direto na Confirmação.
+  function skipToManual() {
+    setScreen("confirmacao");
+    setExtracting(false);
+    setExtractionError(null);
+  }
+
   async function goToConfirmacao() {
     setScreen("confirmacao");
     setExtracting(true);
@@ -100,7 +117,13 @@ export default function AlignaApp() {
         )}
 
         {screen === "extratos" && (
-          <ExtratosStep files={files} onFilesChange={setFiles} onBack={() => setScreen("perfil")} onNext={goToConfirmacao} />
+          <ExtratosStep
+            files={files}
+            onFilesChange={setFiles}
+            onBack={() => setScreen("perfil")}
+            onNext={goToConfirmacao}
+            onSkipManual={skipToManual}
+          />
         )}
 
         {screen === "confirmacao" && (
@@ -110,6 +133,8 @@ export default function AlignaApp() {
             onRetry={goToConfirmacao}
             assets={assets}
             onUpdateAsset={updateAsset}
+            onAddAsset={addAsset}
+            onRemoveAsset={removeAsset}
             onBack={() => setScreen("extratos")}
             onNext={() => setScreen("relatorio")}
           />

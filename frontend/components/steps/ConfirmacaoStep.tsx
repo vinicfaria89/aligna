@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Pencil, RefreshCw } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { CATEGORY_LABELS, LIQUIDITY_LABELS } from "@/lib/labels";
 import { AssetCategory, ExtractedAsset, Liquidity } from "@/lib/types";
@@ -12,13 +12,37 @@ function formatBRL(value: number): string {
   return value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch: Partial<ExtractedAsset>) => void }) {
-  const [editing, setEditing] = useState(false);
+function newBlankAsset(): ExtractedAsset {
+  const id = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `manual-${Date.now()}-${Math.random()}`;
+  return {
+    id: `manual-${id}`,
+    name: "",
+    category: "outros",
+    value: 0,
+    institution: "",
+    liquidity: "diaria",
+    indexer: "",
+    confidence: "ok",
+  };
+}
 
+function AssetRow({
+  asset,
+  editing,
+  onToggleEdit,
+  onUpdate,
+  onRemove,
+}: {
+  asset: ExtractedAsset;
+  editing: boolean;
+  onToggleEdit: () => void;
+  onUpdate: (patch: Partial<ExtractedAsset>) => void;
+  onRemove: () => void;
+}) {
   if (!editing) {
     return (
       <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-aligna-line px-4 py-3.5 text-[13.5px]">
-        <div className="font-semibold">{asset.name}</div>
+        <div className="font-semibold">{asset.name || "Sem nome"}</div>
         <div className="text-aligna-muted">{CATEGORY_LABELS[asset.category]}</div>
         <div>{formatBRL(asset.value)}</div>
         <div className="text-aligna-muted">{asset.indexer || "—"}</div>
@@ -33,7 +57,7 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
             </span>
           )}
         </div>
-        <button onClick={() => setEditing(true)} className="text-aligna-muted hover:text-aligna-ink">
+        <button onClick={onToggleEdit} className="text-aligna-muted hover:text-aligna-ink">
           <Pencil size={15} />
         </button>
       </div>
@@ -42,7 +66,12 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
 
   return (
     <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-aligna-line bg-aligna-pale/40 px-4 py-3">
-      <input className="input py-1.5 text-xs" value={asset.name} onChange={(e) => onUpdate({ name: e.target.value })} />
+      <input
+        className="input py-1.5 text-xs"
+        placeholder="Nome do ativo"
+        value={asset.name}
+        onChange={(e) => onUpdate({ name: e.target.value })}
+      />
       <select
         className="input py-1.5 text-xs"
         value={asset.category}
@@ -74,11 +103,14 @@ function AssetRow({ asset, onUpdate }: { asset: ExtractedAsset; onUpdate: (patch
       <button
         onClick={() => {
           onUpdate({ confidence: "ok" });
-          setEditing(false);
+          onToggleEdit();
         }}
         className="text-aligna-mid text-xs font-semibold"
       >
         Salvar
+      </button>
+      <button onClick={onRemove} className="text-aligna-muted hover:text-aligna-danger">
+        <Trash2 size={15} />
       </button>
     </div>
   );
@@ -90,6 +122,8 @@ export default function ConfirmacaoStep({
   onRetry,
   assets,
   onUpdateAsset,
+  onAddAsset,
+  onRemoveAsset,
   onBack,
   onNext,
 }: {
@@ -98,9 +132,19 @@ export default function ConfirmacaoStep({
   onRetry: () => void;
   assets: ExtractedAsset[];
   onUpdateAsset: (id: string, patch: Partial<ExtractedAsset>) => void;
+  onAddAsset: (asset: ExtractedAsset) => void;
+  onRemoveAsset: (id: string) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  function handleAddAsset() {
+    const asset = newBlankAsset();
+    onAddAsset(asset);
+    setEditingId(asset.id);
+  }
+
   const groups = new Map<string, ExtractedAsset[]>();
   for (const a of assets) {
     const list = groups.get(a.institution || "Instituição não informada") ?? [];
@@ -135,6 +179,9 @@ export default function ConfirmacaoStep({
             Tentar de novo
           </button>
         </div>
+        <button className="mt-4 text-sm font-medium text-aligna-mid" onClick={handleAddAsset}>
+          ou adicionar ativos manualmente
+        </button>
       </div>
     );
   }
@@ -145,11 +192,18 @@ export default function ConfirmacaoStep({
         <div className="text-[15px] font-semibold mb-1.5">Nenhum ativo identificado</div>
         <div className="mb-6 max-w-[440px] text-sm text-aligna-muted">
           Não encontramos nenhuma posição de investimento nos arquivos enviados. Confira se são extratos de
-          investimento (não fatura ou boleto) e tente novamente.
+          investimento (não fatura ou boleto), ou adicione seus ativos direto — renda fixa, ações, cripto, ouro,
+          imóveis, qualquer tipo.
         </div>
-        <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
-          ← Trocar arquivos
-        </button>
+        <div className="flex items-center gap-3">
+          <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
+            ← Trocar arquivos
+          </button>
+          <button className="btn-primary" onClick={handleAddAsset}>
+            <Plus size={15} />
+            Adicionar ativo manualmente
+          </button>
+        </div>
       </div>
     );
   }
@@ -159,8 +213,9 @@ export default function ConfirmacaoStep({
       <div className="max-w-[1000px]">
         <h1 className="font-serif font-extrabold tracking-tight text-3xl mb-2.5">Confira os ativos identificados</h1>
         <p className="text-[15px] text-aligna-muted leading-relaxed mb-10 max-w-[640px]">
-          Organizamos os ativos abaixo a partir dos seus extratos. Revise e corrija o que for necessário — a análise final é
-          baseada exatamente no que estiver aqui.
+          Organizamos os ativos abaixo a partir dos seus extratos. Revise, corrija ou adicione o que faltar — renda
+          fixa, ações, cripto, ouro, imóveis, qualquer tipo de investimento. A análise final é baseada exatamente no
+          que estiver aqui.
         </p>
 
         {Array.from(groups.entries()).map(([institution, items]) => {
@@ -181,14 +236,32 @@ export default function ConfirmacaoStep({
                   <div />
                 </div>
                 {items.map((a) => (
-                  <AssetRow key={a.id} asset={a} onUpdate={(patch) => onUpdateAsset(a.id, patch)} />
+                  <AssetRow
+                    key={a.id}
+                    asset={a}
+                    editing={editingId === a.id}
+                    onToggleEdit={() => setEditingId((cur) => (cur === a.id ? null : a.id))}
+                    onUpdate={(patch) => onUpdateAsset(a.id, patch)}
+                    onRemove={() => {
+                      onRemoveAsset(a.id);
+                      setEditingId((cur) => (cur === a.id ? null : cur));
+                    }}
+                  />
                 ))}
               </div>
             </div>
           );
         })}
 
-        <div className="mt-12 flex items-center justify-between">
+        <button
+          className="mb-12 flex items-center gap-1.5 text-sm font-semibold text-aligna-mid"
+          onClick={handleAddAsset}
+        >
+          <Plus size={15} />
+          Adicionar ativo manualmente
+        </button>
+
+        <div className="flex items-center justify-between">
           <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
             ← Voltar
           </button>

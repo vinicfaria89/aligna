@@ -9,11 +9,13 @@ export default function ExtratosStep({
   onFilesChange,
   onBack,
   onNext,
+  onSkipManual,
 }: {
   files: UploadedFile[];
   onFilesChange: (files: UploadedFile[]) => void;
   onBack: () => void;
   onNext: () => void;
+  onSkipManual: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -108,10 +110,15 @@ export default function ExtratosStep({
           <button className="text-sm font-medium text-aligna-muted" onClick={onBack}>
             ← Voltar
           </button>
-          <button className="btn-primary" disabled={files.length === 0} onClick={onNext}>
-            Continuar
-            <ArrowRight size={16} />
-          </button>
+          <div className="flex items-center gap-5">
+            <button className="text-sm font-medium text-aligna-mid" onClick={onSkipManual}>
+              Prefiro adicionar meus ativos manualmente
+            </button>
+            <button className="btn-primary" disabled={files.length === 0} onClick={onNext}>
+              Continuar
+              <ArrowRight size={16} />
+            </button>
+          </div>
         </div>
       </div>
     </div>
