@@ -64,54 +64,71 @@ function AssetRow({
     );
   }
 
+  // Duas linhas: a primeira segue exatamente a largura das colunas do
+  // cabeçalho (Ativo/Tipo/Valor/Indexador), pra "Indexador" continuar
+  // apontando pro campo certo -- antes essa 4ª coluna mostrava o seletor de
+  // Liquidez por engano, e não existia campo nenhum pra editar o indexador
+  // de verdade. Liquidez ganha linha própria, com rótulo, em vez de ocupar
+  // silenciosamente a coluna de outra coisa.
   return (
-    <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2 border-t border-aligna-line bg-aligna-pale/40 px-4 py-3">
-      <input
-        className="input py-1.5 text-xs"
-        placeholder="Nome do ativo"
-        value={asset.name}
-        onChange={(e) => onUpdate({ name: e.target.value })}
-      />
-      <select
-        className="input py-1.5 text-xs"
-        value={asset.category}
-        onChange={(e) => onUpdate({ category: e.target.value as AssetCategory })}
-      >
-        {CATEGORY_OPTIONS.map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <input
-        className="input py-1.5 text-xs"
-        type="number"
-        value={asset.value}
-        onChange={(e) => onUpdate({ value: Number(e.target.value) })}
-      />
-      <select
-        className="input py-1.5 text-xs"
-        value={asset.liquidity}
-        onChange={(e) => onUpdate({ liquidity: e.target.value as Liquidity })}
-      >
-        {LIQUIDITY_OPTIONS.map(([value, label]) => (
-          <option key={value} value={value}>
-            {label}
-          </option>
-        ))}
-      </select>
-      <button
-        onClick={() => {
-          onUpdate({ confidence: "ok" });
-          onToggleEdit();
-        }}
-        className="text-aligna-mid text-xs font-semibold"
-      >
-        Salvar
-      </button>
-      <button onClick={onRemove} className="text-aligna-muted hover:text-aligna-danger">
-        <Trash2 size={15} />
-      </button>
+    <div className="border-t border-aligna-line bg-aligna-pale/40 px-4 py-3">
+      <div className="grid grid-cols-[2.1fr_1.2fr_1fr_1fr_1.1fr_32px] items-center gap-2">
+        <input
+          className="input py-1.5 text-xs"
+          placeholder="Nome do ativo"
+          value={asset.name}
+          onChange={(e) => onUpdate({ name: e.target.value })}
+        />
+        <select
+          className="input py-1.5 text-xs"
+          value={asset.category}
+          onChange={(e) => onUpdate({ category: e.target.value as AssetCategory })}
+        >
+          {CATEGORY_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <input
+          className="input py-1.5 text-xs"
+          type="number"
+          value={asset.value}
+          onChange={(e) => onUpdate({ value: Number(e.target.value) })}
+        />
+        <input
+          className="input py-1.5 text-xs"
+          placeholder="Ex.: CDI, IPCA"
+          value={asset.indexer}
+          onChange={(e) => onUpdate({ indexer: e.target.value })}
+        />
+        <button
+          onClick={() => {
+            onUpdate({ confidence: "ok" });
+            onToggleEdit();
+          }}
+          className="text-aligna-mid text-xs font-semibold"
+        >
+          Salvar
+        </button>
+        <button onClick={onRemove} className="text-aligna-muted hover:text-aligna-danger">
+          <Trash2 size={15} />
+        </button>
+      </div>
+      <div className="mt-2.5 flex items-center gap-2.5">
+        <label className="text-[11px] font-medium text-aligna-muted">Liquidez</label>
+        <select
+          className="input w-52 py-1.5 text-xs"
+          value={asset.liquidity}
+          onChange={(e) => onUpdate({ liquidity: e.target.value as Liquidity })}
+        >
+          {LIQUIDITY_OPTIONS.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }
