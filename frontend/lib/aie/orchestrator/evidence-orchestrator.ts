@@ -2,12 +2,9 @@ import type {
   AssetEvidence,
   CandidateAsset,
   InvestigationCase,
+  SearchExecution,
   VerifiedAsset,
 } from "../contracts";
-
-import type {
-  EvidenceProviderRegistry,
-} from "../providers";
 
 import {
   VerificationPolicy,
@@ -17,6 +14,8 @@ export interface OrchestratorInput {
   candidateAsset: CandidateAsset;
 
   evidence?: AssetEvidence[];
+
+  searches?: SearchExecution[];
 
   now?: string;
 }
@@ -33,27 +32,21 @@ function findQualifyingValue(
 ): string | undefined {
   return evidence.find(
     (item) =>
-      item.strength ===
-        "primary" &&
+      item.strength === "primary" &&
       item.field === field &&
-      item.source !==
-        "REGISTRY",
+      item.source !== "REGISTRY",
   )?.value;
 }
 
 export class EvidenceOrchestrator {
   constructor(
-    private readonly registry: EvidenceProviderRegistry,
-    private readonly policy: VerificationPolicy,
+    private readonly policy:
+      VerificationPolicy,
   ) {}
 
   evaluate(
     input: OrchestratorInput,
   ): OrchestratorResult {
-    // Providers in the registry are never searched here.
-    // Verification depends only on supplied primary evidence.
-    this.registry.list();
-
     const now =
       input.now ??
       new Date().toISOString();
@@ -61,23 +54,37 @@ export class EvidenceOrchestrator {
     const evidence =
       input.evidence ?? [];
 
+    const searches =
+      input.searches ?? [];
+
     const decision =
       this.policy.evaluate(
         evidence,
       );
 
-    const investigation: InvestigationCase =
-      {
-        id: `investigation:${input.candidateAsset.id}`,
+    const investigation:
+      InvestigationCase = {
+        id:
+          `investigation:${input.candidateAsset.id}`,
+
         candidateAsset:
           input.candidateAsset,
-        status: decision.status,
+
+        status:
+          decision.status,
+
         evidence,
-        searches: [],
+
+        searches,
+
         unresolvedFields:
           decision.unresolvedFields,
-        createdAt: now,
-        updatedAt: now,
+
+        createdAt:
+          now,
+
+        updatedAt:
+          now,
       };
 
     if (
@@ -112,34 +119,47 @@ export class EvidenceOrchestrator {
           status:
             "needs-more-evidence",
         },
+
         verifiedAsset: null,
       };
     }
 
-    const verifiedAsset: VerifiedAsset =
-      {
-        id: `verified:${input.candidateAsset.id}`,
+    const verifiedAsset:
+      VerifiedAsset = {
+        id:
+          `verified:${input.candidateAsset.id}`,
+
         candidateAssetId:
           input.candidateAsset.id,
+
         canonicalAssetId,
+
         assetType:
           input.candidateAsset
             .hints.assetType ??
           "unknown",
+
         issuerEntityId,
+
         currency:
           input.candidateAsset
             .hints.currency ??
           "BRL",
+
         amount:
           input.candidateAsset
             .hints.amount,
+
         verification: {
           investigationId:
             investigation.id,
+
           evidenceIds:
             decision.evidenceIds,
-          verifiedAt: now,
+
+          verifiedAt:
+            now,
+
           policyVersion:
             decision.policyVersion,
         },

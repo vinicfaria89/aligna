@@ -2,7 +2,12 @@ import type {
   AssetEvidence,
   CandidateAsset,
   ResolutionResult,
+  SearchExecution,
 } from "../contracts";
+
+import {
+  ProviderExecutionPipeline,
+} from "../execution/provider-execution-pipeline";
 
 import {
   EvidenceOrchestrator,
@@ -16,51 +21,157 @@ import {
   VerificationPolicy,
 } from "../policy";
 
+import type {
+  ProviderQuery,
+} from "../providers";
+
 export interface AssetResolutionInput {
   candidateAsset: CandidateAsset;
 
   evidence?: AssetEvidence[];
 
+  searches?: SearchExecution[];
+
   now?: string;
+}
+
+function buildProviderQuery(
+  candidate:
+    CandidateAsset,
+): ProviderQuery {
+  return {
+    assetId:
+      candidate.id,
+
+    rawName:
+      candidate.rawName,
+
+    ticker:
+      candidate.hints.ticker,
+
+    isin:
+      candidate.hints.isin,
+
+    cnpj:
+      candidate.hints.cnpj,
+
+    assetType:
+      candidate.hints.assetType,
+  };
 }
 
 export class AssetResolutionEngine {
   constructor(
-    private readonly policy: VerificationPolicy,
-    private readonly planner: ResolutionPlanner,
-    private readonly orchestrator: EvidenceOrchestrator,
+    private readonly policy:
+      VerificationPolicy,
+
+    private readonly planner:
+      ResolutionPlanner,
+
+    private readonly pipeline:
+      ProviderExecutionPipeline,
+
+    private readonly orchestrator:
+      EvidenceOrchestrator,
   ) {}
 
-  resolve(
+  async resolve(
     input: AssetResolutionInput,
-  ): ResolutionResult {
-    const evidence =
-      input.evidence ?? [];
+  ): Promise<ResolutionResult> {
+    const candidate =
+      input.candidateAsset;
 
-    const decision =
+    const existingEvidence = [
+      ...(input.evidence ?? []),
+    ];
+
+    const existingSearches = [
+      ...(input.searches ?? []),
+    ];
+
+    const initialDecision =
+      this.policy.evaluate(
+        existingEvidence,
+      );
+
+    const initialPlan =
+      this.planner.build(
+        candidate,
+        initialDecision,
+      );
+
+    let evidence =
+      existingEvidence;
+
+    let searches =
+      existingSearches;
+
+    /*
+     * If supplied evidence already satisfies
+     * the policy, there is no reason to call
+     * additional providers.
+     */
+    if (
+      initialDecision.status !==
+      "verified"
+    ) {
+      const execution =
+        await this.pipeline.execute({
+          plan:
+            initialPlan,
+
+          query:
+            buildProviderQuery(
+              candidate,
+            ),
+
+          existingEvidence,
+
+          now:
+            input.now
+              ? () => input.now!
+              : undefined,
+        });
+
+      evidence =
+        execution.evidence;
+
+      searches = [
+        ...existingSearches,
+        ...execution.searches,
+      ];
+    }
+
+    const finalDecision =
       this.policy.evaluate(
         evidence,
       );
 
-    const plan =
+    const finalPlan =
       this.planner.build(
-        input.candidateAsset,
-        decision,
+        candidate,
+        finalDecision,
       );
 
     const result =
       this.orchestrator.evaluate({
         candidateAsset:
-          input.candidateAsset,
+          candidate,
 
         evidence,
 
-        now: input.now,
+        searches,
+
+        now:
+          input.now,
       });
 
-    if (result.verifiedAsset) {
+    if (
+      result.verifiedAsset
+    ) {
       return {
-        status: "verified",
+        status:
+          "verified",
 
         investigation:
           result.investigation,
@@ -68,7 +179,8 @@ export class AssetResolutionEngine {
         verifiedAsset:
           result.verifiedAsset,
 
-        plan,
+        plan:
+          finalPlan,
 
         nextAction:
           "finish",
@@ -82,9 +194,11 @@ export class AssetResolutionEngine {
       investigation:
         result.investigation,
 
-      verifiedAsset: null,
+      verifiedAsset:
+        null,
 
-      plan,
+      plan:
+        finalPlan,
 
       nextAction:
         "search-provider",
