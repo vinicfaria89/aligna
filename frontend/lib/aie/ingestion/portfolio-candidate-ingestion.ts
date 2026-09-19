@@ -143,6 +143,19 @@ const ASSET_TYPES: Record<
   unknown: true,
 };
 
+/** Single source of truth for valid asset types (also used by adapters). */
+export function isCandidateAssetType(
+  value: unknown,
+): value is CandidateAssetType {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(
+      ASSET_TYPES,
+      value,
+    )
+  );
+}
+
 const CONTROL_CHARACTERS =
   /[\u0000-\u001f\u007f]/;
 
@@ -474,10 +487,7 @@ function readHints(
     if (typeof assetType !== "string") {
       issues.add("assetType", "type");
     } else if (
-      !Object.prototype.hasOwnProperty.call(
-        ASSET_TYPES,
-        assetType,
-      )
+      !isCandidateAssetType(assetType)
     ) {
       issues.add(
         "assetType",
@@ -485,8 +495,7 @@ function readHints(
       );
     } else {
       // Explicit only: never classified from rawName.
-      hints.assetType =
-        assetType as CandidateAssetType;
+      hints.assetType = assetType;
     }
   }
 
