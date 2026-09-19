@@ -79,13 +79,13 @@ export async function resolveAssetWithEngine(
   }
 }
 
-export async function resolveAsset(
-  candidateAsset: CandidateAsset,
-): Promise<ResolutionResult> {
-  let engine: AssetResolutionEngine;
-
+/**
+ * Obtains the server engine, mapping any failure to a safe AieServerError
+ * (single place for this classification, reused by the batch service).
+ */
+export function acquireServerAie(): AssetResolutionEngine {
   try {
-    engine = getServerAie();
+    return getServerAie();
   } catch (error) {
     throw new AieServerError(
       error instanceof
@@ -94,9 +94,13 @@ export async function resolveAsset(
         : "unexpected",
     );
   }
+}
 
+export async function resolveAsset(
+  candidateAsset: CandidateAsset,
+): Promise<ResolutionResult> {
   return resolveAssetWithEngine(
-    engine,
+    acquireServerAie(),
     candidateAsset,
   );
 }
