@@ -5,90 +5,189 @@ import {
 } from "vitest";
 
 import {
-  EvidenceProviderRegistry,
-} from "./provider-registry";
+  EntityRegistryLoader,
+} from "../registry";
 
-import type {
-  EvidenceProvider,
-  ProviderQuery,
-  ProviderResult,
-} from "./evidence-provider";
-
-function createMockProvider(
-  id: string,
-): EvidenceProvider {
-  return {
-    id,
-    version: "1.0.0",
-
-    supports(
-      _query: ProviderQuery,
-    ) {
-      return true;
-    },
-
-    async search(
-      _query: ProviderQuery,
-    ): Promise<ProviderResult> {
-      return {
-        providerId: id,
-        searched: true,
-        found: false,
-        evidence: [],
-      };
-    },
-  };
-}
+import {
+  RegistryProvider,
+} from "./registry-provider";
 
 describe(
-  "EvidenceProviderRegistry",
+  "RegistryProvider",
   () => {
     it(
-      "registers and retrieves a provider",
-      () => {
+      "resolves an exact ticker as supporting evidence",
+      async () => {
         const registry =
-          new EvidenceProviderRegistry();
+          new EntityRegistryLoader().load([
+            {
+              id: "company.petrobras",
+              kind: "company",
+              legalName:
+                "Petróleo Brasileiro S.A. - Petrobras",
+              aliases: [
+                "Petrobras",
+              ],
+              identifiers: [
+                {
+                  kind: "ticker",
+                  value: "PETR4",
+                },
+              ],
+            },
+          ]);
 
         const provider =
-          createMockProvider(
-            "MOCK",
+          new RegistryProvider(
+            registry,
           );
 
-        registry.register(
-          provider,
-        );
+        const result =
+          await provider.search({
+            assetId:
+              "asset-1",
+            ticker:
+              "PETR4",
+          });
 
         expect(
-          registry.get(
-            "MOCK",
-          ),
+          result.found,
+        ).toBe(true);
+
+        expect(
+          result.evidence,
+        ).toHaveLength(1);
+
+        expect(
+          result.evidence[0],
+        ).toMatchObject({
+          assetId:
+            "asset-1",
+          source:
+            "REGISTRY",
+          strength:
+            "supporting",
+          field:
+            "identity",
+          value:
+            "company.petrobras",
+        });
+      },
+    );
+
+    it(
+      "resolves an exact normalized alias",
+      async () => {
+        const registry =
+          new EntityRegistryLoader().load([
+            {
+              id: "company.petrobras",
+              kind: "company",
+              legalName:
+                "Petróleo Brasileiro S.A. - Petrobras",
+              aliases: [
+                "DEB PETROBRAS",
+              ],
+              identifiers: [],
+            },
+          ]);
+
+        const provider =
+          new RegistryProvider(
+            registry,
+          );
+
+        const result =
+          await provider.search({
+            assetId:
+              "asset-2",
+            rawName:
+              "deb petrobras",
+          });
+
+        expect(
+          result.found,
+        ).toBe(true);
+
+        expect(
+          result.evidence[0]
+            ?.strength,
         ).toBe(
-          provider,
+          "supporting",
         );
       },
     );
 
     it(
-      "rejects duplicate provider ids",
-      () => {
+      "does not use fuzzy matching",
+      async () => {
         const registry =
-          new EvidenceProviderRegistry();
+          new EntityRegistryLoader().load([
+            {
+              id: "company.petrobras",
+              kind: "company",
+              legalName:
+                "Petróleo Brasileiro S.A. - Petrobras",
+              aliases: [
+                "PETROBRAS",
+              ],
+              identifiers: [],
+            },
+          ]);
 
-        registry.register(
-          createMockProvider(
-            "MOCK",
-          ),
-        );
+        const provider =
+          new RegistryProvider(
+            registry,
+          );
 
-        expect(() =>
-          registry.register(
-            createMockProvider(
-              "MOCK",
-            ),
-          ),
-        ).toThrow(
-          'Provider "MOCK" is already registered.',
-        );
+        const result =
+          await provider.search({
+            assetId:
+              "asset-3",
+            rawName:
+              "PETROB",
+          });
+
+        expect(
+          result.found,
+        ).toBe(false);
+
+        expect(
+          result.evidence,
+        ).toEqual([]);
+      },
+    );
+
+    it(
+      "returns not found when registry has no matching entity",
+      async () => {
+        const registry =
+          new EntityRegistryLoader().load([]);
+
+        const provider =
+          new RegistryProvider(
+            registry,
+          );
+
+        const result =
+          await provider.search({
+            assetId:
+              "asset-4",
+            ticker:
+              "UNKNOWN",
+          });
+
+        expect(
+          result,
+        ).toMatchObject({
+          providerId:
+            "REGISTRY",
+          searched:
+            true,
+          found:
+            false,
+          evidence: [],
+        });
       },
     );
   },
