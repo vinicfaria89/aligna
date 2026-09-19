@@ -932,7 +932,7 @@ describe(
               issuesOf(
                 minimal({
                   instrumentCode:
-                    "ABCD 11",
+                    "ABCD\u000011",
                 }),
               ),
             ).toEqual([
