@@ -152,7 +152,8 @@ function isPlainObject(
   );
 }
 
-function isForbiddenKey(
+/** Shared privacy policy: also used by the CSV adapter for header names. */
+export function isForbiddenFieldName(
   key: string,
 ): boolean {
   return FORBIDDEN_KEYS.has(
@@ -198,7 +199,7 @@ function checkKeys(
     }
 
     // Key names are user controlled: only the parent path is ever reported.
-    if (isForbiddenKey(key)) {
+    if (isForbiddenFieldName(key)) {
       forbidden = true;
     } else {
       unknown = true;
