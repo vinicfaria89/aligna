@@ -994,7 +994,7 @@ describe(
         );
 
         it(
-          "the HTTP mapping imports only the use case, the validator and domain types",
+          "the HTTP mapping imports only the use case, the validator and the shared HTTP helpers",
           () => {
             expect(
               imports(
@@ -1003,7 +1003,7 @@ describe(
                 ),
               ).sort(),
             ).toEqual([
-              "../contracts",
+              "./aie-http",
               "./candidate-asset-validation",
               "./candidate-asset-validation",
               "./resolve-asset",

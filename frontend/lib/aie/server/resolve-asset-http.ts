@@ -1,6 +1,9 @@
-import type {
-  ResolutionResult,
-} from "../contracts";
+import {
+  errorResponse,
+  hasJsonContentType,
+  jsonResponse,
+  unsupportedMediaType,
+} from "./aie-http";
 
 import {
   validateCandidateAsset,
@@ -36,64 +39,6 @@ import {
 
 export const MAX_BODY_BYTES =
   16 * 1024;
-
-const JSON_HEADERS = {
-  "Content-Type":
-    "application/json; charset=utf-8",
-
-  "Cache-Control": "no-store",
-} as const;
-
-interface ErrorBody {
-  ok: false;
-
-  error: {
-    code: string;
-
-    message: string;
-
-    issues?: ValidationIssue[];
-  };
-}
-
-function respond(
-  status: number,
-  payload:
-    | ErrorBody
-    | {
-        ok: true;
-
-        result: ResolutionResult;
-      },
-): Response {
-  return new Response(
-    JSON.stringify(payload),
-    {
-      status,
-
-      headers: JSON_HEADERS,
-    },
-  );
-}
-
-function errorResponse(
-  status: number,
-  code: string,
-  message: string,
-  issues?: ValidationIssue[],
-): Response {
-  return respond(status, {
-    ok: false,
-
-    error: {
-      code,
-
-      message,
-
-      ...(issues ? { issues } : {}),
-    },
-  });
-}
 
 function invalidCandidate(
   issues: ValidationIssue[],
@@ -188,26 +133,8 @@ async function readBody(
 export async function handleResolveAssetRequest(
   request: Request,
 ): Promise<Response> {
-  /*
-   * Requiring JSON forces browsers through a CORS preflight for cross-site
-   * requests, so a foreign page cannot trigger external work with a plain
-   * form/text POST.
-   */
-  const contentType =
-    request.headers.get(
-      "content-type",
-    ) ?? "";
-
-  if (
-    !/^application\/json\b/i.test(
-      contentType,
-    )
-  ) {
-    return errorResponse(
-      415,
-      "UNSUPPORTED_MEDIA_TYPE",
-      "Content-Type must be application/json.",
-    );
+  if (!hasJsonContentType(request)) {
+    return unsupportedMediaType();
   }
 
   const body =
@@ -246,7 +173,7 @@ export async function handleResolveAssetRequest(
         validation.value,
       );
 
-    return respond(200, {
+    return jsonResponse(200, {
       ok: true,
 
       result,
