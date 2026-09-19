@@ -49,6 +49,32 @@ vi.mock(
   },
 );
 
+// Authorization is covered by request-authorization.test.ts. These tests exercise
+// validation/resolution, so the real route gets an explicit allow authorizer.
+vi.mock(
+  "./request-authorization",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("./request-authorization")
+      >();
+
+    return {
+      ...actual,
+
+      getAieRequestAuthorizer: () => ({
+        authorize: async () => ({
+          authorized: true as const,
+
+          principal: {
+            subject: "test-subject",
+          },
+        }),
+      }),
+    };
+  },
+);
+
 const { POST } = routeModule;
 
 const NOW =
@@ -1006,6 +1032,8 @@ describe(
               "./aie-http",
               "./candidate-asset-validation",
               "./candidate-asset-validation",
+              "./request-authorization",
+              "./request-authorization",
               "./resolve-asset",
             ]);
           },

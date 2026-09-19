@@ -18,6 +18,15 @@ import type {
 } from "./candidate-asset-validation";
 
 import {
+  getAieRequestAuthorizer,
+  requireAuthorization,
+} from "./request-authorization";
+
+import type {
+  AieHttpOptions,
+} from "./request-authorization";
+
+import {
   BatchResolutionError,
   MAX_BATCH_CONCURRENCY,
   MAX_BATCH_SIZE,
@@ -412,7 +421,20 @@ async function readBoundedBody(
 
 export async function handleResolveAssetsRequest(
   request: Request,
+  options: AieHttpOptions = {},
 ): Promise<Response> {
+  // Authorization first: before the (potentially large) body is read.
+  const denied =
+    await requireAuthorization(
+      request,
+      options.authorizer ??
+        getAieRequestAuthorizer(),
+    );
+
+  if (denied) {
+    return denied;
+  }
+
   if (!hasJsonContentType(request)) {
     return unsupportedMediaType();
   }

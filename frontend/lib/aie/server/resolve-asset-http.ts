@@ -14,6 +14,15 @@ import type {
 } from "./candidate-asset-validation";
 
 import {
+  getAieRequestAuthorizer,
+  requireAuthorization,
+} from "./request-authorization";
+
+import type {
+  AieHttpOptions,
+} from "./request-authorization";
+
+import {
   AieServerError,
   resolveAsset,
 } from "./resolve-asset";
@@ -132,7 +141,20 @@ async function readBody(
 
 export async function handleResolveAssetRequest(
   request: Request,
+  options: AieHttpOptions = {},
 ): Promise<Response> {
+  // Authorization first: before the body is read or anything is validated.
+  const denied =
+    await requireAuthorization(
+      request,
+      options.authorizer ??
+        getAieRequestAuthorizer(),
+    );
+
+  if (denied) {
+    return denied;
+  }
+
   if (!hasJsonContentType(request)) {
     return unsupportedMediaType();
   }

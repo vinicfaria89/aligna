@@ -80,8 +80,8 @@ cannot happen after validation) is mapped defensively to 400; any other exceptio
 - CORS: none. No `Access-Control-*` header is set anywhere, so the endpoint stays same-origin. Requiring
   `application/json` also forces a preflight for cross-site browser requests.
 - **Authentication/authorization: none exists in the application yet, and none was invented here (no fake API keys).
-  It is REQUIRED before this endpoint is publicly exposed.** Until then the route can trigger external ANBIMA work for
-  any caller that can reach it.
+  It is REQUIRED before this endpoint is publicly exposed.** (Superseded by TASK-017: the route is now fail-closed and
+  answers 401 to every request until a real identity system implements `AieRequestAuthorizer`.)
 
 ## Concurrency is not rate limiting
 

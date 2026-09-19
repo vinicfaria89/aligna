@@ -17,6 +17,32 @@ import {
  * global fetch is replaced by a fake, so no real network request is possible.
  */
 
+// Authorization is covered by request-authorization.test.ts. The rest of the
+// chain (route, mapping, use case, composition) stays real.
+vi.mock(
+  "./request-authorization",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import("./request-authorization")
+      >();
+
+    return {
+      ...actual,
+
+      getAieRequestAuthorizer: () => ({
+        authorize: async () => ({
+          authorized: true as const,
+
+          principal: {
+            subject: "test-subject",
+          },
+        }),
+      }),
+    };
+  },
+);
+
 const CLIENT_ID =
   "sentinel-route-id";
 
