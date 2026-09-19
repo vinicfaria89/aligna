@@ -3,13 +3,23 @@
 Status:
 
 - [x] Drafted (options, context and consequences written)
-- [ ] **Pending Product Decision** (Decisions 1-5 below are blank on purpose)
-- [ ] Approved (name, date)
+- [x] Product decisions recorded (MVP policy, conservative)
+- [x] **Approved** (decisions given by the product owner in chat on 2026-09-19; re-open to change any of them)
 
-This task writes NO code. It turns the open product questions from TASK-018 into an explicit, versioned decision, so the
-authorizer (TASK-020) is not built on assumptions. Fill in the `Decision:` and `Rationale:` fields, tick the options,
-then change the status. Nothing below is decided yet; the "Engineering notes" only state what each option costs and are
-not a recommendation to pick it.
+This task writes NO code. It records the explicit access policy that the authorizer (TASK-020) and the policy task
+(TASK-021) implement, so nothing is built on assumptions. Legal/LGPD review of the retention period is still recommended
+(see Decision 5).
+
+## Policy summary
+
+| # | Decision | Outcome |
+|---|---|---|
+| 1 | Anonymous access | **A - not allowed.** Every AIE route requires authentication. |
+| 2 | Roles | `cliente`, `assessor` and `administrador` may all use the AIE. |
+| 3 | Premium | **C - Premium only for batch.** Single-asset resolution: any authenticated allowed role. Batch: requires Premium. |
+| 4 | Anonymous limits | Not applicable (no anonymous access in this version). |
+| 5 | Auditing | Required. 90 days initial retention. Safe metadata only. |
+| 6 | Planejador `/auth/me` unavailable | **A - fail closed.** No local JWT verification, no cache of "allowed". |
 
 ## Context (facts, from TASK-017 and TASK-018)
 
@@ -17,12 +27,11 @@ not a recommendation to pick it.
   gets 401 until a real `AieRequestAuthorizer` is provided (TASK-017).
 - Identity already exists in the Planejador backend (users, roles `cliente` / `assessor` / `administrador`, JWT, Stripe
   Premium subscriptions). `GET /api/v1/auth/me` (Planejador commit `3fb6443`) returns `{ id, role, is_active }` for a
-  valid access token; it does NOT return subscription status.
-- Public registration exists (`POST /auth/register`, `POST /intake/aligna`) and always creates a `cliente`. Being
-  authenticated is therefore a low bar: anyone can obtain a valid `cliente` identity for free.
-- The Aligna funnel uploads and extracts statements BEFORE an account exists (the account is created at the end).
+  valid access token; it does NOT return subscription/entitlement information yet.
+- Public registration exists and always creates a `cliente`: being authenticated is a low bar, which is why the roles
+  decision is deliberately paired with the Premium gate on the heavier operation.
 - Each AIE call can trigger ANBIMA traffic (documented limit 15 requests/s per credential). The feed cache and limiter
-  are per process (TASK-015); a batch of debentures costs one feed request thanks to the cache.
+  are per process (TASK-015).
 - No UI calls the AIE routes yet.
 
 ## Decision 1 - Anonymous access
@@ -31,27 +40,22 @@ Can an unauthenticated user use the AIE?
 
 Options:
 
-- [ ] No (authentication required for every AIE route)
+- [x] No (authentication required for every AIE route)
 - [ ] Yes, single asset only (`resolve-asset`)
 - [ ] Yes, batch allowed (`resolve-assets`)
 
 Decision:
 
-...
+No anonymous access in this version.
 
 Rationale:
 
-...
+The AIE can trigger external sources and processes financial data; starting authenticated reduces abuse and avoids
+creating a second, weaker identity policy (an anonymous principal) now. If the commercial funnel later needs a
+demonstration without an account, it is treated as its own flow with its own limits, not as a relaxation of this policy.
 
-Engineering notes:
-
-- "No" keeps the design simple: `authorize()` = validate the bearer through `/auth/me`. But the current funnel resolves
-  assets before the person has an account, so the AIE could only be used after signup/login (a product/UX consequence).
-- Any "Yes" means the boundary needs an anonymous path. Today `AieAuthorizationResult` has only authorized-with-principal
-  or denied, so an anonymous grant needs an explicit contract decision (for example a distinct, non-forgeable anonymous
-  principal) and CANNOT be inferred from missing credentials by accident. Anonymous identity is weak: the only handles
-  are network-level (IP behind a proxy is easy to spoof or share), so limits (Decision 4) become mandatory.
-- Anonymous batch multiplies exposure (up to 100 assets per request); anonymous single asset is the smaller surface.
+Consequence: the authorization contract needs no anonymous path; missing or invalid credentials are simply
+`unauthenticated`.
 
 ---
 
@@ -61,30 +65,26 @@ Which authenticated roles may use the AIE?
 
 Allowed roles:
 
-- [ ] cliente
-- [ ] assessor
-- [ ] administrador
+- [x] cliente
+- [x] assessor
+- [x] administrador
 
 Different roles per route (single vs batch)?
 
-- [ ] No, same roles for both routes
+- [x] No, same roles for both routes
 - [ ] Yes (describe below)
 
 Decision:
 
-...
+All three authenticated roles may use the AIE.
 
 Rationale:
 
-...
+Role differences belong to product permissions, not to basic identity. Acting on behalf of a client (advisor delegation)
+is a different requirement and is not modelled here.
 
-Engineering notes:
-
-- `cliente` is the self-registered consumer role; allowing it means anyone can use the AIE after a free signup.
-- An advisor (`assessor`) working on behalf of a client is a different requirement (whose portfolio is it?). This policy
-  only decides who may CALL the AIE; acting on behalf of someone is out of scope and not modelled.
-- Roles come from the Planejador (source of truth) via `/auth/me`; the role list lives in Aligna as an explicit constant
-  (TASK-021), not in the identity system.
+Consequence: the allowed-roles list is an explicit constant in Aligna. A role value the Aligna does not recognize is
+`forbidden` (never silently allowed).
 
 ---
 
@@ -96,69 +96,43 @@ Options:
 
 - [ ] No (any allowed authenticated role)
 - [ ] Yes (all AIE routes)
-- [ ] Only for batch
+- [x] Only for batch
 
 Decision:
 
-...
+Premium is required only for `resolve-assets` (batch). `resolve-asset` (single) is available to any authenticated user
+with an allowed role.
 
 Rationale:
 
-...
+Batch consumes more resources and has higher operational value; the single asset keeps the free diagnosis usable.
 
-Engineering notes:
+Consequences (intentional):
 
-- Subscription state lives only in the Planejador (`subscriptions`, active or past_due). `/auth/me` does not expose it
-  today. "Yes" or "Only for batch" requires a small Planejador change (a subscription flag in the introspection
-  response, or a dedicated check) before the Aligna side can enforce it, and a decision on `past_due` (grace or block).
-- "Only for batch" means the authorizer (or the route) must know which route it is authorizing; today the authorizer
-  receives only the request.
-- Note the diagnosis funnel is intentionally free ("the initial diagnosis is the bait"); Premium gating the AIE would
-  interact with that.
+- The Aligna must know whether the user is entitled to batch. It must not query Stripe or know what a subscription,
+  plan, price or `past_due` is. The Planejador stays the product authority and exposes a stable entitlement in
+  `/auth/me`, for example:
+
+      {
+        "id": "...",
+        "role": "cliente",
+        "is_active": true,
+        "entitlements": { "aie_batch": true }
+      }
+
+  The Planejador decides how `aie_batch` is derived from its subscription rules (including what to do with `past_due`).
+- The authorizer must know which operation is being authorized (single vs batch): see TASK-020/TASK-021.
+- Until the entitlement exists and is enforced (TASK-021), the batch route must stay denied (see TASK-020).
 
 ---
 
 ## Decision 4 - Anonymous limits
 
-Only applies if Decision 1 allows anonymous access. Otherwise write "Not applicable".
+Not applicable: there is no anonymous access in this version.
 
-Maximum requests (per what window, per what identifier):
-
-...
-
-Maximum batch size for anonymous callers (the service maximum is 100):
-
-...
-
-Rate policy (per IP / per session / global anonymous budget, and what happens when exceeded):
-
-...
-
-CAPTCHA or other human check?
-
-...
-
-Also for authenticated callers (needed later by TASK-023):
-
-- Per-identity quota (requests per minute/day):
-
-...
-
-- Maximum batch size for authenticated callers:
-
-...
-
-Rationale:
-
-...
-
-Engineering notes:
-
-- Current limits are per process only: concurrency (default 3, max 10) bounds simultaneous work, and the ANBIMA limiter
-  (default 14/s) is per instance, so a global 15/s across instances is not guaranteed (TASK-015).
-- Quotas per identity need shared state (a store visible to every instance); that is TASK-023, not a tweak of the
-  existing limiter.
-- A CAPTCHA implies a third-party dependency and a UI step; state it explicitly if wanted.
+Deferred to TASK-023 (authenticated callers): per-identity quota and a maximum batch size below the service maximum
+(100), if wanted. Until then only the existing limits apply (service batch maximum 100, concurrency default 3 / max 10,
+per-process ANBIMA limiter). CAPTCHA: not applicable.
 
 ---
 
@@ -167,67 +141,88 @@ Engineering notes:
 Is an audit trail required?
 
 - [ ] No
-- [ ] Yes
+- [x] Yes
 
-If yes, retention period and where it is stored:
-
-...
+Retention: 90 days (initial operational policy).
 
 Store (safe metadata only):
 
-- subject (authenticated user id, or the anonymous marker)
-- endpoint / action
-- timestamp
-- decision (allowed / 401 / 403 / authorizer error) and HTTP status
-- request correlation id
-- batch item COUNT (not the items)
+- [x] subject (authenticated user id)
+- [x] endpoint / operation
+- [x] timestamp
+- [x] decision (allow / deny) with the outcome status
+- [x] request correlation id
 
 Never store:
 
-- CandidateAsset values or any part of a portfolio
-- CPF, account numbers, institution names tied to a person
-- bearer/refresh tokens, passwords
-- ANBIMA credentials or tokens
+- [x] tokens (bearer or refresh) or passwords
+- [x] ANBIMA credentials or tokens
+- [x] full portfolio
+- [x] raw CandidateAsset (or any part of an asset's values)
+- [x] CPF / account numbers
 
 Decision:
 
-...
+Audit is mandatory for the AIE routes, for both allowed and denied requests, with the fields above and nothing else.
 
 Rationale:
 
-...
+Security accountability without keeping financial payloads. The 90 days are an initial OPERATIONAL policy, not a claim
+of regulatory obligation; it can be revised with legal/LGPD. The user id is a personal-data identifier, so the log needs
+an owner and restricted access.
 
-Engineering notes:
+Implementation: TASK-022 (batch item count is allowed as metadata; the items are not).
 
-- Audit logging is a separate task (TASK-022); the authorization boundary already isolates the principal so the log can
-  be added at the HTTP layer without touching the AIE domain.
-- LGPD: the user id is a personal-data identifier; retention and access to the log need an owner.
+---
+
+## Decision 6 - Planejador `/auth/me` unavailable
+
+If the Planejador cannot answer the introspection request (timeout, network error, 5xx, malformed answer), what does the
+AIE do?
+
+Options:
+
+- [x] A) Fail closed: deny access (the authorizer throws and TASK-017 answers 500 `AIE_AUTHORIZATION_ERROR`; no request is
+  processed)
+- [ ] B) Allow using local information or a cache
+
+Decision:
+
+Fail closed.
+
+Rationale:
+
+The Aligna does not authorize the AIE when it cannot ask the identity authority. It uses no local JWT verification (that
+would need the shared HS256 secret, rejected in TASK-018) and NO cache of "allowed" answers, because a cache could keep
+honoring a user after deactivation or a role/entitlement change. Consequently the AIE is unavailable while the Planejador
+is down; that is accepted.
+
+Clarification: this also rules out a short-lived "allowed" cache as an optimization for now. If load on `/auth/me` ever
+justifies one, it is a new decision, and it must never serve answers during an outage.
 
 ---
 
 ## Consequences
 
-Once decided, the work is sequenced as follows (each item is a separate task; none is started by this one):
+Work is sequenced as follows (each item is a separate task):
 
 | Task | Depends on | What it does |
 |---|---|---|
-| TASK-020 | Decision 1 (and 2 for the role field) | `PlanejadorRequestAuthorizer` calling `GET /api/v1/auth/me`: strict bearer parsing, injected fetch, timeout, fail closed (throw on timeout/5xx, TASK-017 maps it to 500), server-only configuration in one module, unconfigured keeps deny-all. If anonymous access is allowed, also defines the anonymous path in the authorization contract. |
-| TASK-021 | Decisions 2 and 3 | Authorization policy: explicit allowed-roles constant, Premium rule (plus any Planejador change to expose subscription status), per-route rules if they differ (single vs batch). Produces 403 `AIE_FORBIDDEN`. |
-| TASK-022 | Decision 5 | Structured audit of the AIE routes (safe metadata only, correlation id), allow and deny both. |
-| TASK-023 | Decision 4 | Rate limit and quotas per identity (shared state across instances), anonymous budget if any, replacing the "per process only" gap. |
-| TASK-024 | Decisions 1-4 | CSV upload endpoint reusing the whole ingestion + resolution pipeline behind the same authorization, size and quota rules. |
+| TASK-020 | Decisions 1, 2, 6 | `PlanejadorRequestAuthorizer` calling `GET /api/v1/auth/me`: authentication required, the three roles accepted for single asset, fail closed on any Planejador failure, no cache. Batch stays denied until TASK-021 (see `TASK-020-planejador-request-authorizer.md`). |
+| TASK-021 | Decision 3 | Premium-only-for-batch: Planejador exposes `entitlements.aie_batch` in `/auth/me` (separate backend change), Aligna enforces it per operation. |
+| TASK-022 | Decision 5 | Structured audit of the AIE routes (safe metadata, correlation id, 90 days). |
+| TASK-023 | Decision 4 (deferred part) | Rate limit and quotas per identity (shared state across instances). |
+| TASK-024 | Decisions 1-3 | CSV upload endpoint reusing the whole ingestion + resolution pipeline behind the same authorization, size and quota rules (batch semantics, so Premium). |
 
-Affected areas per decision:
+Affected areas:
 
-- Route guards: Decision 1 (anonymous path), Decision 3 (per-route policy needs the route identity).
-- Request authorizer: Decisions 1 and 2.
-- UI behavior: Decision 1 (login before the AIE step, or an anonymous flow), Decision 3 (paywall/upsell states), and the
-  client must attach the existing access token (`getValidAccessToken()`) to AIE calls.
-- Quotas and abuse: Decision 4.
-- Backend (Planejador) follow-ups if needed: subscription status in the introspection response (Decision 3);
-  the non-UUID `sub` hardening (tracked separately); rate limiting on `/auth/me` because it is a token-validity oracle.
+- Request authorizer: it must receive the operation (single vs batch).
+- UI behavior: login before the AIE step; a paywall/upsell state for batch; the client attaches the existing access token
+  (`getValidAccessToken()`).
+- Backend (Planejador): `entitlements.aie_batch` in `/auth/me` (TASK-021); rate limiting on `/auth/me` (token-validity
+  oracle); the non-UUID `sub` hardening (tracked separately).
 
 ## Out of scope
 
 Any code, any dependency, login/signup UI, cookie/BFF sessions, CSRF, replacing the Planejador identity, acting on
-behalf of a client (advisor delegation).
+behalf of a client (advisor delegation), anonymous or demo access.
