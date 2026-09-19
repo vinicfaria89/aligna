@@ -1,3 +1,7 @@
+import type {
+  RegistryIdentifierKind,
+} from "./entity";
+
 export function normalizeAlias(
   value: string,
 ): string {
@@ -9,7 +13,7 @@ export function normalizeAlias(
 }
 
 export function normalizeIdentifierValue(
-  kind: "cnpj" | "isin" | "ticker",
+  kind: RegistryIdentifierKind,
   value: string,
 ): string {
   const trimmed = value

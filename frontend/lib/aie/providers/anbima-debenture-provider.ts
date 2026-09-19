@@ -13,18 +13,40 @@ import type {
   ProviderResult,
 } from "./evidence-provider";
 
+function normalizeInstrumentCode(
+  value: string,
+): string {
+  return value
+    .trim()
+    .toUpperCase();
+}
+
+/**
+ * Queries exactly one knowledge source: the ANBIMA debenture secondary market feed.
+ *
+ * - exact instrumentCode only (no fuzzy matching, no issuer-name-only resolution);
+ * - no knowledge of HTTP, OAuth, credentials or URLs (see AnbimaDebentureFeedClient);
+ * - never decides verification and never creates VerifiedAsset.
+ *
+ * Evidence rule (see ADR-003): the official instrument code is primary identity
+ * evidence. The textual "emissor" is only SUPPORTING issuer evidence, because it
+ * is a name, not a canonical issuer identifier.
+ */
 export class AnbimaDebentureProvider
   implements EvidenceProvider
 {
-  readonly id =
-    "ANBIMA";
+  readonly id = "ANBIMA";
 
-  readonly version =
-    "1.0.0";
+  readonly version = "1.0.0";
 
   constructor(
     private readonly client:
       AnbimaDebentureFeedClient,
+
+    private readonly now:
+      () => string =
+        () =>
+          new Date().toISOString(),
   ) {}
 
   supports(
@@ -33,14 +55,19 @@ export class AnbimaDebentureProvider
     return (
       query.assetType ===
         "debenture" &&
-      Boolean(query.ticker)
+      Boolean(
+        query.instrumentCode?.trim(),
+      )
     );
   }
 
   async search(
     query: ProviderQuery,
   ): Promise<ProviderResult> {
-    if (!this.supports(query)) {
+    if (
+      !this.supports(query) ||
+      !query.instrumentCode
+    ) {
       return {
         providerId:
           this.id,
@@ -55,18 +82,24 @@ export class AnbimaDebentureProvider
       };
     }
 
+    const instrumentCode =
+      normalizeInstrumentCode(
+        query.instrumentCode,
+      );
+
     try {
-      const records =
-        await this.client
-          .getSecondaryMarketDebentures();
-
       const record =
-        this.findExactRecord(
-          records,
-          query.ticker!,
-        );
+        await this.client
+          .findSecondaryMarketDebentureByCode(
+            instrumentCode,
+          );
 
-      if (!record) {
+      if (
+        !record ||
+        normalizeInstrumentCode(
+          record.codigo_ativo,
+        ) !== instrumentCode
+      ) {
         return {
           providerId:
             this.id,
@@ -123,33 +156,14 @@ export class AnbimaDebentureProvider
     }
   }
 
-  private findExactRecord(
-    records:
-      AnbimaDebentureMarketRecord[],
-
-    code: string,
-  ):
-    AnbimaDebentureMarketRecord |
-    undefined {
-    const normalizedCode =
-      code.trim().toUpperCase();
-
-    return records.find(
-      (record) =>
-        record.codigo_ativo
-          .trim()
-          .toUpperCase() ===
-        normalizedCode,
-    );
-  }
-
   private toEvidence(
     query: ProviderQuery,
+
     record:
       AnbimaDebentureMarketRecord,
   ): AssetEvidence[] {
     const collectedAt =
-      new Date().toISOString();
+      this.now();
 
     const sourceReference =
       `ANBIMA:debentures:mercado-secundario:${record.codigo_ativo}`;
@@ -174,24 +188,27 @@ export class AnbimaDebentureProvider
         value:
           record.codigo_ativo,
 
+        sourceReference,
+
         collectedAt,
 
         providerVersion:
           this.version,
 
-        sourceReference,
-
         metadata: {
-          issuer:
+          codigo_ativo:
+            record.codigo_ativo,
+
+          emissor:
             record.emissor,
 
-          maturityDate:
-            record.data_vencimento,
-
-          referenceDate:
+          data_referencia:
             record.data_referencia,
 
-          group:
+          data_vencimento:
+            record.data_vencimento,
+
+          grupo:
             record.grupo,
         },
       },
@@ -207,7 +224,7 @@ export class AnbimaDebentureProvider
           "ANBIMA",
 
         strength:
-          "primary",
+          "supporting",
 
         field:
           "issuer",
@@ -215,18 +232,18 @@ export class AnbimaDebentureProvider
         value:
           record.emissor,
 
+        sourceReference,
+
         collectedAt,
 
         providerVersion:
           this.version,
 
-        sourceReference,
-
         metadata: {
-          instrumentCode:
+          codigo_ativo:
             record.codigo_ativo,
 
-          referenceDate:
+          data_referencia:
             record.data_referencia,
         },
       },

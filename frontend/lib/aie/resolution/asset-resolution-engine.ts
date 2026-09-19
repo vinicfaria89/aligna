@@ -55,6 +55,9 @@ function buildProviderQuery(
     cnpj:
       candidate.hints.cnpj,
 
+    instrumentCode:
+      candidate.hints.instrumentCode,
+
     assetType:
       candidate.hints.assetType,
   };
@@ -131,6 +134,13 @@ export class AssetResolutionEngine {
             input.now
               ? () => input.now!
               : undefined,
+
+          shouldStop: (
+            currentEvidence,
+          ) =>
+            this.policy.evaluate(
+              currentEvidence,
+            ).status === "verified",
         });
 
       evidence =

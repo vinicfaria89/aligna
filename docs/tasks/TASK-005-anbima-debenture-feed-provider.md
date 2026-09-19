@@ -141,3 +141,15 @@ Unit tests must not call the real ANBIMA API.
 - TypeScript passes.
 
 - All AIE tests pass.
+
+## Amendment 001 (see ADR-003)
+
+The Evidence Rules above are superseded for the issuer field:
+
+- identity evidence from an exact official instrument code: strength = primary;
+- issuer evidence from the textual emissor: strength = supporting.
+
+The provider looks up by instrumentCode (not ticker) through
+AnbimaDebentureFeedClient.findSecondaryMarketDebentureByCode(instrumentCode).
+A textual issuer name is not a canonical issuer identity, so an ANBIMA record
+alone never produces a VerifiedAsset.

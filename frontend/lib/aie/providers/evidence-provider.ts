@@ -12,6 +12,8 @@ export interface ProviderQuery {
   isin?: string;
   cnpj?: string;
 
+  instrumentCode?: string;
+
   assetType?: CandidateAssetType;
 }
 

@@ -9,7 +9,8 @@ export type RegistryEntityKind =
 export type RegistryIdentifierKind =
   | "cnpj"
   | "isin"
-  | "ticker";
+  | "ticker"
+  | "instrumentCode";
 
 export interface RegistryIdentifier {
   kind: RegistryIdentifierKind;

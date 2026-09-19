@@ -29,6 +29,7 @@ export class RegistryProvider
     query: ProviderQuery,
   ): boolean {
     return Boolean(
+      query.instrumentCode ||
       query.isin ||
       query.cnpj ||
       query.ticker ||
@@ -41,7 +42,18 @@ export class RegistryProvider
   ): Promise<ProviderResult> {
     let entity = null;
 
-    if (query.isin) {
+    if (query.instrumentCode) {
+      entity =
+        this.registry.findByIdentifier(
+          "instrumentCode",
+          query.instrumentCode,
+        );
+    }
+
+    if (
+      !entity &&
+      query.isin
+    ) {
       entity =
         this.registry.findByIdentifier(
           "isin",

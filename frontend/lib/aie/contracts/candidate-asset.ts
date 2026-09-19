@@ -29,6 +29,12 @@ export interface CandidateAssetHints {
   isin?: string;
   cnpj?: string;
 
+  /**
+   * Official instrument code used by an applicable official source
+   * (for example an ANBIMA debenture code). Not a ticker.
+   */
+  instrumentCode?: string;
+
   issuerName?: string;
   fundName?: string;
 
