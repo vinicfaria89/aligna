@@ -3,6 +3,14 @@ import type {
   AnbimaDebentureMarketRecord,
 } from "./anbima-debenture-types";
 
+import {
+  AnbimaRateLimiter,
+} from "./anbima-rate-limiter";
+
+import type {
+  AnbimaTimerScheduler,
+} from "./anbima-rate-limiter";
+
 /**
  * ANBIMA HTTP client: OAuth2 client-credentials authentication, the HTTP call
  * and defensive parsing of the debenture secondary-market feed.
@@ -30,8 +38,17 @@ import type {
  *   client never sends it.
  * - There is NO documented server-side filter by codigo_ativo, so the feed is
  *   fetched and the exact code match is done locally.
- * - Production rate limit: up to 15 requests per second. Throttling is NOT
- *   implemented yet (future task): every lookup performs one feed request.
+ * - Production rate limit: up to 15 requests per second. Since TASK-015 every
+ *   outbound request (token and feed, including the 401 retry) passes through
+ *   one ANBIMA-local sliding-window limiter (default 14 per second).
+ *
+ * Feed cache (TASK-015): the parsed latest feed is kept in memory as a single
+ * entry with a TTL (default 5 minutes). Lookups within the TTL cost no HTTP
+ * request; concurrent misses share one in-flight request; a failed or
+ * malformed response is never cached. The token cache is independent of the
+ * feed cache. Both caches and the limiter are per process (no persistence, no
+ * cross-instance coordination): with several server instances the global
+ * 15 req/s limit is NOT guaranteed.
  *
  * Not verified against the official documentation: which token URL applies to
  * the sandbox environment. The token URL therefore defaults to the production
@@ -53,6 +70,10 @@ export const ANBIMA_TOKEN_URL =
 
 export const ANBIMA_DEBENTURES_SECONDARY_MARKET_PATH =
   "/feed/precos-indices/v1/debentures/mercado-secundario";
+
+/** Default lifetime of the cached feed: 5 minutes. */
+export const ANBIMA_DEFAULT_FEED_CACHE_TTL_MS =
+  5 * 60 * 1000;
 
 /** Minimal fetch surface used by this client (the global fetch satisfies it). */
 export interface AnbimaFetchInit {
@@ -91,6 +112,25 @@ export interface AnbimaHttpClientConfig {
 
   /** Overrides the OAuth token URL (see the note above about the sandbox). */
   tokenUrl?: string;
+
+  /**
+   * Lifetime of the cached feed in milliseconds (finite, >= 0). 0 disables
+   * reuse. Default ANBIMA_DEFAULT_FEED_CACHE_TTL_MS. Independent of the token
+   * lifetime.
+   */
+  feedCacheTtlMs?: number;
+
+  /** Outbound rate limit shared by token and feed requests. */
+  rateLimit?: {
+    /** Integer >= 1. Default 14 (documented ANBIMA limit is 15). */
+    maxRequests?: number;
+
+    /** Window in milliseconds (> 0). Default 1000. */
+    intervalMs?: number;
+  };
+
+  /** Test seam for the rate limiter's waiting. Defaults to setTimeout. */
+  setTimer?: AnbimaTimerScheduler;
 }
 
 export type AnbimaHttpErrorCode =
@@ -127,6 +167,13 @@ interface CachedToken {
 
   /** Epoch ms after which the token must be refreshed. */
   refreshAtMs: number;
+}
+
+interface CachedFeed {
+  records: readonly AnbimaDebentureMarketRecord[];
+
+  /** Epoch ms from which the feed must be fetched again. */
+  expiresAtMs: number;
 }
 
 const MAX_REFRESH_MARGIN_MS = 30_000;
@@ -347,7 +394,7 @@ function parseFeed(
  * identity would be ambiguous, so the response is rejected instead of guessing.
  */
 function findExactRecord(
-  records: AnbimaDebentureMarketRecord[],
+  records: readonly AnbimaDebentureMarketRecord[],
   code: string,
 ): AnbimaDebentureMarketRecord | null {
   const matches = records.filter(
@@ -401,6 +448,18 @@ export class AnbimaHttpClient
   #tokenRequest: Promise<CachedToken> | null =
     null;
 
+  readonly #limiter: AnbimaRateLimiter;
+
+  readonly #feedCacheTtlMs: number;
+
+  /** At most one cached feed (the latest one); no per-code map. */
+  #cachedFeed: CachedFeed | null = null;
+
+  /** At most one feed load in flight; concurrent callers share it. */
+  #feedRequest: Promise<
+    readonly AnbimaDebentureMarketRecord[]
+  > | null = null;
+
   constructor(
     config: AnbimaHttpClientConfig,
   ) {
@@ -453,6 +512,46 @@ export class AnbimaHttpClient
     this.#now =
       config.now ??
       (() => Date.now());
+
+    const ttl =
+      config.feedCacheTtlMs ??
+      ANBIMA_DEFAULT_FEED_CACHE_TTL_MS;
+
+    if (
+      typeof ttl !== "number" ||
+      !Number.isFinite(ttl) ||
+      ttl < 0
+    ) {
+      throw new AnbimaHttpError(
+        "INVALID_CONFIGURATION",
+        "ANBIMA feedCacheTtlMs must be a finite number >= 0.",
+      );
+    }
+
+    this.#feedCacheTtlMs = ttl;
+
+    try {
+      this.#limiter =
+        new AnbimaRateLimiter({
+          maxRequests:
+            config.rateLimit
+              ?.maxRequests,
+
+          intervalMs:
+            config.rateLimit
+              ?.intervalMs,
+
+          now: this.#now,
+
+          setTimer:
+            config.setTimer,
+        });
+    } catch {
+      throw new AnbimaHttpError(
+        "INVALID_CONFIGURATION",
+        "ANBIMA rateLimit must have an integer maxRequests >= 1 and an intervalMs > 0.",
+      );
+    }
   }
 
   async findSecondaryMarketDebentureByCode(
@@ -468,16 +567,56 @@ export class AnbimaHttpClient
     }
 
     const records =
-      await this.fetchSecondaryMarketFeed();
+      await this.getSecondaryMarketDebentureFeed();
 
+    // The lookup stays exact and local; the cache holds the whole feed.
     return findExactRecord(
       records,
       code,
     );
   }
 
-  private async fetchSecondaryMarketFeed(): Promise<
-    AnbimaDebentureMarketRecord[]
+  /**
+   * Returns the parsed latest feed: from the cache while it is fresh,
+   * otherwise from ONE shared HTTP load (auth + rate limit + request + parse).
+   * Not part of the public contract.
+   */
+  private getSecondaryMarketDebentureFeed(): Promise<
+    readonly AnbimaDebentureMarketRecord[]
+  > {
+    const cached =
+      this.#cachedFeed;
+
+    if (
+      cached &&
+      this.#now() <
+        cached.expiresAtMs
+    ) {
+      return Promise.resolve(
+        cached.records,
+      );
+    }
+
+    /*
+     * Concurrent misses/expiries share one in-flight load. The slot is
+     * cleared on success AND on failure, so a failure is never cached and the
+     * next call can retry.
+     */
+    if (!this.#feedRequest) {
+      this.#feedRequest =
+        this.loadSecondaryMarketFeed().finally(
+          () => {
+            this.#feedRequest =
+              null;
+          },
+        );
+    }
+
+    return this.#feedRequest;
+  }
+
+  private async loadSecondaryMarketFeed(): Promise<
+    readonly AnbimaDebentureMarketRecord[]
   > {
     let attempt =
       await this.requestFeed();
@@ -519,7 +658,24 @@ export class AnbimaHttpClient
       );
     }
 
-    return parseFeed(body);
+    const records =
+      Object.freeze(
+        parseFeed(body).map(
+          (record) =>
+            Object.freeze(record),
+        ),
+      );
+
+    // Only a successfully parsed feed is cached (never a 401/failure).
+    this.#cachedFeed = {
+      records,
+
+      expiresAtMs:
+        this.#now() +
+        this.#feedCacheTtlMs,
+    };
+
+    return records;
   }
 
   private async requestFeed(): Promise<{
@@ -716,8 +872,10 @@ export class AnbimaHttpClient
   }
 
   /**
-   * The only place that calls fetch. A transport failure is reported without
-   * the original error message or cause, which could echo request headers.
+   * The only place that calls fetch, and therefore the only place that
+   * consults the rate limiter: token requests, feed requests and the 401 retry
+   * all share it. A transport failure is reported without the original error
+   * message or cause, which could echo request headers.
    */
   private async send(
     failureCode:
@@ -726,6 +884,8 @@ export class AnbimaHttpClient
     url: string,
     init: AnbimaFetchInit,
   ): Promise<AnbimaFetchResponse> {
+    await this.#limiter.acquire();
+
     try {
       return await this.#fetch(
         url,

@@ -159,6 +159,10 @@ function createHarness(
 
       now: () => nowMs,
 
+      // Feed reuse is covered by anbima-feed-cache.test.ts; here every lookup
+      // must hit the fake so the original TASK-006 behavior stays observable.
+      feedCacheTtlMs: 0,
+
       ...overrides,
     });
 

@@ -283,7 +283,8 @@ describe(
               .evidence[0]?.value,
         ).toBe("EFGH22");
 
-        // One shared token request plus one feed request per debenture.
+        // One shared token request and, since TASK-015, ONE feed request for
+        // the whole batch (the feed is cached; each code is matched locally).
         expect(
           calls.filter((call) =>
             call.url.endsWith(
@@ -299,7 +300,7 @@ describe(
                 "/oauth/access-token",
               ),
           ),
-        ).toHaveLength(2);
+        ).toHaveLength(1);
 
         const serialized =
           JSON.stringify(batch);

@@ -43,7 +43,8 @@ AnbimaHttpClient never produces evidence and never interprets the textual issuer
 
 ## Out of scope / limitations
 
-- Throttling for the 15 req/s limit. Every lookup performs one feed request (no feed cache).
+- Throttling for the 15 req/s limit and the feed cache. (At the time of TASK-006 every lookup performed one
+  feed request; both were added by TASK-015.)
 - Retry/backoff beyond the single 401 retry.
 - Pagination (none is documented for this endpoint).
 - Sandbox token URL: not confirmed by the documentation. The production token URL is the

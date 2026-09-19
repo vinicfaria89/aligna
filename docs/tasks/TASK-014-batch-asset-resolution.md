@@ -36,8 +36,9 @@ never over the input items; items start lazily as workers free up.
   fractions, `NaN`, `Infinity`, strings and `null` are rejected with `BatchResolutionError("INVALID_CONCURRENCY")`.
   Only `undefined` selects the default.
 - Maximum batch size: 100 (`MAX_BATCH_SIZE`). A larger input is rejected with `BATCH_TOO_LARGE`, never truncated.
-  Why 100: each lookup can trigger an external request (the ANBIMA client downloads the whole feed per lookup) and
-  the whole batch is resolved within one request/response; callers split bigger portfolios into several batches.
+  Why 100: each lookup can trigger an external request (when this task was written the ANBIMA client downloaded
+  the whole feed per lookup; since TASK-015 the feed is cached) and the whole batch is resolved within one
+  request/response; callers split bigger portfolios into several batches.
 - A non-array input is rejected with `INVALID_INPUT`. Request validation happens before the engine is obtained.
 - An empty array returns `{ items: [] }` immediately, without obtaining the engine or making any request.
 
