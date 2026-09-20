@@ -476,7 +476,7 @@ describe("PlanejadorRequestAuthorizer", () => {
       }
     });
 
-    it("batch is forbidden for every allowed role until the Premium entitlement exists", async () => {
+    it("batch is forbidden for every allowed role when the answer carries no entitlements (legacy Planejador)", async () => {
       for (const role of [
         "cliente",
         "assessor",
@@ -500,7 +500,7 @@ describe("PlanejadorRequestAuthorizer", () => {
       }
     });
 
-    it("batch stays forbidden even if the answer carries an aie_batch entitlement (not enforced yet)", async () => {
+    it("batch is authorized when entitlements.aie_batch is exactly true (see the batch entitlement tests)", async () => {
       const { authorizer } = setup(
         () =>
           json(
@@ -513,15 +513,13 @@ describe("PlanejadorRequestAuthorizer", () => {
       );
 
       expect(
-        await authorizer.authorize(
-          request(),
-          BATCH,
-        ),
-      ).toEqual({
-        authorized: false,
-
-        reason: "forbidden",
-      });
+        (
+          await authorizer.authorize(
+            request(),
+            BATCH,
+          )
+        ).authorized,
+      ).toBe(true);
     });
 
     it("an unauthenticated caller is not told 'forbidden' on batch: 401 from the identity service stays unauthenticated", async () => {
@@ -1184,5 +1182,514 @@ describe("PlanejadorRequestAuthorizer", () => {
         ).toBeNull();
       }
     });
+  });
+});
+
+
+/**
+ * TASK-021: batch requires `entitlements.aie_batch === true`, decided by the
+ * Planejador. The Aligna reads only that boolean.
+ */
+describe("PlanejadorRequestAuthorizer batch entitlement", () => {
+  const ROLES = [
+    "cliente",
+    "assessor",
+    "administrador",
+  ];
+
+  function withEntitlements(
+    entitlements: unknown,
+    role = "cliente",
+  ): Response {
+    return json(
+      identity({
+        role,
+
+        entitlements,
+      }),
+    );
+  }
+
+  const FORBIDDEN: AieAuthorizationResult =
+    {
+      authorized: false,
+
+      reason: "forbidden",
+    };
+
+  describe("single asset ignores the entitlement", () => {
+    it("legacy answer without entitlements: authorized", async () => {
+      const { authorizer } = setup(
+        () => json(identity()),
+      );
+
+      expect(
+        (
+          await authorizer.authorize(
+            request(),
+            SINGLE,
+          )
+        ).authorized,
+      ).toBe(true);
+    });
+
+    it("aie_batch false, missing, or an empty container: still authorized", async () => {
+      for (const entitlements of [
+        { aie_batch: false },
+        {},
+      ]) {
+        const { authorizer } = setup(
+          () =>
+            withEntitlements(
+              entitlements,
+            ),
+        );
+
+        expect(
+          (
+            await authorizer.authorize(
+              request(),
+              SINGLE,
+            )
+          ).authorized,
+        ).toBe(true);
+      }
+    });
+  });
+
+  describe("batch", () => {
+    for (const role of ROLES) {
+      it(`${role} with aie_batch true: authorized, principal without any entitlement`, async () => {
+        const { authorizer } = setup(
+          () =>
+            withEntitlements(
+              { aie_batch: true },
+              role,
+            ),
+        );
+
+        const result =
+          await authorizer.authorize(
+            request(),
+            BATCH,
+          );
+
+        expect(result).toEqual({
+          authorized: true,
+
+          principal: {
+            subject: USER_ID,
+
+            roles: [role],
+          },
+        });
+
+        const text =
+          JSON.stringify(result);
+
+        for (const leaked of [
+          "aie_batch",
+          "entitlement",
+          "premium",
+        ]) {
+          expect(text).not.toContain(
+            leaked,
+          );
+        }
+      });
+
+      it(`${role} with aie_batch false: forbidden`, async () => {
+        const { authorizer } = setup(
+          () =>
+            withEntitlements(
+              { aie_batch: false },
+              role,
+            ),
+        );
+
+        expect(
+          await authorizer.authorize(
+            request(),
+            BATCH,
+          ),
+        ).toEqual(FORBIDDEN);
+      });
+    }
+
+    it("legacy answer without entitlements: forbidden (not a server error)", async () => {
+      const { authorizer } = setup(
+        () => json(identity()),
+      );
+
+      expect(
+        await authorizer.authorize(
+          request(),
+          BATCH,
+        ),
+      ).toEqual(FORBIDDEN);
+    });
+
+    it("entitlements {} or aie_batch missing: forbidden", async () => {
+      for (const entitlements of [
+        {},
+        { other_flag: true },
+      ]) {
+        const { authorizer } = setup(
+          () =>
+            withEntitlements(
+              entitlements,
+            ),
+        );
+
+        expect(
+          await authorizer.authorize(
+            request(),
+            BATCH,
+          ),
+        ).toEqual(FORBIDDEN);
+      }
+    });
+
+    it("an inactive or unknown-role user is denied before the entitlement matters", async () => {
+      const inactive = setup(() =>
+        json(
+          identity({
+            is_active: false,
+
+            entitlements: {
+              aie_batch: true,
+            },
+          }),
+        ),
+      );
+
+      const unknownRole = setup(() =>
+        json(
+          identity({
+            role: "superuser",
+
+            entitlements: {
+              aie_batch: true,
+            },
+          }),
+        ),
+      );
+
+      expect(
+        await inactive.authorizer.authorize(
+          request(),
+          BATCH,
+        ),
+      ).toEqual({
+        authorized: false,
+
+        reason: "unauthenticated",
+      });
+
+      expect(
+        await unknownRole.authorizer.authorize(
+          request(),
+          BATCH,
+        ),
+      ).toEqual(FORBIDDEN);
+    });
+
+    it("an operation that is not one of the two literals is denied", async () => {
+      const { authorizer } = setup(
+        () =>
+          withEntitlements({
+            aie_batch: true,
+          }),
+      );
+
+      expect(
+        await authorizer.authorize(
+          request(),
+          {
+            operation:
+              "something-else" as never,
+          },
+        ),
+      ).toEqual(FORBIDDEN);
+    });
+
+    it("does not cache the entitlement: it is read on every request", async () => {
+      let entitled = true;
+
+      const { authorizer, calls } =
+        setup(() =>
+          withEntitlements({
+            aie_batch: entitled,
+          }),
+        );
+
+      expect(
+        (
+          await authorizer.authorize(
+            request(),
+            BATCH,
+          )
+        ).authorized,
+      ).toBe(true);
+
+      entitled = false;
+
+      expect(
+        await authorizer.authorize(
+          request(),
+          BATCH,
+        ),
+      ).toEqual(FORBIDDEN);
+
+      expect(calls).toHaveLength(2);
+    });
+  });
+
+  describe("malformed entitlement data fails closed (throws)", () => {
+    const badValues: Array<
+      [string, unknown]
+    > = [
+      ["string", "true"],
+      ["number 1", 1],
+      ["number 0", 0],
+      ["null", null],
+      ["empty object", {}],
+      ["empty array", []],
+      ["array with a boolean", [true]],
+    ];
+
+    for (const [name, value] of badValues) {
+      for (const context of [
+        SINGLE,
+        BATCH,
+      ]) {
+        it(`aie_batch as ${name} on ${context.operation}`, async () => {
+          const { authorizer } =
+            setup(() =>
+              withEntitlements({
+                aie_batch: value,
+              }),
+            );
+
+          const error = await thrown(
+            authorizer.authorize(
+              request(),
+              context,
+            ),
+          );
+
+          expect(
+            error,
+          ).toBeInstanceOf(
+            PlanejadorAuthorizationError,
+          );
+
+          const text = `${
+            (error as Error).message
+          } ${(error as Error).stack ?? ""}`;
+
+          expect(text).not.toContain(
+            "true",
+          );
+
+          expect(text).not.toContain(
+            TOKEN,
+          );
+        });
+      }
+    }
+
+    const badContainers: Array<
+      [string, unknown]
+    > = [
+      ["null", null],
+      ["array", []],
+      ["string", "premium"],
+      ["number", 1],
+      ["boolean", true],
+    ];
+
+    for (const [
+      name,
+      value,
+    ] of badContainers) {
+      it(`entitlements as ${name} is an infrastructure error (not forbidden)`, async () => {
+        const { authorizer } = setup(
+          () => withEntitlements(value),
+        );
+
+        for (const context of [
+          SINGLE,
+          BATCH,
+        ]) {
+          expect(
+            await thrown(
+              authorizer.authorize(
+                request(),
+                context,
+              ),
+            ),
+          ).toBeInstanceOf(
+            PlanejadorAuthorizationError,
+          );
+        }
+      });
+    }
+  });
+
+  describe("no billing logic in the Aligna", () => {
+    it("the authorizer source never mentions billing, plans, prices or subscription status", async () => {
+      const { readFileSync } =
+        await import("node:fs");
+
+      const { fileURLToPath } =
+        await import("node:url");
+
+      const source = readFileSync(
+        fileURLToPath(
+          new URL(
+            "./planejador-request-authorizer.ts",
+            import.meta.url,
+          ),
+        ),
+        "utf8",
+      )
+        .replace(
+          /\/\*[\s\S]*?\*\//g,
+          "",
+        )
+        .replace(/^\s*\/\/.*$/gm, "");
+
+      expect(source).not.toMatch(
+        /stripe|subscription|past_due|\bplan\b|\bprice\b|billing|premium/i,
+      );
+
+      // The only entitlement it reads.
+      expect(
+        source.match(/aie_batch/g),
+      ).toHaveLength(2);
+    });
+  });
+});
+
+describe("batch entitlement stays inside the authorizer (static)", () => {
+  it("aie_batch and entitlements are referenced by no other production source", async () => {
+    const fs = await import("node:fs");
+
+    const path = await import("node:path");
+
+    const { fileURLToPath } =
+      await import("node:url");
+
+    const root = fileURLToPath(
+      new URL(
+        "../../..",
+        import.meta.url,
+      ),
+    );
+
+    const collect = (
+      directory: string,
+    ): string[] =>
+      fs
+        .readdirSync(directory)
+        .flatMap((entry) => {
+          if (
+            entry === "node_modules" ||
+            entry === ".next"
+          ) {
+            return [];
+          }
+
+          const full = path.join(
+            directory,
+            entry,
+          );
+
+          if (
+            fs
+              .statSync(full)
+              .isDirectory()
+          ) {
+            return collect(full);
+          }
+
+          return /\.(ts|tsx)$/.test(
+            full,
+          ) &&
+            !/\.test\.(ts|tsx)$/.test(
+              full,
+            )
+            ? [full]
+            : [];
+        });
+
+    const offenders = ["app", "components", "lib"]
+      .flatMap((directory) =>
+        collect(
+          path.join(root, directory),
+        ),
+      )
+      .filter((file) =>
+        /aie_batch|entitlement/i.test(
+          fs.readFileSync(
+            file,
+            "utf8",
+          ),
+        ),
+      )
+      .map((file) =>
+        path
+          .relative(root, file)
+          .replace(/\\/g, "/"),
+      );
+
+    // Mentions in comments are fine; nothing else may even name it. Only the
+    // authorizer reads it (the request-authorization module documents the
+    // principal without it).
+    expect(
+      offenders.filter(
+        (file) =>
+          file !==
+          "lib/aie/server/planejador-request-authorizer.ts",
+      ),
+    ).toEqual([]);
+  });
+
+  it("AieRequestPrincipal is still just subject and roles", async () => {
+    const { readFileSync } =
+      await import("node:fs");
+
+    const { fileURLToPath } =
+      await import("node:url");
+
+    const source = readFileSync(
+      fileURLToPath(
+        new URL(
+          "./request-authorization.ts",
+          import.meta.url,
+        ),
+      ),
+      "utf8",
+    );
+
+    const block =
+      /export interface AieRequestPrincipal \{([\s\S]*?)\n\}/.exec(
+        source,
+      );
+
+    expect(block).not.toBeNull();
+
+    const fields = (
+      (block as RegExpExecArray)[1] as string
+    )
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    expect(fields).toEqual([
+      "subject: string;",
+      "roles?: string[];",
+    ]);
   });
 });

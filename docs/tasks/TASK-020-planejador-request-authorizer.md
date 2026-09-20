@@ -164,3 +164,8 @@ Decisions taken while implementing:
   the only AIE sources that read `process.env`; only the latter mentions `PLANEJADOR_AUTH_BASE_URL`.
 
 Behavior with the variable unset is unchanged from TASK-017: every AIE request is 401.
+## Update (TASK-021)
+
+The temporary rule "batch is forbidden for every authenticated caller" described above was replaced by entitlement
+evaluation: batch is authorized only when `/auth/me` returns `entitlements.aie_batch === true`. A legacy answer without
+`entitlements` still yields 403 on batch. See `TASK-021-aie-batch-entitlement-authorization.md`.

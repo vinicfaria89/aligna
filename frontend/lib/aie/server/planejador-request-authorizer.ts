@@ -19,8 +19,11 @@ import type {
  * - authentication is mandatory;
  * - cliente, assessor and administrador may use the SINGLE-asset operation;
  *   any other role value is forbidden;
- * - the BATCH operation is forbidden for every authenticated caller until the
- *   Premium entitlement (aie_batch) is enforced (TASK-021);
+ * - the BATCH operation additionally requires `entitlements.aie_batch === true`
+ *   in the answer (TASK-021). A missing entitlement means "not entitled"
+ *   (forbidden); a present but malformed one is a broken upstream contract and
+ *   throws. Only that boolean is read: no billing, plan or role exception
+ *   lives in the Aligna, and it never enters the principal;
  * - any Planejador failure (timeout, network, redirect, 5xx, 429, malformed
  *   answer...) THROWS, so the route fails closed with a safe 500 and nothing
  *   is processed.
@@ -267,6 +270,68 @@ interface Identity {
   role: string;
 
   isActive: boolean;
+
+  /**
+   * `entitlements.aie_batch === true` in the answer. Missing information (a
+   * legacy answer without `entitlements`, `{}` or no `aie_batch`) means false.
+   * The Aligna consumes only this boolean: it knows nothing about how the
+   * Planejador derives it.
+   */
+  batchEntitled: boolean;
+}
+
+function hasOwn(
+  target: object,
+  key: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(
+    target,
+    key,
+  );
+}
+
+/**
+ * Reads the optional entitlement. Absent data is "not entitled" (backward
+ * compatible with a Planejador that predates `entitlements`); data that is
+ * present but structurally wrong is a broken upstream contract and throws.
+ * Values are never coerced.
+ */
+function parseBatchEntitlement(
+  body: Record<string, unknown>,
+): boolean {
+  if (!hasOwn(body, "entitlements")) {
+    return false;
+  }
+
+  const entitlements =
+    body.entitlements;
+
+  if (
+    typeof entitlements !== "object" ||
+    entitlements === null ||
+    Array.isArray(entitlements)
+  ) {
+    throw new PlanejadorAuthorizationError();
+  }
+
+  if (
+    !hasOwn(entitlements, "aie_batch")
+  ) {
+    return false;
+  }
+
+  const value = (
+    entitlements as Record<
+      string,
+      unknown
+    >
+  ).aie_batch;
+
+  if (typeof value !== "boolean") {
+    throw new PlanejadorAuthorizationError();
+  }
+
+  return value;
 }
 
 /** Strict validation of the 200 body. Unknown fields are ignored. */
@@ -309,6 +374,14 @@ function parseIdentity(
     role,
 
     isActive: is_active,
+
+    batchEntitled:
+      parseBatchEntitlement(
+        body as Record<
+          string,
+          unknown
+        >,
+      ),
   };
 }
 
@@ -396,9 +469,17 @@ export class PlanejadorRequestAuthorizer
       return forbidden();
     }
 
-    // Premium-only batch (TASK-019, Decision 3): nobody holds the entitlement
-    // yet, so batch stays forbidden until TASK-021.
+    // Single asset: authentication + an allowed role is enough. Batch also
+    // needs the entitlement (TASK-019, Decision 3), decided by the Planejador
+    // and consumed here only as a boolean. Any other operation is denied.
     if (
+      context.operation ===
+      "resolve-assets"
+    ) {
+      if (!identity.batchEntitled) {
+        return forbidden();
+      }
+    } else if (
       context.operation !==
       "resolve-asset"
     ) {

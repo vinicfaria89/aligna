@@ -360,7 +360,7 @@ describe(
     );
 
     it(
-      "keeps the batch route at 403 for an authenticated allowed role, with no resolution work",
+      "answers 403 on the batch route for an authenticated allowed role whose answer has no entitlements (legacy Planejador), with no resolution work",
       async () => {
         for (const role of [
           "cliente",
@@ -368,11 +368,7 @@ describe(
           "administrador",
         ]) {
           const calls = stubFetch(
-            identityBody(role, {
-              entitlements: {
-                aie_batch: true,
-              },
-            }),
+            identityBody(role),
           );
 
           const { batch } =
