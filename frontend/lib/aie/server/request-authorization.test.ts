@@ -376,6 +376,10 @@ describe("AIE request authorization boundary", () => {
               SINGLE_URL,
               asset(),
             ),
+            {
+              operation:
+                "resolve-asset",
+            },
           ),
         ).toEqual({
           authorized: false,
@@ -419,6 +423,10 @@ describe("AIE request authorization boundary", () => {
                 "127.0.0.1",
             },
           ),
+          {
+            operation:
+              "resolve-asset",
+          },
         );
 
       expect(result).toEqual({
@@ -1128,6 +1136,7 @@ describe("AIE request authorization boundary", () => {
         await requireAuthorization(
           post(SINGLE_URL, asset()),
           allow(),
+          "resolve-asset",
         ),
       ).toBeNull();
 
@@ -1135,6 +1144,7 @@ describe("AIE request authorization boundary", () => {
         await requireAuthorization(
           post(SINGLE_URL, asset()),
           deny("forbidden"),
+          "resolve-asset",
         );
 
       expect(denied?.status).toBe(
@@ -1189,7 +1199,7 @@ describe("AIE request authorization boundary", () => {
       }
     });
 
-    it("the authorization module reads no environment, logs nothing and imports only the HTTP helpers", () => {
+    it("the authorization module reads no environment, logs nothing and imports only the HTTP helpers and the authorizer composition", () => {
       const source = code(
         "lib/aie/server/request-authorization.ts",
       );
@@ -1204,7 +1214,11 @@ describe("AIE request authorization boundary", () => {
 
       expect(
         imports(source),
-      ).toEqual(["./aie-http"]);
+      ).toEqual([
+        "./aie-http",
+        "./create-server-authorizer",
+        "./deny-all-authorizer",
+      ]);
     });
 
     it("the authorization module is not exported from the browser-safe barrel", () => {

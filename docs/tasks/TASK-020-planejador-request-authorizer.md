@@ -1,6 +1,6 @@
 # TASK-020 - PlanejadorRequestAuthorizer
 
-Status: specification, ready to implement. No code is written by this document.
+Status: implemented (see "Implementation notes" at the end). The specification below is unchanged except where noted.
 
 Policy source: `TASK-019-aie-access-policy.md` (approved). Identity source: Planejador `GET /api/v1/auth/me`
 (`{ id, role, is_active }`, Planejador commit `3fb6443`).
@@ -48,8 +48,9 @@ contract minimally and compatibly:
 With only authentication and roles, every logged-in user, including a free `cliente`, would be allowed to use the batch
 route, which contradicts Decision 3. Until `entitlements.aie_batch` exists in `/auth/me` and is enforced (TASK-021), the
 authorizer answers `forbidden` (403 `AIE_FORBIDDEN`) for `operation === "resolve-assets"` for every authenticated
-caller, without even needing the Planejador answer to decide. This is the conservative reading of the policy: nobody
-holds the entitlement yet, so nobody may use batch.
+caller. This is the conservative reading of the policy: nobody holds the entitlement yet, so nobody may use batch.
+The caller is still authenticated FIRST (as implemented): an unauthenticated or inactive caller gets 401, never a
+403 that would reveal the batch policy to someone who is not even logged in.
 
 ## Behavior
 
@@ -141,3 +142,25 @@ answers, local JWT verification, changes to the Planejador.
 
 `npx tsc --noEmit` and `npm test -- --run lib/aie` green; no real network; production behavior with the Planejador
 variable unset is identical to today (deny-all); no secret or token in any output.
+
+## Implementation notes
+
+Files: `lib/aie/server/planejador-request-authorizer.ts` (authorizer, base URL validation, constants),
+`create-server-authorizer.ts` (the single environment reader and memoized choice), `deny-all-authorizer.ts` (the
+fail-closed authorizer, in its own module to avoid a runtime import cycle), `request-authorization.ts` (adds
+`AieOperation`, `AieAuthorizationContext` and the operation argument; `getAieRequestAuthorizer()` now returns the composed
+authorizer), the two HTTP handlers (each passes its fixed operation literal), `.env.example` (empty
+`PLANEJADOR_AUTH_BASE_URL` placeholder).
+
+Decisions taken while implementing:
+
+- Authentication happens before the operation check, so `unauthenticated` beats `forbidden` on the batch route.
+- A 3xx answer is a failure (`redirect: "manual"`; any status other than 200/401/403 throws), so a redirect is never
+  followed and never treated as an identity.
+- The timeout covers the whole exchange (request and body read) through an abort controller; the connection of a 401/403
+  answer is released without waiting for the stream to cancel.
+- Only the fixed error `PlanejadorAuthorizationError` is thrown: no token, URL, status, cause or response content.
+- Static guards updated: the two server composition modules (`create-server-aie.ts`, `create-server-authorizer.ts`) are
+  the only AIE sources that read `process.env`; only the latter mentions `PLANEJADOR_AUTH_BASE_URL`.
+
+Behavior with the variable unset is unchanged from TASK-017: every AIE request is 401.

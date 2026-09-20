@@ -429,6 +429,7 @@ export async function handleResolveAssetsRequest(
       request,
       options.authorizer ??
         getAieRequestAuthorizer(),
+      "resolve-assets",
     );
 
   if (denied) {

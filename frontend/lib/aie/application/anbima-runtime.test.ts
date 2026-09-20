@@ -799,10 +799,14 @@ describe(
                     "/",
                   ),
                 )
+                // The two server composition boundaries: ANBIMA (TASK-008) and
+                // the request authorizer (TASK-020). Nothing else reads it.
                 .filter(
                   (file) =>
                     file !==
-                    "server/create-server-aie.ts",
+                      "server/create-server-aie.ts" &&
+                    file !==
+                      "server/create-server-authorizer.ts",
                 );
 
             expect(
