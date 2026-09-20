@@ -105,6 +105,19 @@ export class PortfolioCsvAdapterError extends Error {
   }
 }
 
+/**
+ * Optional upload provenance (TASK-025). When `defaultFileId` is given, a row
+ * that has NO explicit `id` gets `source.fileId` (unless its own `fileId` column
+ * is set) and `source.row` = its CSV row number (unless its own `row` column is
+ * set), so the ingestion layer derives its usual deterministic id
+ * `portfolio:<fileId>:<row>`. Nothing is written into the CSV text, nothing is
+ * random, and a row with an explicit `id` is left exactly as it is. The id
+ * identifies the candidate ROW inside one upload, not a financial asset.
+ */
+export interface PortfolioCsvOptions {
+  defaultFileId?: string;
+}
+
 export const CSV_CANONICAL_HEADERS = [
   "id",
   "rawName",
@@ -456,6 +469,7 @@ function parseRowNumber(
 function mapRow(
   headers: readonly CanonicalHeader[],
   record: CsvRecord,
+  options: PortfolioCsvOptions,
 ): PortfolioAssetInput {
   const path = `row[${record.row}]`;
 
@@ -586,6 +600,21 @@ function mapRow(
     );
   }
 
+  if (
+    options.defaultFileId !== undefined &&
+    asset.id === undefined
+  ) {
+    // Upload provenance fills only what the row does not state itself.
+    if (source.fileId === undefined) {
+      source.fileId =
+        options.defaultFileId;
+    }
+
+    if (source.row === undefined) {
+      source.row = record.row;
+    }
+  }
+
   if (Object.keys(source).length > 0) {
     asset.source = source;
   }
@@ -600,6 +629,7 @@ function mapRow(
  */
 export function parsePortfolioCsv(
   csv: string,
+  options: PortfolioCsvOptions = {},
 ): PortfolioAssetInput[] {
   if (typeof csv !== "string") {
     throw new PortfolioCsvAdapterError(
@@ -620,7 +650,7 @@ export function parsePortfolioCsv(
     readHeaders(headerRecord);
 
   return dataRecords.map((record) =>
-    mapRow(headers, record),
+    mapRow(headers, record, options),
   );
 }
 
@@ -631,8 +661,9 @@ export function parsePortfolioCsv(
  */
 export function ingestPortfolioCsv(
   csv: string,
+  options: PortfolioCsvOptions = {},
 ): CandidateAsset[] {
   return ingestPortfolioCandidates(
-    parsePortfolioCsv(csv),
+    parsePortfolioCsv(csv, options),
   );
 }

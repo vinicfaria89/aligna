@@ -8,6 +8,11 @@ import {
 } from "../ingestion/portfolio-candidate-ingestion";
 
 import {
+  CSV_UPLOAD_FILE_ID_PATTERN,
+  MAX_CSV_UPLOAD_BYTES,
+} from "../ingestion/portfolio-csv-limits";
+
+import {
   handleAieRequest,
 } from "./aie-audited-request";
 
@@ -78,6 +83,15 @@ import {
  * numbering of TASK-013: header is row 1); with blank lines in the file this is the
  * data-row ordinal + 1 rather than the physical line.
  *
+ * Optional upload provenance (TASK-025): the only accepted query parameter is
+ * `fileId`, an OPAQUE upload id (CSV_UPLOAD_FILE_ID_PATTERN). Rows that state no
+ * `id` get `source.fileId = fileId` and `source.row` = their CSV row through the
+ * CSV adapter, so ingestion derives `portfolio:<fileId>:<row>` deterministically
+ * without anyone editing the CSV text. It identifies a candidate ROW inside that
+ * upload, never a financial asset; a row that states its own `id` is untouched.
+ * Any other query parameter, a repeated `fileId` or a malformed one is a 400 (the
+ * contract stays closed); no value is echoed.
+ *
  * Not implemented: multipart/form-data, file names (a filename header is never
  * read or trusted; only a `fileName` COLUMN, if present, is data), Excel, PDF.
  */
@@ -88,7 +102,7 @@ import {
  * wide margin, and the request stays bounded in memory. Bytes, not characters.
  */
 export const MAX_CSV_BODY_BYTES =
-  512 * 1024;
+  MAX_CSV_UPLOAD_BYTES;
 
 /** text/csv, optionally with `charset=utf-8`. Any other parameter or type is refused. */
 const CSV_CONTENT_TYPE =
@@ -139,11 +153,85 @@ export async function handleResolveCsvRequest(
   );
 }
 
+/**
+ * Reads the closed query contract: nothing but an optional, single, well-formed
+ * `fileId`. Returns the id (or undefined), or the safe 400 response.
+ */
+function readUploadFileId(
+  request: Request,
+):
+  | { ok: true; fileId?: string }
+  | { ok: false; response: Response } {
+  let params: URLSearchParams;
+
+  try {
+    params = new URL(request.url)
+      .searchParams;
+  } catch {
+    return { ok: true };
+  }
+
+  const keys = [...params.keys()];
+
+  if (
+    keys.some((key) => key !== "fileId")
+  ) {
+    // The unknown parameter name is user controlled: only the location is reported.
+    return {
+      ok: false,
+
+      response: invalidCsv([
+        {
+          path: "query",
+
+          code: "unknown_field",
+        },
+      ]),
+    };
+  }
+
+  const values = params.getAll("fileId");
+
+  if (values.length === 0) {
+    return { ok: true };
+  }
+
+  const value = values[0] as string;
+
+  if (
+    values.length > 1 ||
+    !CSV_UPLOAD_FILE_ID_PATTERN.test(
+      value,
+    )
+  ) {
+    return {
+      ok: false,
+
+      response: invalidCsv([
+        {
+          path: "query.fileId",
+
+          code: "invalid_value",
+        },
+      ]),
+    };
+  }
+
+  return { ok: true, fileId: value };
+}
+
 async function executeResolveCsv(
   request: Request,
 ): Promise<Response> {
   if (!hasCsvContentType(request)) {
     return unsupportedCsvMediaType();
+  }
+
+  const upload =
+    readUploadFileId(request);
+
+  if (!upload.ok) {
+    return upload.response;
   }
 
   const body = await readBoundedBytes(
@@ -188,8 +276,15 @@ async function executeResolveCsv(
   >;
 
   try {
-    candidates =
-      ingestPortfolioCsv(text);
+    candidates = ingestPortfolioCsv(
+      text,
+      upload.fileId === undefined
+        ? {}
+        : {
+            defaultFileId:
+              upload.fileId,
+          },
+    );
   } catch (error) {
     if (
       error instanceof

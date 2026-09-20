@@ -1,3 +1,7 @@
+import {
+  MAX_PORTFOLIO_ROWS,
+} from "../ingestion/portfolio-csv-limits";
+
 import type {
   CandidateAsset,
   ResolutionResult,
@@ -53,7 +57,8 @@ export const MAX_BATCH_CONCURRENCY = 10;
  * is resolved in one HTTP request/response. Larger inputs are rejected, never
  * silently truncated; split them into several batches.
  */
-export const MAX_BATCH_SIZE = 100;
+export const MAX_BATCH_SIZE =
+  MAX_PORTFOLIO_ROWS;
 
 export interface ResolveAssetsOptions {
   /** Integer in [1, MAX_BATCH_CONCURRENCY]. Default DEFAULT_BATCH_CONCURRENCY. */

@@ -115,3 +115,10 @@ progress and async polling. The browser UI will read the file locally, preview i
 - Usage limits are per process (TASK-023); ANBIMA limits and cache are per process (TASK-015).
 - The audit does not distinguish CSV from JSON batch requests.
 - Row numbers of ingestion errors ignore blank lines (see above).
+
+## Update (TASK-025)
+
+The endpoint accepts ONE optional query parameter, `fileId`, an opaque upload id (`[A-Za-z0-9._-]{1,64}`). Rows that state no `id` then get
+`portfolio:<fileId>:<row>` through the CSV adapter's new optional `defaultFileId` (the CSV text is never edited). Any other query parameter
+or a malformed or repeated `fileId` is a 400. Without `fileId` the contract above is unchanged. The byte and row limits now come from one
+browser-safe module shared with the UI. See `TASK-025-csv-portfolio-resolution-ui.md`.

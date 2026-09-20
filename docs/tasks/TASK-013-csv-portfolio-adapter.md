@@ -87,3 +87,9 @@ ticker; an ISIN-looking name never fills `isin`). Tests scan its imports and cod
 - A single-column CSV cannot express an empty row (it looks like a blank line and is skipped).
 - Decimal amounts use IEEE double precision (at most 15 significant digits accepted).
 - Excel, PDF/OCR, brokerage/bank-specific adapters, locale-aware numbers, other delimiters and file I/O are future work.
+
+## Update (TASK-025)
+
+`parsePortfolioCsv(csv, options?)` and `ingestPortfolioCsv(csv, options?)` accept an optional `defaultFileId`: for a row with no `id` it fills
+`source.fileId` and `source.row` (the CSV row number) when the row does not state them, so ingestion derives `portfolio:<fileId>:<row>`. Rows
+that state their own `id`, `fileId` or `row` are untouched, and without the option nothing changes. See `TASK-025-csv-portfolio-resolution-ui.md`.

@@ -1725,6 +1725,8 @@ describe(
 
         expect(imports).toEqual([
           "../contracts",
+          // Shared, browser-safe limit constant (the batch size derives from it).
+          "../ingestion/portfolio-csv-limits",
           "./resolve-asset",
         ]);
       },

@@ -1625,6 +1625,7 @@ describe("POST /api/aie/resolve-csv", () => {
       expect(imports).toEqual([
         "../ingestion/adapters/portfolio-csv-adapter",
         "../ingestion/portfolio-candidate-ingestion",
+        "../ingestion/portfolio-csv-limits",
         "./aie-audited-request",
         "./aie-http",
         "./aie-http",
