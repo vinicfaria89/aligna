@@ -3,6 +3,10 @@ import type {
 } from "../contracts";
 
 import {
+  handleAieRequest,
+} from "./aie-audited-request";
+
+import {
   errorResponse,
   hasJsonContentType,
   jsonResponse,
@@ -16,11 +20,6 @@ import {
 import type {
   ValidationIssue,
 } from "./candidate-asset-validation";
-
-import {
-  getAieRequestAuthorizer,
-  requireAuthorization,
-} from "./request-authorization";
 
 import type {
   AieHttpOptions,
@@ -64,8 +63,9 @@ import {
  * (bounded by the service limits). Rate limiting, cache and providers are not
  * client-configurable. Concurrency is not rate limiting.
  *
- * Authentication/authorization: the application has none yet, and none is
- * invented here. It is REQUIRED before this endpoint is publicly exposed.
+ * Authorization (TASK-017/020/021) and auditing (TASK-022) wrap the execution in
+ * aie-audited-request.ts: authorization always runs first, and every response
+ * carries X-Correlation-Id.
  */
 
 /**
@@ -419,23 +419,26 @@ async function readBoundedBody(
   };
 }
 
+/**
+ * POST /api/aie/resolve-assets entry point.
+ * Authorization and auditing wrap the execution (see aie-audited-request.ts):
+ * authorization runs first, before the body is read or anything is validated.
+ */
 export async function handleResolveAssetsRequest(
   request: Request,
   options: AieHttpOptions = {},
 ): Promise<Response> {
-  // Authorization first: before the (potentially large) body is read.
-  const denied =
-    await requireAuthorization(
-      request,
-      options.authorizer ??
-        getAieRequestAuthorizer(),
-      "resolve-assets",
-    );
+  return handleAieRequest(
+    request,
+    "resolve-assets",
+    options,
+    () => executeResolveAssets(request),
+  );
+}
 
-  if (denied) {
-    return denied;
-  }
-
+async function executeResolveAssets(
+  request: Request,
+): Promise<Response> {
   if (!hasJsonContentType(request)) {
     return unsupportedMediaType();
   }

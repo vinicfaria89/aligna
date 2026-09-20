@@ -10,6 +10,10 @@ export {
   createDenyAllAuthorizer,
 } from "./deny-all-authorizer";
 
+import type {
+  AieAuditOptions,
+} from "./aie-audit";
+
 /**
  * SERVER-ONLY authorization boundary for the AIE HTTP routes (TASK-017,
  * extended by TASK-020).
@@ -29,8 +33,10 @@ export {
  *
  * Privacy: the principal is request-level metadata. It never leaves this
  * module: requireAuthorization() returns only a denial Response (or null when
- * authorized), so the principal cannot reach CandidateAsset, ProviderQuery,
- * AssetEvidence, ANBIMA calls or ResolutionResult.
+ * authorized), and evaluateAuthorization() (used by the audited orchestration,
+ * TASK-022) exposes only the subject identifier, never roles or the principal
+ * object, so it cannot reach CandidateAsset, ProviderQuery, AssetEvidence,
+ * ANBIMA calls or ResolutionResult.
  */
 
 export interface AieRequestPrincipal {
@@ -53,6 +59,13 @@ export type AieAuthorizationResult =
       authorized: false;
 
       reason: AieAuthorizationDenialReason;
+
+      /**
+       * Optional identifier of an authenticated caller that was denied (for
+       * example a forbidden role or a missing entitlement). Used only for the
+       * audit trail; never set for an unauthenticated caller.
+       */
+      subject?: string;
     };
 
 /**
@@ -84,6 +97,9 @@ export interface AieRequestAuthorizer {
 /** Options accepted by the AIE HTTP handlers (an injection seam for tests). */
 export interface AieHttpOptions {
   authorizer?: AieRequestAuthorizer;
+
+  /** Audit seams (sink, clock, correlation id); defaults are server-side. */
+  audit?: AieAuditOptions;
 }
 
 /**
@@ -139,20 +155,49 @@ function isValidPrincipal(
 }
 
 /**
+ * The decision of an authorization, reduced to what the orchestration needs:
+ * the outcome, the ready-to-send safe Response of a denial, and the subject
+ * identifier (only when the caller is known). Never the principal or roles.
+ */
+export type AieAuthorizationOutcome =
+  | {
+      status: "authorized";
+
+      subject: string;
+    }
+  | {
+      status:
+        | "unauthenticated"
+        | "forbidden"
+        | "authorization-error";
+
+      subject?: string;
+
+      response: Response;
+    };
+
+/**
  * Runs the authorizer and returns:
- * - null when the request is authorized (the caller may continue);
- * - a safe 401/403 Response when it is denied;
- * - a safe 500 Response when the authorizer itself fails or answers something
- *   that is not a valid result (fail closed: the request is NOT processed).
+ * - `authorized` (the caller may continue);
+ * - `unauthenticated` / `forbidden` with a safe 401/403 Response when denied;
+ * - `authorization-error` with a safe 500 Response when the authorizer itself
+ *   fails or answers something that is not a valid result (fail closed: the
+ *   request is NOT processed).
  *
  * Responses carry fixed codes and messages only: never the reason detail,
  * claims, session internals, stacks or the principal.
  */
-export async function requireAuthorization(
+export async function evaluateAuthorization(
   request: Request,
   authorizer: AieRequestAuthorizer,
   operation: AieOperation,
-): Promise<Response | null> {
+): Promise<AieAuthorizationOutcome> {
+  const failure = (): AieAuthorizationOutcome => ({
+    status: "authorization-error",
+
+    response: authorizationFailure(),
+  });
+
   let result: unknown;
 
   try {
@@ -169,14 +214,14 @@ export async function requireAuthorization(
         },
       );
   } catch {
-    return authorizationFailure();
+    return failure();
   }
 
   if (
     typeof result !== "object" ||
     result === null
   ) {
-    return authorizationFailure();
+    return failure();
   }
 
   const decision = result as {
@@ -185,30 +230,78 @@ export async function requireAuthorization(
     principal?: unknown;
 
     reason?: unknown;
+
+    subject?: unknown;
   };
 
   if (decision.authorized === true) {
     return isValidPrincipal(
       decision.principal,
     )
-      ? null
-      : authorizationFailure();
+      ? {
+          status: "authorized",
+
+          subject: (
+            decision.principal as {
+              subject: string;
+            }
+          ).subject,
+        }
+      : failure();
   }
 
   if (decision.authorized === false) {
     if (
       decision.reason === "forbidden"
     ) {
-      return forbidden();
+      return {
+        status: "forbidden",
+
+        ...(typeof decision.subject ===
+        "string"
+          ? {
+              subject:
+                decision.subject,
+            }
+          : {}),
+
+        response: forbidden(),
+      };
     }
 
     if (
       decision.reason ===
       "unauthenticated"
     ) {
-      return unauthenticated();
+      // An unauthenticated caller has no subject by definition.
+      return {
+        status: "unauthenticated",
+
+        response: unauthenticated(),
+      };
     }
   }
 
-  return authorizationFailure();
+  return failure();
+}
+
+/**
+ * Authorization without auditing: null when authorized, otherwise the safe
+ * denial/failure Response.
+ */
+export async function requireAuthorization(
+  request: Request,
+  authorizer: AieRequestAuthorizer,
+  operation: AieOperation,
+): Promise<Response | null> {
+  const outcome =
+    await evaluateAuthorization(
+      request,
+      authorizer,
+      operation,
+    );
+
+  return outcome.status === "authorized"
+    ? null
+    : outcome.response;
 }

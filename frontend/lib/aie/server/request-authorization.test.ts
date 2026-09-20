@@ -1218,6 +1218,7 @@ describe("AIE request authorization boundary", () => {
         "./aie-http",
         "./create-server-authorizer",
         "./deny-all-authorizer",
+        "./aie-audit",
       ]);
     });
 

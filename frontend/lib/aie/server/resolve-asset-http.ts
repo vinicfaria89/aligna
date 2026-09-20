@@ -1,4 +1,8 @@
 import {
+  handleAieRequest,
+} from "./aie-audited-request";
+
+import {
   errorResponse,
   hasJsonContentType,
   jsonResponse,
@@ -12,11 +16,6 @@ import {
 import type {
   ValidationIssue,
 } from "./candidate-asset-validation";
-
-import {
-  getAieRequestAuthorizer,
-  requireAuthorization,
-} from "./request-authorization";
 
 import type {
   AieHttpOptions,
@@ -139,23 +138,26 @@ async function readBody(
   };
 }
 
+/**
+ * POST /api/aie/resolve-asset entry point.
+ * Authorization and auditing wrap the execution (see aie-audited-request.ts):
+ * authorization runs first, before the body is read or anything is validated.
+ */
 export async function handleResolveAssetRequest(
   request: Request,
   options: AieHttpOptions = {},
 ): Promise<Response> {
-  // Authorization first: before the body is read or anything is validated.
-  const denied =
-    await requireAuthorization(
-      request,
-      options.authorizer ??
-        getAieRequestAuthorizer(),
-      "resolve-asset",
-    );
+  return handleAieRequest(
+    request,
+    "resolve-asset",
+    options,
+    () => executeResolveAsset(request),
+  );
+}
 
-  if (denied) {
-    return denied;
-  }
-
+async function executeResolveAsset(
+  request: Request,
+): Promise<Response> {
   if (!hasJsonContentType(request)) {
     return unsupportedMediaType();
   }

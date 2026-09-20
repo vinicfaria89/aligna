@@ -472,6 +472,8 @@ describe("PlanejadorRequestAuthorizer", () => {
           authorized: false,
 
           reason: "forbidden",
+
+          subject: USER_ID,
         });
       }
     });
@@ -496,6 +498,8 @@ describe("PlanejadorRequestAuthorizer", () => {
           authorized: false,
 
           reason: "forbidden",
+
+          subject: USER_ID,
         });
       }
     });
@@ -1210,11 +1214,14 @@ describe("PlanejadorRequestAuthorizer batch entitlement", () => {
     );
   }
 
+  // An identified caller: the subject travels with the denial (audit only).
   const FORBIDDEN: AieAuthorizationResult =
     {
       authorized: false,
 
       reason: "forbidden",
+
+      subject: USER_ID,
     };
 
   describe("single asset ignores the entitlement", () => {
@@ -1632,10 +1639,10 @@ describe("batch entitlement stays inside the authorizer (static)", () => {
       )
       .filter((file) =>
         /aie_batch|entitlement/i.test(
-          fs.readFileSync(
-            file,
-            "utf8",
-          ),
+          fs
+            .readFileSync(file, "utf8")
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/^\s*\/\/.*$/gm, ""),
         ),
       )
       .map((file) =>
@@ -1644,7 +1651,8 @@ describe("batch entitlement stays inside the authorizer (static)", () => {
           .replace(/\\/g, "/"),
       );
 
-    // Mentions in comments are fine; nothing else may even name it. Only the
+    // Comments are ignored (they may document what is forbidden); no CODE may
+    // even name it. Only the
     // authorizer reads it (the request-authorization module documents the
     // principal without it).
     expect(

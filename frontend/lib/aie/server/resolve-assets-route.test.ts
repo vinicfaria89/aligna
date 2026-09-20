@@ -1518,10 +1518,10 @@ describe("POST /api/aie/resolve-assets", () => {
         ).sort(),
       ).toEqual([
         "../contracts",
+        "./aie-audited-request",
         "./aie-http",
         "./candidate-asset-validation",
         "./candidate-asset-validation",
-        "./request-authorization",
         "./request-authorization",
         "./resolve-assets",
       ]);

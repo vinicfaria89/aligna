@@ -466,7 +466,7 @@ export class PlanejadorRequestAuthorizer
         identity.role,
       )
     ) {
-      return forbidden();
+      return forbidden(identity.id);
     }
 
     // Single asset: authentication + an allowed role is enough. Batch also
@@ -477,13 +477,13 @@ export class PlanejadorRequestAuthorizer
       "resolve-assets"
     ) {
       if (!identity.batchEntitled) {
-        return forbidden();
+        return forbidden(identity.id);
       }
     } else if (
       context.operation !==
       "resolve-asset"
     ) {
-      return forbidden();
+      return forbidden(identity.id);
     }
 
     return {
@@ -607,11 +607,20 @@ function unauthenticated(): AieAuthorizationResult {
   };
 }
 
-function forbidden(): AieAuthorizationResult {
+/**
+ * "forbidden" for a caller the identity service DID identify (a role that is not
+ * allowed, a missing entitlement): the subject is carried only so the audit trail
+ * can record who was denied. An unauthenticated caller never has a subject.
+ */
+function forbidden(
+  subject: string,
+): AieAuthorizationResult {
   return {
     authorized: false,
 
     reason: "forbidden",
+
+    subject,
   };
 }
 

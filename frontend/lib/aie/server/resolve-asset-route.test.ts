@@ -1029,10 +1029,10 @@ describe(
                 ),
               ).sort(),
             ).toEqual([
+              "./aie-audited-request",
               "./aie-http",
               "./candidate-asset-validation",
               "./candidate-asset-validation",
-              "./request-authorization",
               "./request-authorization",
               "./resolve-asset",
             ]);
