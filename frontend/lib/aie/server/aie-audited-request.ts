@@ -6,11 +6,21 @@ import {
 
 import {
   errorResponse,
+  rateLimited,
+  usageControlFailure,
 } from "./aie-http";
+
+import {
+  interpretUsageDecision,
+} from "./aie-usage";
 
 import {
   getAieAuditSink,
 } from "./create-server-audit-sink";
+
+import {
+  getAieUsageController,
+} from "./create-server-usage-controller";
 
 import {
   evaluateAuthorization,
@@ -26,7 +36,9 @@ import type {
  * SERVER-ONLY orchestration shared by both AIE routes (TASK-022):
  *
  *   evaluateAuthorization -> [audit: authorization event]
- *     -> (authorized) execute() -> [audit: execution event]
+ *     -> (authorized) usage control (429 / fail closed) -> [audit: execution event
+ *        rate-limited | usage-control-error, when denied]
+ *     -> execute() -> [audit: execution event]
  *     -> response + X-Correlation-Id
  *
  * It is the only place that connects the authorizer to the audit sink: the
@@ -107,6 +119,67 @@ export async function handleAieRequest(
       subject: authorization.subject,
     },
   );
+
+  /*
+   * Usage control (TASK-023): only for an authenticated subject, after the
+   * authorization decision and before the body is read or anything is resolved.
+   * Unauthenticated and forbidden callers never get here, so they create no
+   * limiter state. The controller sees only the subject and the fixed operation
+   * literal. If it fails or answers something malformed the request is denied
+   * (fail closed): a broken limiter never means "allowed".
+   */
+  let usage: ReturnType<typeof interpretUsageDecision>;
+
+  try {
+    usage = interpretUsageDecision(
+      await (
+        options.usage ??
+        getAieUsageController()
+      ).check({
+        subject: authorization.subject,
+
+        operation,
+      }),
+    );
+  } catch {
+    usage = { kind: "invalid" };
+  }
+
+  if (usage.kind !== "allowed") {
+    const denial =
+      usage.kind === "limited"
+        ? {
+            response: rateLimited(
+              usage.retryAfterSeconds,
+            ),
+
+            outcome:
+              "rate-limited" as const,
+          }
+        : {
+            response:
+              usageControlFailure(),
+
+            outcome:
+              "usage-control-error" as const,
+          };
+
+    await audit.execution(
+      denial.outcome,
+      {
+        subject:
+          authorization.subject,
+
+        status:
+          denial.response.status,
+      },
+    );
+
+    return withCorrelationId(
+      denial.response,
+      audit.correlationId,
+    );
+  }
 
   let response: Response;
 

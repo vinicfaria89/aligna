@@ -423,6 +423,10 @@ describe("audit contract", () => {
         executionOutcomeForStatus(503),
       ).toBe("configuration-error");
 
+      expect(
+        executionOutcomeForStatus(429),
+      ).toBe("rate-limited");
+
       for (const status of [500, 502]) {
         expect(
           executionOutcomeForStatus(

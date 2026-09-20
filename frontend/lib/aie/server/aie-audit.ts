@@ -17,6 +17,8 @@ import type {
  *        (decision: allow, or deny; an authorizer failure is a deny, fail closed)
  *   2. execution      one event, only when the request was authorized:
  *        completed | validation-error | configuration-error | internal-error
+ *        | rate-limited | usage-control-error (TASK-023: authorized, then the
+ *          usage control denied it or failed; the request did not execute)
  *
  * What an event may contain (TASK-019, Decision 5): correlation id, UTC
  * timestamp, the fixed operation literal, the outcome, the allow/deny
@@ -48,7 +50,11 @@ export type AieExecutionAuditOutcome =
   | "completed"
   | "validation-error"
   | "configuration-error"
-  | "internal-error";
+  | "internal-error"
+  // TASK-023: the request was authorized but not executed because of usage
+  // control (429), or the usage controller itself failed (500, fail closed).
+  | "rate-limited"
+  | "usage-control-error";
 
 interface AieAuditEventBase {
   /** Server-generated random id, also returned as X-Correlation-Id. */
@@ -332,6 +338,10 @@ export function executionOutcomeForStatus(
 ): AieExecutionAuditOutcome {
   if (status >= 200 && status < 300) {
     return "completed";
+  }
+
+  if (status === 429) {
+    return "rate-limited";
   }
 
   if (status === 503) {

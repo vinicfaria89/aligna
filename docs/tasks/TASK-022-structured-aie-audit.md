@@ -133,3 +133,7 @@ job for 90 days, a decision on fail-closed vs best-effort writes, and monitoring
 
 Database audit table, external log vendor, SIEM, the 90-day deletion job, dashboards, alerting, per-user quotas and rate
 limiting (TASK-023), console logging (deliberately none).
+
+## Update (TASK-023)
+
+The execution stage gained two outcomes, ate-limited (status 429) and usage-control-error (status 500), for requests that were authorized but not executed because of the identity usage control. No new field or stage was added. See TASK-023-aie-identity-rate-limits.md.

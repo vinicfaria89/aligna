@@ -1219,6 +1219,7 @@ describe("AIE request authorization boundary", () => {
         "./create-server-authorizer",
         "./deny-all-authorizer",
         "./aie-audit",
+        "./aie-usage",
       ]);
     });
 
@@ -1313,3 +1314,18 @@ function handleResolveAssetLike(
     authorizer,
   });
 }
+
+
+// TASK-023: this file is not about usage limits, so the server usage controller
+// is replaced by an allow-all one (limits are covered by aie-usage*.test.ts).
+// vitest hoists vi.mock, so its position in the file is irrelevant.
+vi.mock(
+  "./create-server-usage-controller",
+  () => ({
+    getAieUsageController: () => ({
+      check: async () => ({
+        allowed: true as const,
+      }),
+    }),
+  }),
+);

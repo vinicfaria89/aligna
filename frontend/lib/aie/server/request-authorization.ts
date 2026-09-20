@@ -14,6 +14,10 @@ import type {
   AieAuditOptions,
 } from "./aie-audit";
 
+import type {
+  AieUsageController,
+} from "./aie-usage";
+
 /**
  * SERVER-ONLY authorization boundary for the AIE HTTP routes (TASK-017,
  * extended by TASK-020).
@@ -100,6 +104,9 @@ export interface AieHttpOptions {
 
   /** Audit seams (sink, clock, correlation id); defaults are server-side. */
   audit?: AieAuditOptions;
+
+  /** Usage-control seam (TASK-023); the default is the server controller. */
+  usage?: AieUsageController;
 }
 
 /**

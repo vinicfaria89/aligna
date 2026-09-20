@@ -90,3 +90,44 @@ export function unsupportedMediaType(): Response {
     "Content-Type must be application/json.",
   );
 }
+
+/**
+ * 429 for a usage denial (TASK-023). Fixed body: no counter, no subject, no
+ * policy detail. `Retry-After` is whole seconds.
+ */
+export function rateLimited(
+  retryAfterSeconds: number,
+): Response {
+  return new Response(
+    JSON.stringify({
+      ok: false,
+
+      error: {
+        code: "AIE_RATE_LIMITED",
+
+        message:
+          "Too many asset resolution requests.",
+      },
+    }),
+    {
+      status: 429,
+
+      headers: {
+        ...JSON_HEADERS,
+
+        "Retry-After": String(
+          retryAfterSeconds,
+        ),
+      },
+    },
+  );
+}
+
+/** Fail-closed answer when the usage controller itself fails. */
+export function usageControlFailure(): Response {
+  return errorResponse(
+    500,
+    "AIE_USAGE_CONTROL_ERROR",
+    "Unable to check usage limits.",
+  );
+}
