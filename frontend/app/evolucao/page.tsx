@@ -1,10 +1,12 @@
 "use client";
 
 import { Loader2, Lock, LogIn } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import PatrimonioHistoryChart from "@/components/PatrimonioHistoryChart";
 import ScoreHistoryChart from "@/components/ScoreHistoryChart";
 import { ApiError, getScoreHistory, login as loginRequest } from "@/lib/api";
+import { getSafePostLoginReturnPath, POST_LOGIN_RETURN_PARAM } from "@/lib/navigation/safe-return-path";
 import { getValidAccessToken, saveSession } from "@/lib/session";
 import { ScoreSnapshot } from "@/lib/types";
 
@@ -15,7 +17,18 @@ type ViewState =
   | { kind: "error"; message: string }
   | { kind: "ready"; snapshots: ScoreSnapshot[] };
 
+// useSearchParams exige um limite de Suspense para a página poder ser pré-renderizada.
 export default function EvolucaoPage() {
+  return (
+    <Suspense fallback={null}>
+      <EvolucaoContent />
+    </Suspense>
+  );
+}
+
+function EvolucaoContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -50,7 +63,17 @@ export default function EvolucaoPage() {
     setLoginError(null);
     try {
       const tokens = await loginRequest(email, password);
-      saveSession(tokens);
+      const saved = saveSession(tokens);
+      // TASK-027: `voltar` só vale depois de um login que acabou de dar certo aqui
+      // (nunca por estar na URL, nem após refresh silencioso) e só para um destino
+      // da allow-list, comparado exatamente. replace: o formulário de login não
+      // fica como destino do botão Voltar. Sem sessão gravada, não navega: o
+      // destino não a encontraria.
+      const returnTo = getSafePostLoginReturnPath(searchParams?.get(POST_LOGIN_RETURN_PARAM));
+      if (saved && returnTo) {
+        router.replace(returnTo);
+        return;
+      }
       await loadHistory();
     } catch (err) {
       setLoginError(err instanceof ApiError ? err.message : "Não conseguimos entrar agora. Tente de novo.");

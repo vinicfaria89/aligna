@@ -9,12 +9,16 @@ const STORAGE_KEY = "aligna_session";
  * não tenta ser mais robusto que isso (sem múltiplos dispositivos, sem
  * logout remoto).
  */
-export function saveSession(tokens: IntakeTokens): void {
+export function saveSession(tokens: IntakeTokens): boolean {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(tokens));
+    return true;
   } catch {
     // localStorage pode falhar (aba anônima, storage bloqueado) -- login
-    // ainda funciona pra esta visita, só não persiste pra próxima.
+    // ainda funciona pra esta visita, só não persiste pra próxima. O retorno
+    // diz se a sessão ficou gravada (quem navega logo depois de entrar só deve
+    // fazê-lo quando ficou); os chamadores antigos podem ignorá-lo.
+    return false;
   }
 }
 

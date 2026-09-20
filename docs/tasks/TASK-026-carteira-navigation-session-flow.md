@@ -83,6 +83,9 @@ There is no loop: one session lookup and one request per user action (tested).
 
 ## After sign-in
 
+(Update, TASK-027: the "Entrar" link now goes to `/evolucao?voltar=/carteira` and a successful login returns to `/carteira` through an exact-match
+allow-list; see `TASK-027-safe-post-login-return.md`. The text below describes the state at TASK-026.)
+
 The sign-in form is `/evolucao`, which loads the evolution history after login and has no "return to" parameter. The user comes back to
 `/carteira` with the "Voltar" link or the address and chooses the file again (the file is never persisted, by design; the message says so).
 No automatic resubmission. A `return` parameter would need an allow-list to avoid an open redirect and a change to `/evolucao`; left out on

@@ -278,6 +278,23 @@ describe("session token lifecycle", () => {
     });
   });
 
+  describe("saveSession", () => {
+    it("reports whether the session was actually stored (TASK-027 navigates only when it was)", () => {
+      expect(saveSession(STORED)).toBe(true);
+
+      expect(stored()).toEqual(STORED);
+
+      vi.spyOn(
+        Storage.prototype,
+        "setItem",
+      ).mockImplementation(() => {
+        throw new Error("quota");
+      });
+
+      expect(saveSession(FRESH)).toBe(false);
+    });
+  });
+
   describe("clearSession", () => {
     it("removes the stored session and tolerates blocked storage", () => {
       saveSession(STORED);

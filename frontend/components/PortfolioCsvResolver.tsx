@@ -29,6 +29,7 @@ import {
   MAX_CSV_UPLOAD_BYTES,
   MAX_PORTFOLIO_ROWS,
 } from "@/lib/aie/ingestion/portfolio-csv-limits";
+import { loginHrefReturningTo } from "@/lib/navigation/safe-return-path";
 import { acquireAccessToken, clearSession } from "@/lib/session";
 
 /**
@@ -538,8 +539,8 @@ export default function PortfolioCsvResolver({
             {view.expired
               ? "Entre novamente para resolver a carteira. "
               : "É preciso estar logado para resolver uma carteira. "}
-            O arquivo não fica guardado: depois de entrar, volte a esta página e escolha o arquivo de novo.{" "}
-            <a className="font-semibold underline" href="/evolucao">
+            O arquivo não fica guardado: depois de entrar, você volta a esta página e escolhe o arquivo de novo.{" "}
+            <a className="font-semibold underline" href={loginHrefReturningTo("/carteira")}>
               Entrar
             </a>
           </p>

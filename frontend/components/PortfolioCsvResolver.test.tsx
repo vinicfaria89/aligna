@@ -654,7 +654,7 @@ describe("PortfolioCsvResolver", () => {
         }),
       ).toHaveAttribute(
         "href",
-        "/evolucao",
+        "/evolucao?voltar=/carteira",
       );
 
       expect(fetchImpl).not.toHaveBeenCalled();
@@ -1602,7 +1602,7 @@ describe("PortfolioCsvResolver", () => {
         within(alert).getByRole("link", {
           name: "Entrar",
         }),
-      ).toHaveAttribute("href", "/evolucao");
+      ).toHaveAttribute("href", "/evolucao?voltar=/carteira");
 
       expect(fetchImpl).not.toHaveBeenCalled();
 
@@ -1696,7 +1696,7 @@ describe("PortfolioCsvResolver", () => {
         within(alert).getByRole("link", {
           name: "Entrar",
         }),
-      ).toHaveAttribute("href", "/evolucao");
+      ).toHaveAttribute("href", "/evolucao?voltar=/carteira");
 
       expect(fetchImpl).not.toHaveBeenCalled();
 
@@ -1755,7 +1755,7 @@ describe("PortfolioCsvResolver", () => {
         within(alert).getByRole("link", {
           name: "Entrar",
         }),
-      ).toHaveAttribute("href", "/evolucao");
+      ).toHaveAttribute("href", "/evolucao?voltar=/carteira");
 
       expect(clearSession).toHaveBeenCalledTimes(1);
 
