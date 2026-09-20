@@ -29,7 +29,7 @@ import {
   MAX_CSV_UPLOAD_BYTES,
   MAX_PORTFOLIO_ROWS,
 } from "@/lib/aie/ingestion/portfolio-csv-limits";
-import { getValidAccessToken } from "@/lib/session";
+import { acquireAccessToken, clearSession } from "@/lib/session";
 
 /**
  * First user-facing AIE workflow (TASK-025): choose a CSV, preview it locally,
@@ -76,7 +76,8 @@ type View =
       kind: "server-validation-error";
       issues: SafeIssue[];
     }
-  | { kind: "unauthenticated" }
+  | { kind: "unauthenticated"; expired: boolean }
+  | { kind: "session-unavailable" }
   | { kind: "forbidden" }
   | { kind: "too-large" }
   | { kind: "unsupported-media" }
@@ -85,8 +86,10 @@ type View =
   | { kind: "network-error" };
 
 export interface PortfolioCsvResolverProps {
-  /** Test seams. Defaults: the app's existing session and the global fetch. */
-  getAccessToken?: SubmitPortfolioCsvInput["getAccessToken"];
+  /** Test seams. Defaults: the app's existing session (lib/session.ts) and the global fetch. */
+  getSession?: SubmitPortfolioCsvInput["getSession"];
+
+  clearSession?: () => void;
 
   fetchImpl?: SubmitPortfolioCsvInput["fetchImpl"];
 }
@@ -227,7 +230,8 @@ function ItemDetails({ item }: { item: ResolvedItemView }) {
 }
 
 export default function PortfolioCsvResolver({
-  getAccessToken = getValidAccessToken,
+  getSession = acquireAccessToken,
+  clearSession: endSession = clearSession,
   fetchImpl,
 }: PortfolioCsvResolverProps = {}) {
   const [selection, setSelection] = useState<Selection | null>(null);
@@ -334,7 +338,8 @@ export default function PortfolioCsvResolver({
     const outcome: ResolveCsvOutcome = await submitPortfolioCsv({
       csvText: selection.text,
       fileId: selection.fileId,
-      getAccessToken,
+      getSession,
+      clearSession: endSession,
       fetchImpl,
     });
 
@@ -355,7 +360,10 @@ export default function PortfolioCsvResolver({
         setView({ kind: "server-validation-error", issues: outcome.issues });
         break;
       case "unauthenticated":
-        setView({ kind: "unauthenticated" });
+        setView({ kind: "unauthenticated", expired: outcome.reason !== "no-session" });
+        break;
+      case "session-unavailable":
+        setView({ kind: "session-unavailable" });
         break;
       case "forbidden":
         setView({ kind: "forbidden" });
@@ -523,12 +531,26 @@ export default function PortfolioCsvResolver({
 
       {view.kind === "unauthenticated" && (
         <div role="alert" className="rounded-lg bg-aligna-warnSoft p-4 text-sm text-aligna-ink">
-          <p className="font-semibold">Entre na sua conta para continuar.</p>
+          <p className="font-semibold">
+            {view.expired ? "Sua sessão expirou." : "Entre na sua conta para continuar."}
+          </p>
           <p className="mt-1">
-            É preciso estar logado para resolver uma carteira.{" "}
+            {view.expired
+              ? "Entre novamente para resolver a carteira. "
+              : "É preciso estar logado para resolver uma carteira. "}
+            O arquivo não fica guardado: depois de entrar, volte a esta página e escolha o arquivo de novo.{" "}
             <a className="font-semibold underline" href="/evolucao">
               Entrar
             </a>
+          </p>
+        </div>
+      )}
+
+      {view.kind === "session-unavailable" && (
+        <div role="alert" className="rounded-lg bg-aligna-warnSoft p-4 text-sm text-aligna-ink">
+          <p className="font-semibold">Não foi possível verificar sua sessão agora.</p>
+          <p className="mt-1">
+            Sua conta continua conectada. Tente de novo em instantes; o arquivo enviado continua nesta tela.
           </p>
         </div>
       )}

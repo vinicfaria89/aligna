@@ -62,7 +62,11 @@ function run(
 
     fileId: FILE_ID,
 
-    getAccessToken: async () => TOKEN,
+    getSession: async () => ({
+      status: "ok" as const,
+
+      accessToken: TOKEN,
+    }),
 
     fetchImpl: async (url, init) => {
       calls.push({ url, init });
@@ -182,27 +186,121 @@ describe("submitPortfolioCsv", () => {
       }
     });
 
-    it("sends nothing when there is no usable session", async () => {
-      for (const getAccessToken of [
-        async () => null,
-        async () => "",
-        async () => {
-          throw new Error("storage blocked");
+    it("sends nothing when there is no stored session", async () => {
+      const clearSession = vi.fn();
+
+      const { promise, calls } = run(
+        () => json({}),
+        {
+          getSession: async () => ({
+            status: "none",
+          }),
+
+          clearSession,
+        },
+      );
+
+      expect(await promise).toEqual({
+        kind: "unauthenticated",
+
+        reason: "no-session",
+      });
+
+      expect(calls).toHaveLength(0);
+
+      // The session layer already did its own cleanup; the client never adds one.
+      expect(clearSession).not.toHaveBeenCalled();
+    });
+
+    it("sends nothing when the refresh was refused (expired session)", async () => {
+      const clearSession = vi.fn();
+
+      const { promise, calls } = run(
+        () => json({}),
+        {
+          getSession: async () => ({
+            status: "expired",
+          }),
+
+          clearSession,
+        },
+      );
+
+      expect(await promise).toEqual({
+        kind: "unauthenticated",
+
+        reason: "expired",
+      });
+
+      expect(calls).toHaveLength(0);
+
+      expect(clearSession).not.toHaveBeenCalled();
+    });
+
+    it("sends nothing, and keeps the session, when the identity service is unavailable", async () => {
+      const clearSession = vi.fn();
+
+      for (const getSession of [
+        async () => ({
+          status: "unavailable" as const,
+        }),
+        async () => ({
+          status: "ok" as const,
+
+          accessToken: "",
+        }),
+        async (): Promise<never> => {
+          throw new Error(
+            "storage blocked",
+          );
         },
       ]) {
         const { promise, calls } = run(
           () => json({}),
-          { getAccessToken },
+          { getSession, clearSession },
         );
 
         expect(await promise).toEqual({
-          kind: "unauthenticated",
-
-          reason: "no-session",
+          kind: "session-unavailable",
         });
 
         expect(calls).toHaveLength(0);
       }
+
+      expect(clearSession).not.toHaveBeenCalled();
+    });
+
+    it("asks the session once per submission and sends the token it returned", async () => {
+      const getSession = vi.fn(
+        async () => ({
+          status: "ok" as const,
+
+          accessToken: "fresh-token-2",
+        }),
+      );
+
+      const { promise, calls } = run(
+        () =>
+          json({
+            ok: true,
+
+            result: { items: [] },
+          }),
+        { getSession },
+      );
+
+      await promise;
+
+      expect(getSession).toHaveBeenCalledTimes(
+        1,
+      );
+
+      expect(calls).toHaveLength(1);
+
+      expect(
+        calls[0]?.init.headers
+          .Authorization,
+      ).toBe("Bearer fresh-token-2");
     });
 
     it("refuses an upload id that is not the opaque format, without sending", async () => {
@@ -365,9 +463,53 @@ describe("submitPortfolioCsv", () => {
       });
     }
 
-    it("401 from the server is a rejected session", async () => {
-      const { promise } = run(() =>
-        json({}, 401),
+    it("401 from the server is a rejected session: the session is cleared once, and there is no retry", async () => {
+      const clearSession = vi.fn();
+
+      const getSession = vi.fn(
+        async () => ({
+          status: "ok" as const,
+
+          accessToken: TOKEN,
+        }),
+      );
+
+      const { promise, calls } = run(
+        () => json({}, 401),
+        { clearSession, getSession },
+      );
+
+      expect(
+        await promise,
+      ).toMatchObject({
+        kind: "unauthenticated",
+
+        reason: "rejected",
+
+        correlationId: "corr-77",
+      });
+
+      expect(clearSession).toHaveBeenCalledTimes(
+        1,
+      );
+
+      // The token was issued a moment ago: asking for another one would repeat
+      // the same refresh. One session call, one request, no loop.
+      expect(getSession).toHaveBeenCalledTimes(
+        1,
+      );
+
+      expect(calls).toHaveLength(1);
+    });
+
+    it("a 401 still ends as unauthenticated when clearing the session throws", async () => {
+      const { promise } = run(
+        () => json({}, 401),
+        {
+          clearSession: () => {
+            throw new Error("storage blocked");
+          },
+        },
       );
 
       expect(
@@ -377,6 +519,115 @@ describe("submitPortfolioCsv", () => {
 
         reason: "rejected",
       });
+    });
+
+    it("only a 401 touches the session: 400, 403, 413, 415, 429 and 5xx neither clear it nor ask for another token", async () => {
+      for (const status of [
+        400, 403, 413, 415, 418, 429,
+        500, 502, 503,
+      ]) {
+        const clearSession = vi.fn();
+
+        const getSession = vi.fn(
+          async () => ({
+            status: "ok" as const,
+
+            accessToken: TOKEN,
+          }),
+        );
+
+        const { promise, calls } = run(
+          () => json({}, status),
+          { clearSession, getSession },
+        );
+
+        await promise;
+
+        expect(clearSession).not.toHaveBeenCalled();
+
+        expect(getSession).toHaveBeenCalledTimes(
+          1,
+        );
+
+        expect(calls).toHaveLength(1);
+      }
+    });
+
+    it("a network failure neither clears the session nor retries", async () => {
+      const clearSession = vi.fn();
+
+      const getSession = vi.fn(
+        async () => ({
+          status: "ok" as const,
+
+          accessToken: TOKEN,
+        }),
+      );
+
+      let attempts = 0;
+
+      const promise = submitPortfolioCsv({
+        csvText: CSV_TEXT,
+
+        fileId: FILE_ID,
+
+        getSession,
+
+        clearSession,
+
+        fetchImpl: async () => {
+          attempts += 1;
+
+          throw new TypeError(
+            "Failed to fetch",
+          );
+        },
+      });
+
+      expect(await promise).toEqual({
+        kind: "network-error",
+      });
+
+      expect(attempts).toBe(1);
+
+      expect(clearSession).not.toHaveBeenCalled();
+    });
+
+    it("no outcome carries the token, the CSV or the Authorization header", async () => {
+      const statuses = [
+        200, 400, 401, 403, 413, 415, 429,
+        500,
+      ];
+
+      for (const status of statuses) {
+        const { promise } = run(() =>
+          json(
+            status === 200
+              ? {
+                  ok: true,
+
+                  result: { items: [] },
+                }
+              : {},
+            status,
+          ),
+        );
+
+        const text = JSON.stringify(
+          await promise,
+        );
+
+        for (const leaked of [
+          TOKEN,
+          "Bearer",
+          "Authorization",
+          "SENTINEL-CSV-CONTENT",
+        ]) {
+          expect(text).not.toContain(
+            leaked,
+          );
+        }
+      }
     });
 
     it("429 reads Retry-After in whole seconds and ignores anything else", async () => {

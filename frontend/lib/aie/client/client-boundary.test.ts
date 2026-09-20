@@ -241,7 +241,11 @@ describe("the CSV resolution UI is a thin, browser-safe client", () => {
     );
 
     expect(component).toContain(
-      "getValidAccessToken",
+      "acquireAccessToken",
+    );
+
+    expect(component).toContain(
+      "clearSession",
     );
 
     expect(
@@ -249,6 +253,24 @@ describe("the CSV resolution UI is a thin, browser-safe client", () => {
         "components/PortfolioCsvResolver.tsx",
       ),
     ).toContain("@/lib/session");
+
+    // No second token store, refresh mechanism or login client, and no JWT parsing.
+    for (const file of CLIENT_FILES) {
+      const source = code(file);
+
+      for (const forbidden of [
+        "refreshTokens",
+        "refresh_token",
+        "atob(",
+        "jwt-decode",
+        "JSON.parse(",
+        "/auth/",
+      ]) {
+        expect(source).not.toContain(
+          forbidden,
+        );
+      }
+    }
 
     // The token is only ever placed in the Authorization header of the client.
     const client = code(

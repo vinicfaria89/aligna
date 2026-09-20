@@ -24,10 +24,13 @@ import type { SubmitPortfolioCsvInput } from "@/lib/aie/client/resolve-csv-clien
 import { MAX_CSV_UPLOAD_BYTES } from "@/lib/aie/ingestion/portfolio-csv-limits";
 
 // The component's DEFAULT auth is the app's existing session module.
-const sessionToken = vi.hoisted(() => vi.fn());
+const sessionAccess = vi.hoisted(() => vi.fn());
+
+const sessionClear = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({
-  getValidAccessToken: () => sessionToken(),
+  acquireAccessToken: () => sessionAccess(),
+  clearSession: () => sessionClear(),
 }));
 
 /**
@@ -178,21 +181,48 @@ function setup(
     ok([]),
   getAccessToken: () => Promise<string | null> = async () =>
     TOKEN,
+  session?: SubmitPortfolioCsvInput["getSession"],
 ) {
   const fetchImpl = vi.fn<FetchImpl>(
     async () => respond(),
+  );
+
+  const clearSession = vi.fn();
+
+  const getSession = vi.fn<
+    SubmitPortfolioCsvInput["getSession"]
+  >(
+    session ??
+      (async () => {
+        const token = await getAccessToken();
+
+        return token
+          ? {
+              status: "ok" as const,
+
+              accessToken: token,
+            }
+          : { status: "none" as const };
+      }),
   );
 
   const user = userEvent.setup();
 
   const view = render(
     <PortfolioCsvResolver
-      getAccessToken={getAccessToken}
+      getSession={getSession}
+      clearSession={clearSession}
       fetchImpl={fetchImpl}
     />,
   );
 
-  return { fetchImpl, user, view };
+  return {
+    fetchImpl,
+    user,
+    view,
+    getSession,
+    clearSession,
+  };
 }
 
 function fileInput(): HTMLInputElement {
@@ -222,11 +252,15 @@ async function submit(
 
 describe("PortfolioCsvResolver", () => {
   beforeEach(() => {
-    sessionToken.mockReset();
+    sessionAccess.mockReset();
 
-    sessionToken.mockResolvedValue(
-      TOKEN,
-    );
+    sessionClear.mockReset();
+
+    sessionAccess.mockResolvedValue({
+      status: "ok",
+
+      accessToken: TOKEN,
+    });
 
     window.localStorage.clear();
 
@@ -585,8 +619,8 @@ describe("PortfolioCsvResolver", () => {
       );
 
       expect(
-        sessionToken,
-      ).toHaveBeenCalled();
+        sessionAccess,
+      ).toHaveBeenCalledTimes(1);
 
       expect(
         fetchImpl.mock.calls[0]![1]
@@ -1072,7 +1106,7 @@ describe("PortfolioCsvResolver", () => {
       ).toBeNull();
     });
 
-    it("401 asks the user to sign in", async () => {
+    it("401 says the session expired and asks the user to sign in again", async () => {
       const { user } = setup(() =>
         failure(401),
       );
@@ -1086,7 +1120,7 @@ describe("PortfolioCsvResolver", () => {
       expect(
         await screen.findByRole("alert"),
       ).toHaveTextContent(
-        /entre na sua conta/i,
+        /sua sessão expirou.*entre novamente/i,
       );
 
       expect(
@@ -1262,9 +1296,11 @@ describe("PortfolioCsvResolver", () => {
 
       render(
         <PortfolioCsvResolver
-          getAccessToken={async () =>
-            TOKEN
-          }
+          getSession={async () => ({
+            status: "ok",
+
+            accessToken: TOKEN,
+          })}
           fetchImpl={fetchImpl}
         />,
       );
@@ -1490,6 +1526,518 @@ describe("PortfolioCsvResolver", () => {
       for (const spy of spies) {
         expect(spy).not.toHaveBeenCalled();
       }
+    });
+  });
+
+  /**
+   * TASK-026: the real session flow. The session module (lib/session) is faked
+   * at its boundary: `getSession` stands for acquireAccessToken (which refreshes
+   * before every call) and `clearSession` for the existing clearSession.
+   */
+  describe("session flow (TASK-026)", () => {
+    const okSession = async () => ({
+      status: "ok" as const,
+
+      accessToken: TOKEN,
+    });
+
+    async function prepared(
+      respond: () => Response | Promise<Response>,
+      session: SubmitPortfolioCsvInput["getSession"] = okSession,
+    ) {
+      const rig = setup(
+        respond,
+        async () => TOKEN,
+        session,
+      );
+
+      await choose(rig.user);
+
+      await screen.findByRole("table");
+
+      return rig;
+    }
+
+    it("a direct visit with no session shows the ready screen and calls neither the session nor the endpoint", () => {
+      const { fetchImpl, getSession, clearSession } =
+        setup(
+          () => ok([]),
+          async () => null,
+        );
+
+      expect(fileInput()).toBeEnabled();
+
+      expect(
+        screen.queryByRole("alert"),
+      ).toBeNull();
+
+      expect(getSession).not.toHaveBeenCalled();
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("no session: an authentication-required state with an action to the existing sign-in, and nothing is sent", async () => {
+      const { user, fetchImpl, clearSession } =
+        await prepared(
+          () => ok([]),
+          async () => ({ status: "none" }),
+        );
+
+      await submit(user);
+
+      const alert =
+        await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        /entre na sua conta para continuar/i,
+      );
+
+      expect(alert).not.toHaveTextContent(
+        /sua sessão expirou/i,
+      );
+
+      expect(
+        within(alert).getByRole("link", {
+          name: "Entrar",
+        }),
+      ).toHaveAttribute("href", "/evolucao");
+
+      expect(fetchImpl).not.toHaveBeenCalled();
+
+      expect(clearSession).not.toHaveBeenCalled();
+    });
+
+    it("a valid session submits exactly once, with the token only in the Authorization header", async () => {
+      const { user, fetchImpl, getSession } =
+        await prepared(() =>
+          ok([
+            resolved(0, "needs-more-evidence"),
+            resolved(1, "needs-more-evidence"),
+          ]),
+        );
+
+      await submit(user);
+
+      await screen.findByRole("table", {
+        name: /resultado/i,
+      });
+
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      const [url, init] = fetchImpl.mock.calls[0]!;
+
+      expect(init.headers.Authorization).toBe(
+        `Bearer ${TOKEN}`,
+      );
+
+      expect(url).not.toContain(TOKEN);
+
+      expect(init.body).not.toContain(TOKEN);
+
+      expect(
+        document.body.innerHTML,
+      ).not.toContain(TOKEN);
+    });
+
+    it("uses the token the session just issued, never a stale one", async () => {
+      const sessions = [
+        {
+          status: "ok" as const,
+
+          accessToken: "refreshed-token-B",
+        },
+      ];
+
+      const { user, fetchImpl } = await prepared(
+        () => ok([]),
+        async () => sessions[0]!,
+      );
+
+      await submit(user);
+
+      await waitFor(() =>
+        expect(fetchImpl).toHaveBeenCalledTimes(1),
+      );
+
+      expect(
+        fetchImpl.mock.calls[0]![1].headers
+          .Authorization,
+      ).toBe("Bearer refreshed-token-B");
+
+      expect(
+        JSON.stringify(fetchImpl.mock.calls),
+      ).not.toContain(TOKEN);
+    });
+
+    it("an expired session (refresh refused) asks to sign in again, sends nothing and shows no token", async () => {
+      const { user, fetchImpl } = await prepared(
+        () => ok([]),
+        async () => ({ status: "expired" }),
+      );
+
+      await submit(user);
+
+      const alert =
+        await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        /sua sessão expirou/i,
+      );
+
+      expect(alert).toHaveTextContent(
+        /entre novamente/i,
+      );
+
+      expect(
+        within(alert).getByRole("link", {
+          name: "Entrar",
+        }),
+      ).toHaveAttribute("href", "/evolucao");
+
+      expect(fetchImpl).not.toHaveBeenCalled();
+
+      expect(
+        document.body.innerHTML,
+      ).not.toContain(TOKEN);
+    });
+
+    it("an unavailable identity service is not a logout: the session is kept, nothing is sent, the file stays", async () => {
+      const { user, fetchImpl, clearSession } =
+        await prepared(
+          () => ok([]),
+          async () => ({ status: "unavailable" }),
+        );
+
+      await submit(user);
+
+      const alert =
+        await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        /não foi possível verificar sua sessão/i,
+      );
+
+      expect(alert).toHaveTextContent(
+        /continua conectada/i,
+      );
+
+      expect(
+        within(alert).queryByRole("link"),
+      ).toBeNull();
+
+      expect(fetchImpl).not.toHaveBeenCalled();
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(
+        screen.getByText("carteira.csv"),
+      ).toBeInTheDocument();
+    });
+
+    it("a 401 ends the session ONCE, asks to sign in again, keeps no result and never retries", async () => {
+      const { user, fetchImpl, getSession, clearSession } =
+        await prepared(() => failure(401));
+
+      await submit(user);
+
+      const alert =
+        await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        /sua sessão expirou/i,
+      );
+
+      expect(
+        within(alert).getByRole("link", {
+          name: "Entrar",
+        }),
+      ).toHaveAttribute("href", "/evolucao");
+
+      expect(clearSession).toHaveBeenCalledTimes(1);
+
+      // One session lookup, one request: no refresh-and-retry, no loop.
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      expect(
+        screen.queryByRole("table", {
+          name: /resultado/i,
+        }),
+      ).toBeNull();
+
+      // Nothing happens on its own afterwards.
+      await new Promise((resolve) =>
+        setTimeout(resolve, 30),
+      );
+
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      expect(clearSession).toHaveBeenCalledTimes(1);
+    });
+
+    it("a 401 after a good result removes the old result and does not resubmit by itself", async () => {
+      let attempt = 0;
+
+      const { user, fetchImpl, clearSession } =
+        await prepared(() => {
+          attempt += 1;
+
+          return attempt === 1
+            ? ok([
+                resolved(0, "needs-more-evidence"),
+                resolved(1, "needs-more-evidence"),
+              ])
+            : failure(401);
+        });
+
+      await submit(user);
+
+      await screen.findByRole("table", {
+        name: /resultado/i,
+      });
+
+      await submit(user);
+
+      await screen.findByRole("alert");
+
+      expect(
+        screen.queryByRole("table", {
+          name: /resultado/i,
+        }),
+      ).toBeNull();
+
+      expect(
+        screen.queryByText(/precisa de mais evidências/i),
+      ).toBeNull();
+
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+      expect(clearSession).toHaveBeenCalledTimes(1);
+    });
+
+    it("the user can submit again after a 401 (explicit action), and it asks the session again", async () => {
+      let attempt = 0;
+
+      const { user, fetchImpl, getSession } =
+        await prepared(() => {
+          attempt += 1;
+
+          return attempt === 1
+            ? failure(401)
+            : ok([
+                resolved(0, "needs-more-evidence"),
+                resolved(1, "needs-more-evidence"),
+              ]);
+        });
+
+      await submit(user);
+
+      await screen.findByRole("alert");
+
+      await submit(user);
+
+      await screen.findByRole("table", {
+        name: /resultado/i,
+      });
+
+      expect(getSession).toHaveBeenCalledTimes(2);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(2);
+    });
+
+    it("403 is NOT an expired login: the session is kept, no refresh, no retry, no Premium claim", async () => {
+      const { user, fetchImpl, getSession, clearSession } =
+        await prepared(() => failure(403));
+
+      await submit(user);
+
+      const alert =
+        await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        /não tem acesso/i,
+      );
+
+      expect(alert).not.toHaveTextContent(
+        /premium|assin|plano|sessão expirou|entre na sua conta/i,
+      );
+
+      expect(
+        within(alert).queryByRole("link"),
+      ).toBeNull();
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+      expect(
+        screen.queryByRole("table", {
+          name: /resultado/i,
+        }),
+      ).toBeNull();
+    });
+
+    it("429 keeps the session, refreshes nothing and shows the wait", async () => {
+      const { user, fetchImpl, getSession, clearSession } =
+        await prepared(() =>
+          failure(429, {}, { "retry-after": "9" }),
+        );
+
+      await submit(user);
+
+      expect(
+        await screen.findByRole("alert"),
+      ).toHaveTextContent(/cerca de 9 segundos/i);
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("500 keeps the session and keeps the readable support reference", async () => {
+      const { user, fetchImpl, getSession, clearSession } =
+        await prepared(() =>
+          failure(500, {}, {
+            "x-correlation-id": "corr-500-readable",
+          }),
+        );
+
+      await submit(user);
+
+      const alert =
+        await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        "Referência para suporte: corr-500-readable",
+      );
+
+      expect(alert).not.toHaveTextContent(
+        /sessão|entre na sua conta/i,
+      );
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
+    });
+
+    it("no error state ever shows the token", async () => {
+      for (const status of [
+        400, 401, 403, 413, 415, 429, 500,
+      ]) {
+        const { user, view } = await prepared(() =>
+          failure(status),
+        );
+
+        await submit(user);
+
+        await screen.findByRole("alert");
+
+        expect(
+          document.body.innerHTML,
+        ).not.toContain(TOKEN);
+
+        expect(
+          document.body.textContent,
+        ).not.toMatch(/bearer|authorization/i);
+
+        view.unmount();
+
+        cleanup();
+      }
+    });
+
+    it("a malformed CSV never asks the session for anything", async () => {
+      const { user, getSession, clearSession, fetchImpl } =
+        setup(() => ok([]));
+
+      await choose(
+        user,
+        csvFile("rawName,cpf\nX,123\n"),
+      );
+
+      await screen.findByRole("alert");
+
+      expect(getSession).not.toHaveBeenCalled();
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("replacing or clearing the file does not touch the session", async () => {
+      const { user, getSession, clearSession, fetchImpl } =
+        await prepared(() => ok([]));
+
+      await choose(
+        user,
+        csvFile(
+          "id,rawName\nz1,OTHER ASSET\n",
+          "outra.csv",
+        ),
+      );
+
+      await screen.findByText("outra.csv");
+
+      await user.click(
+        screen.getByRole("button", {
+          name: "Limpar",
+        }),
+      );
+
+      expect(getSession).not.toHaveBeenCalled();
+
+      expect(clearSession).not.toHaveBeenCalled();
+
+      expect(fetchImpl).not.toHaveBeenCalled();
+    });
+
+    it("a double click asks the session and the server once", async () => {
+      let release: (response: Response) => void =
+        () => undefined;
+
+      const { user, fetchImpl, getSession } =
+        await prepared(
+          () =>
+            new Promise<Response>((resolve) => {
+              release = resolve;
+            }),
+        );
+
+      await submit(user);
+
+      await waitFor(() =>
+        expect(resolveButton()).toBeDisabled(),
+      );
+
+      await user.click(resolveButton());
+
+      expect(getSession).toHaveBeenCalledTimes(1);
+
+      release(
+        ok([
+          resolved(0, "needs-more-evidence"),
+          resolved(1, "needs-more-evidence"),
+        ]),
+      );
+
+      await screen.findByRole("table", {
+        name: /resultado/i,
+      });
+
+      expect(fetchImpl).toHaveBeenCalledTimes(1);
     });
   });
 });

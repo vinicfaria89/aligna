@@ -7,6 +7,10 @@ import {
 } from "../ingestion/portfolio-csv-limits";
 
 import type {
+  SessionAccess,
+} from "../../session";
+
+import type {
   SafeIssue,
 } from "./csv-issue-messages";
 
@@ -20,9 +24,11 @@ import type {
  * stays authoritative; a 4xx/5xx is reported as such, never turned into a
  * success.
  *
- * Authentication: the token comes from an injected `getAccessToken` (in the app,
- * the existing `getValidAccessToken` of lib/session.ts, which owns storage and
- * refresh). The token goes ONLY in the Authorization header: never in the URL,
+ * Authentication (TASK-026): the token comes from an injected `getSession` (in the
+ * app, `acquireAccessToken` of lib/session.ts, which owns storage and refresh and
+ * exchanges the refresh token before every call). A 401 ends the session through
+ * the injected `clearSession` and is never retried; 403, 429, 5xx and validation
+ * errors never touch the session. The token goes ONLY in the Authorization header: never in the URL,
  * the CSV, an outcome or a message. The CSV goes only in the request body; the
  * URL carries only the opaque upload id.
  *
@@ -84,10 +90,18 @@ export type ResolveCsvOutcome =
   | {
       kind: "unauthenticated";
 
-      /** `no-session`: no request was made because there is no usable token. */
-      reason: "no-session" | "rejected";
+      /**
+       * `no-session`: nothing stored, no request made. `expired`: the refresh was
+       * refused (session already cleared), no request made. `rejected`: the server
+       * answered 401 (session cleared).
+       */
+      reason: "no-session" | "expired" | "rejected";
 
       correlationId?: string;
+    }
+  | {
+      /** The identity service could not be reached to obtain a token; nothing was sent, the session is kept. */
+      kind: "session-unavailable";
     }
   | {
       kind: "forbidden";
@@ -126,9 +140,18 @@ export interface SubmitPortfolioCsvInput {
   /** The opaque upload id (see deriveUploadFileId). */
   fileId: string;
 
-  getAccessToken: () => Promise<
-    string | null
-  >;
+  /**
+   * The app's session (in the app, `acquireAccessToken` of lib/session.ts). It
+   * refreshes BEFORE every request, so a token it returns was just issued.
+   */
+  getSession: () => Promise<SessionAccess>;
+
+  /**
+   * Called when the server rejects the token with a 401 (in the app, the existing
+   * `clearSession`). Refreshing again would only repeat what `getSession` just
+   * did, so there is NO retry: the session is ended and the user signs in again.
+   */
+  clearSession?: () => void;
 
   /** Test seam. Defaults to the global fetch. */
   fetchImpl?: (
@@ -404,23 +427,41 @@ function readRetryAfter(
 export async function submitPortfolioCsv(
   input: SubmitPortfolioCsvInput,
 ): Promise<ResolveCsvOutcome> {
-  let token: string | null;
+  let session: SessionAccess;
 
   try {
-    token =
-      await input.getAccessToken();
+    session = await input.getSession();
   } catch {
-    token = null;
+    session = { status: "unavailable" };
   }
 
-  if (!token) {
-    // No usable session: nothing is sent.
+  // Nothing is sent unless there is a freshly issued token.
+  if (session.status === "none") {
     return {
       kind: "unauthenticated",
 
       reason: "no-session",
     };
   }
+
+  if (session.status === "expired") {
+    return {
+      kind: "unauthenticated",
+
+      reason: "expired",
+    };
+  }
+
+  if (
+    session.status !== "ok" ||
+    !session.accessToken
+  ) {
+    return {
+      kind: "session-unavailable",
+    };
+  }
+
+  const token = session.accessToken;
 
   // Defense in depth: the id is derived locally, but never trust it into a URL.
   if (
@@ -544,6 +585,15 @@ export async function submitPortfolioCsv(
     }
 
     case 401:
+      // The token was issued a moment ago and the server still refuses it: the
+      // session cannot be recovered here. End it (existing API) and ask for a new
+      // sign-in. 403, 429 and 5xx never reach this branch.
+      try {
+        input.clearSession?.();
+      } catch {
+        // Clearing is best effort; the outcome is the same.
+      }
+
       return {
         kind: "unauthenticated",
 
