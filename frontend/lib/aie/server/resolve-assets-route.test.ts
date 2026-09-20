@@ -1520,6 +1520,7 @@ describe("POST /api/aie/resolve-assets", () => {
         "../contracts",
         "./aie-audited-request",
         "./aie-http",
+        "./bounded-body",
         "./candidate-asset-validation",
         "./candidate-asset-validation",
         "./request-authorization",

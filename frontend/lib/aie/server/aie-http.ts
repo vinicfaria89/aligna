@@ -1,6 +1,3 @@
-import type {
-  ValidationIssue,
-} from "./candidate-asset-validation";
 
 /**
  * SERVER-ONLY HTTP helpers shared by the AIE Route Handler mappings
@@ -18,6 +15,13 @@ export const JSON_HEADERS = {
   "Cache-Control": "no-store",
 } as const;
 
+/** A safe issue: a structural location and a stable code, never a value. */
+export interface HttpIssue {
+  path: string;
+
+  code: string;
+}
+
 export interface HttpErrorBody {
   ok: false;
 
@@ -26,7 +30,7 @@ export interface HttpErrorBody {
 
     message: string;
 
-    issues?: ValidationIssue[];
+    issues?: HttpIssue[];
   };
 }
 
@@ -48,7 +52,7 @@ export function errorResponse(
   status: number,
   code: string,
   message: string,
-  issues?: ValidationIssue[],
+  issues?: HttpIssue[],
 ): Response {
   const body: HttpErrorBody = {
     ok: false,
@@ -129,5 +133,14 @@ export function usageControlFailure(): Response {
     500,
     "AIE_USAGE_CONTROL_ERROR",
     "Unable to check usage limits.",
+  );
+}
+
+/** 415 for the CSV endpoint (TASK-024): the only accepted type is text/csv. */
+export function unsupportedCsvMediaType(): Response {
+  return errorResponse(
+    415,
+    "UNSUPPORTED_MEDIA_TYPE",
+    "Content-Type must be text/csv.",
   );
 }

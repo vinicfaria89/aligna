@@ -7,6 +7,10 @@ import {
 } from "./aie-audited-request";
 
 import {
+  readBoundedBytes,
+} from "./bounded-body";
+
+import {
   errorResponse,
   hasJsonContentType,
   jsonResponse,
@@ -307,8 +311,8 @@ function payloadTooLarge(): Response {
 }
 
 /**
- * Reads the body without ever holding more than the limit (+ one chunk): the
- * stream is cancelled as soon as it exceeds it.
+ * Reads the body through the shared bounded reader and maps its failures to the
+ * JSON batch contract (413, or 400 for an unreadable stream).
  */
 async function readBoundedBody(
   request: Request,
@@ -325,100 +329,36 @@ async function readBoundedBody(
       response: Response;
     }
 > {
-  const declared = Number(
-    request.headers.get(
-      "content-length",
-    ),
+  const body = await readBoundedBytes(
+    request,
+    maxBytes,
   );
 
-  if (
-    Number.isFinite(declared) &&
-    declared > maxBytes
-  ) {
+  if (!body.ok) {
     return {
       ok: false,
 
-      response: payloadTooLarge(),
+      response:
+        body.reason === "too_large"
+          ? payloadTooLarge()
+          : invalidBatch([
+              {
+                path: "$",
+
+                code: "type",
+              },
+            ]),
     };
-  }
-
-  const stream = request.body;
-
-  if (stream === null) {
-    return {
-      ok: true,
-
-      text: "",
-    };
-  }
-
-  const reader = stream.getReader();
-
-  const chunks: Uint8Array[] = [];
-
-  let total = 0;
-
-  try {
-    for (;;) {
-      const { done, value } =
-        await reader.read();
-
-      if (done) {
-        break;
-      }
-
-      total += value.byteLength;
-
-      if (total > maxBytes) {
-        await reader
-          .cancel()
-          .catch(() => undefined);
-
-        return {
-          ok: false,
-
-          response:
-            payloadTooLarge(),
-        };
-      }
-
-      chunks.push(value);
-    }
-  } catch {
-    return {
-      ok: false,
-
-      response: invalidBatch([
-        {
-          path: "$",
-
-          code: "type",
-        },
-      ]),
-    };
-  }
-
-  const bytes = new Uint8Array(
-    total,
-  );
-
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-
-    offset += chunk.byteLength;
   }
 
   return {
     ok: true,
 
     text: new TextDecoder().decode(
-      bytes,
+      body.bytes,
     ),
   };
 }
-
 /**
  * POST /api/aie/resolve-assets entry point.
  * Authorization and auditing wrap the execution (see aie-audited-request.ts):
@@ -476,11 +416,27 @@ async function executeResolveAssets(
     );
   }
 
+  return resolveBatchToResponse(
+    validation.assets,
+    validation.options,
+  );
+}
+
+/**
+ * Runs the batch service and maps its outcome to the HTTP contract shared by the JSON
+ * and CSV routes (TASK-024): 200 with the BatchResolutionResult (partial item
+ * failures included), a defensive 400 for a BatchResolutionError, otherwise a
+ * generic 500. Nothing about the failure is exposed.
+ */
+export async function resolveBatchToResponse(
+  assets: CandidateAsset[],
+  options: BatchRequestOptions,
+): Promise<Response> {
   try {
     const result =
       await resolveAssets(
-        validation.assets,
-        validation.options,
+        assets,
+        options,
       );
 
     return jsonResponse(200, {

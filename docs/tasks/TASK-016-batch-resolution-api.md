@@ -106,3 +106,7 @@ not guaranteed. A batch of debentures costs one token and one feed request thank
 
 Authentication/authorization, per-caller rate limiting and quotas, deduplication of repeated candidates, async/background
 jobs and pagination for larger portfolios, a CSV upload endpoint, UI.
+
+## Update (TASK-024)
+
+The byte-bounded body reader and the 200/error mapping of the batch were extracted to shared modules (`bounded-body.ts`, `resolveBatchToResponse`) so the CSV endpoint `POST /api/aie/resolve-csv` reuses them; this route's behavior is unchanged. See `TASK-024-csv-upload-resolution-api.md`.
