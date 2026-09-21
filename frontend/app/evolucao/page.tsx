@@ -8,6 +8,7 @@ import ScoreHistoryChart from "@/components/ScoreHistoryChart";
 import { ApiError, getScoreHistory, login as loginRequest } from "@/lib/api";
 import { getSafePostLoginReturnPath, POST_LOGIN_RETURN_PARAM } from "@/lib/navigation/safe-return-path";
 import { getValidAccessToken, saveSession } from "@/lib/session";
+import { FOCUS_RING } from "@/lib/ui/focus-ring";
 import { ScoreSnapshot } from "@/lib/types";
 
 type ViewState =
@@ -91,8 +92,8 @@ function EvolucaoContent() {
         </p>
 
         {state.kind === "loading" && (
-          <div className="flex items-center gap-2 text-sm text-aligna-muted">
-            <Loader2 size={16} className="animate-spin" /> Carregando...
+          <div role="status" className="flex items-center gap-2 text-sm text-aligna-muted">
+            <Loader2 size={16} className="animate-spin" aria-hidden="true" /> Carregando...
           </div>
         )}
 
@@ -100,16 +101,34 @@ function EvolucaoContent() {
           <div className="flex flex-col gap-4 rounded-lg border border-aligna-line bg-aligna-card p-6">
             <div className="mb-1 text-[14.5px] font-semibold">Entrar na sua conta</div>
             <div>
-              <label className="text-sm font-medium">E-mail</label>
-              <input className="input mt-1" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+              <label htmlFor="login-email" className="text-sm font-medium">E-mail</label>
+              <input
+                id="login-email"
+                className="input mt-1"
+                type="email"
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
             <div>
-              <label className="text-sm font-medium">Senha</label>
-              <input className="input mt-1" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <label htmlFor="login-password" className="text-sm font-medium">Senha</label>
+              <input
+                id="login-password"
+                className="input mt-1"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
-            {loginError && <p className="text-xs text-aligna-danger">{loginError}</p>}
-            <button className="btn-primary self-start" disabled={loggingIn || !email || !password} onClick={handleLogin}>
-              {loggingIn ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
+            {loginError && <p role="alert" className="text-xs text-aligna-danger">{loginError}</p>}
+            <button className={`btn-primary self-start ${FOCUS_RING}`} disabled={loggingIn || !email || !password} aria-busy={loggingIn} onClick={handleLogin}>
+              {loggingIn ? (
+                <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+              ) : (
+                <LogIn size={16} aria-hidden="true" />
+              )}
               {loggingIn ? "Entrando..." : "Entrar"}
             </button>
             <p className="text-[12px] text-aligna-muted">

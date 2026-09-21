@@ -98,14 +98,12 @@ async function signIn(
   render(<EvolucaoPage />);
 
   await user.type(
-    await screen.findByRole("textbox"),
+    await screen.findByLabelText("E-mail"),
     "pessoa@example.com",
   );
 
   await user.type(
-    document.querySelector(
-      "input[type=password]",
-    ) as HTMLInputElement,
+    screen.getByLabelText("Senha"),
     "senha-de-teste",
   );
 
@@ -440,7 +438,7 @@ describe("/evolucao post-login return", () => {
 
     render(<EvolucaoPage />);
 
-    await screen.findByRole("textbox");
+    await screen.findByLabelText("E-mail");
 
     expect(router.replace).not.toHaveBeenCalled();
 
@@ -466,5 +464,302 @@ describe("/evolucao post-login return", () => {
     expect(
       globalThis.fetch,
     ).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * TASK-028: the sign-in form is programmatically labelled. The tests above already
+ * find the fields through getByLabelText; these make the association explicit.
+ */
+describe("/evolucao sign-in form accessibility", () => {
+  beforeEach(() => {
+    router.replace.mockReset();
+
+    api.login.mockReset();
+
+    api.getScoreHistory.mockReset();
+
+    session.getValidAccessToken.mockReset();
+
+    session.saveSession.mockReset();
+
+    session.getValidAccessToken.mockResolvedValue(
+      null,
+    );
+
+    session.saveSession.mockReturnValue(true);
+
+    api.login.mockResolvedValue(TOKENS);
+
+    visit("");
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("the e-mail and password fields are found by their visible labels", async () => {
+    render(<EvolucaoPage />);
+
+    const email =
+      await screen.findByLabelText("E-mail");
+
+    const password =
+      screen.getByLabelText("Senha");
+
+    expect(email).toHaveAttribute(
+      "type",
+      "email",
+    );
+
+    expect(password).toHaveAttribute(
+      "type",
+      "password",
+    );
+  });
+
+  it("each label references its own input id, and the ids are distinct", async () => {
+    render(<EvolucaoPage />);
+
+    const email =
+      await screen.findByLabelText("E-mail");
+
+    const password =
+      screen.getByLabelText("Senha");
+
+    expect(email.id).not.toBe("");
+
+    expect(password.id).not.toBe("");
+
+    expect(email.id).not.toBe(password.id);
+
+    const labels = [
+      ...document.querySelectorAll("label"),
+    ];
+
+    expect(
+      labels.map((label) => [
+        label.textContent,
+        label.getAttribute("for"),
+      ]),
+    ).toEqual([
+      ["E-mail", email.id],
+      ["Senha", password.id],
+    ]);
+  });
+
+  it("clicking a label focuses its field", async () => {
+    const user = userEvent.setup();
+
+    render(<EvolucaoPage />);
+
+    const email =
+      await screen.findByLabelText("E-mail");
+
+    await user.click(
+      screen.getByText("Senha"),
+    );
+
+    expect(
+      screen.getByLabelText("Senha"),
+    ).toHaveFocus();
+
+    await user.click(screen.getByText("E-mail"));
+
+    expect(email).toHaveFocus();
+  });
+
+  it("keeps the input types and offers the standard autocomplete hints", async () => {
+    render(<EvolucaoPage />);
+
+    expect(
+      await screen.findByLabelText("E-mail"),
+    ).toHaveAttribute("autocomplete", "email");
+
+    expect(
+      screen.getByLabelText("Senha"),
+    ).toHaveAttribute(
+      "autocomplete",
+      "current-password",
+    );
+  });
+
+  it("the submit button has an accessible name and stays disabled until both fields are filled", async () => {
+    const user = userEvent.setup();
+
+    render(<EvolucaoPage />);
+
+    const button = await screen.findByRole(
+      "button",
+      { name: "Entrar" },
+    );
+
+    expect(button).toBeDisabled();
+
+    await user.type(
+      screen.getByLabelText("E-mail"),
+      "pessoa@example.com",
+    );
+
+    expect(button).toBeDisabled();
+
+    await user.type(
+      screen.getByLabelText("Senha"),
+      "senha-de-teste",
+    );
+
+    expect(button).toBeEnabled();
+  });
+
+  it("while signing in the button says so and is busy and disabled", async () => {
+    const user = userEvent.setup();
+
+    let release: (tokens: typeof TOKENS) => void =
+      () => undefined;
+
+    api.login.mockReturnValue(
+      new Promise<typeof TOKENS>((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    render(<EvolucaoPage />);
+
+    await user.type(
+      await screen.findByLabelText("E-mail"),
+      "pessoa@example.com",
+    );
+
+    await user.type(
+      screen.getByLabelText("Senha"),
+      "senha-de-teste",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Entrar",
+      }),
+    );
+
+    const busy = await screen.findByRole(
+      "button",
+      { name: "Entrando..." },
+    );
+
+    expect(busy).toBeDisabled();
+
+    expect(busy).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+
+    release(TOKENS);
+
+    // Back to the ready form (no stored session in this fake), button usable again.
+    expect(
+      await screen.findByRole("button", {
+        name: "Entrar",
+      }),
+    ).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("a failed login is announced as an alert, with the existing message", async () => {
+    const user = userEvent.setup();
+
+    const { ApiError } = await import(
+      "@/lib/api"
+    );
+
+    api.login.mockRejectedValue(
+      new ApiError(401, "E-mail ou senha incorretos"),
+    );
+
+    render(<EvolucaoPage />);
+
+    await user.type(
+      await screen.findByLabelText("E-mail"),
+      "pessoa@example.com",
+    );
+
+    await user.type(
+      screen.getByLabelText("Senha"),
+      "errada",
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: "Entrar",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent(
+      "E-mail ou senha incorretos",
+    );
+  });
+
+  it("the submit button has a visible keyboard focus ring", async () => {
+    render(<EvolucaoPage />);
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Entrar",
+      }),
+    ).toHaveClass(
+      "focus-visible:ring-2",
+      "focus-visible:ring-aligna-mid",
+      "focus-visible:ring-offset-2",
+    );
+  });
+
+  it("the loading state is a polite status", () => {
+    session.getValidAccessToken.mockReturnValue(
+      new Promise(() => undefined),
+    );
+
+    render(<EvolucaoPage />);
+
+    expect(
+      screen.getByRole("status"),
+    ).toHaveTextContent(/carregando/i);
+  });
+
+  it("stays a thin UI over the existing calls: only the known modules are imported", async () => {
+    const { readFileSync } = await import(
+      "node:fs"
+    );
+
+    const { join } = await import(
+      "node:path"
+    );
+
+    const source = readFileSync(
+      join(process.cwd(), "app/evolucao/page.tsx"),
+      "utf8",
+    );
+
+    const specifiers = [
+      ...source.matchAll(
+        /from\s*["']([^"']+)["']/g,
+      ),
+    ]
+      .map((match) => match[1])
+      .sort();
+
+    expect(specifiers).toEqual(
+      [
+        "@/components/PatrimonioHistoryChart",
+        "@/components/ScoreHistoryChart",
+        "@/lib/api",
+        "@/lib/navigation/safe-return-path",
+        "@/lib/session",
+        "@/lib/types",
+        "@/lib/ui/focus-ring",
+        "lucide-react",
+        "next/navigation",
+        "react",
+      ].sort(),
+    );
   });
 });

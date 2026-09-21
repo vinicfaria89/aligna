@@ -30,6 +30,7 @@ import {
   MAX_PORTFOLIO_ROWS,
 } from "@/lib/aie/ingestion/portfolio-csv-limits";
 import { loginHrefReturningTo } from "@/lib/navigation/safe-return-path";
+import { FOCUS_RING } from "@/lib/ui/focus-ring";
 import { acquireAccessToken, clearSession } from "@/lib/session";
 
 /**
@@ -151,6 +152,15 @@ function formatAmount(amount: number | undefined, currency?: string): string {
   }
 
   return amount.toLocaleString("pt-BR");
+}
+
+/** The per-value label of a stacked card; hidden from `md` up (the table header takes over). */
+function CardLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <span aria-hidden="true" className="mr-2 font-semibold text-aligna-muted md:hidden">
+      {children}
+    </span>
+  );
 }
 
 function StatusBadge({ item }: { item: ResolvedItemView }) {
@@ -391,6 +401,17 @@ export default function PortfolioCsvResolver({
   const canSubmit =
     selection !== null && selection.rows.length > 0 && !submitting;
 
+  // Display-ready preview rows, derived once and rendered by the single responsive markup.
+  const previewDisplay = (selection?.rows ?? []).map((row) => ({
+    key: row.candidateId,
+    line: row.row,
+    name: row.rawName,
+    type: row.assetType ?? "—",
+    code: row.ticker ?? row.instrumentCode ?? "—",
+    amount: formatAmount(row.amount, row.currency),
+    status: "Formato válido",
+  }));
+
   const items = view.kind === "success" ? view.items : null;
 
   const counts = items
@@ -468,40 +489,68 @@ export default function PortfolioCsvResolver({
             deduzido do nome do ativo.
           </p>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[13px]">
-              <caption className="sr-only">Prévia das linhas do arquivo CSV</caption>
-              <thead>
-                <tr className="border-b border-aligna-line text-aligna-muted">
-                  <th scope="col" className="py-2 pr-4 font-semibold">Linha</th>
-                  <th scope="col" className="py-2 pr-4 font-semibold">Ativo</th>
-                  <th scope="col" className="py-2 pr-4 font-semibold">Tipo</th>
-                  <th scope="col" className="py-2 pr-4 font-semibold">Ticker / código</th>
-                  <th scope="col" className="py-2 pr-4 font-semibold">Valor</th>
-                  <th scope="col" className="py-2 font-semibold">Situação local</th>
+          {/*
+           * Same responsive strategy as the results (TASK-025): a semantic table from
+           * `md` up; below it each row becomes a stacked card with a label per value,
+           * so nothing hides behind a horizontal scroll. One markup and one set of
+           * display-ready rows (`previewDisplay`), so the two layouts cannot drift.
+           * Explicit ARIA roles keep the table semantics while the layout is not a
+           * CSS table. The candidate id is a React key only and is never rendered.
+           */}
+          <table role="table" className="block w-full text-left text-[13px] md:table">
+            <caption className="sr-only">Prévia das linhas do arquivo CSV</caption>
+            <thead className="sr-only md:not-sr-only md:table-header-group">
+              <tr role="row" className="md:table-row md:border-b md:border-aligna-line md:text-aligna-muted">
+                <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Linha</th>
+                <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Ativo</th>
+                <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Tipo</th>
+                <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Ticker / código</th>
+                <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Valor</th>
+                <th role="columnheader" scope="col" className="py-2 font-semibold">Situação local</th>
+              </tr>
+            </thead>
+            <tbody className="block md:table-row-group">
+              {previewDisplay.map((row) => (
+                <tr
+                  role="row"
+                  key={row.key}
+                  className="mb-3 block rounded-lg border border-aligna-line p-3 md:mb-0 md:table-row md:rounded-none md:border-0 md:border-b md:p-0 md:last:border-0"
+                >
+                  <td role="cell" className="block py-0.5 md:table-cell md:py-2 md:pr-4">
+                    <CardLabel>Linha</CardLabel>
+                    {row.line}
+                  </td>
+                  <td role="cell" className="block py-0.5 md:table-cell md:py-2 md:pr-4">
+                    <CardLabel>Ativo</CardLabel>
+                    {row.name}
+                  </td>
+                  <td role="cell" className="block py-0.5 md:table-cell md:py-2 md:pr-4">
+                    <CardLabel>Tipo</CardLabel>
+                    {row.type}
+                  </td>
+                  <td role="cell" className="block py-0.5 md:table-cell md:py-2 md:pr-4">
+                    <CardLabel>Ticker / código</CardLabel>
+                    {row.code}
+                  </td>
+                  <td role="cell" className="block py-0.5 md:table-cell md:py-2 md:pr-4">
+                    <CardLabel>Valor</CardLabel>
+                    {row.amount}
+                  </td>
+                  <td role="cell" className="block py-0.5 font-medium text-aligna-deep md:table-cell md:py-2">
+                    <CardLabel>Situação local</CardLabel>
+                    {row.status}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {selection.rows.map((row) => (
-                  <tr key={row.candidateId} className="border-b border-aligna-line last:border-0">
-                    <td className="py-2 pr-4">{row.row}</td>
-                    <td className="py-2 pr-4">{row.rawName}</td>
-                    <td className="py-2 pr-4">{row.assetType ?? "—"}</td>
-                    <td className="py-2 pr-4">{row.ticker ?? row.instrumentCode ?? "—"}</td>
-                    <td className="py-2 pr-4">{formatAmount(row.amount, row.currency)}</td>
-                    <td className="py-2 text-aligna-deep">Formato válido</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
       <div className="flex flex-wrap items-center gap-3">
         <button
           type="button"
-          className="btn-primary"
+          className={`btn-primary ${FOCUS_RING}`}
           onClick={handleSubmit}
           disabled={!canSubmit}
           aria-busy={submitting}
@@ -516,7 +565,7 @@ export default function PortfolioCsvResolver({
 
         <button
           type="button"
-          className="btn-ghost"
+          className={`btn-ghost ${FOCUS_RING}`}
           onClick={reset}
           disabled={submitting || (selection === null && view.kind === "idle")}
         >
@@ -539,11 +588,15 @@ export default function PortfolioCsvResolver({
             {view.expired
               ? "Entre novamente para resolver a carteira. "
               : "É preciso estar logado para resolver uma carteira. "}
-            O arquivo não fica guardado: depois de entrar, você volta a esta página e escolhe o arquivo de novo.{" "}
-            <a className="font-semibold underline" href={loginHrefReturningTo("/carteira")}>
-              Entrar
-            </a>
+            O arquivo não fica guardado: depois de entrar, você volta a esta página e escolhe o arquivo de novo.
           </p>
+          {/* A real link (same href as before) styled as the app's primary button: at least 44px tall. */}
+          <a
+            className={`btn-primary mt-3 min-h-[44px] justify-center ${FOCUS_RING}`}
+            href={loginHrefReturningTo("/carteira")}
+          >
+            Entrar
+          </a>
         </div>
       )}
 
@@ -646,7 +699,7 @@ export default function PortfolioCsvResolver({
               className="block w-full text-left text-[13px] md:table"
             >
               <caption className="sr-only">Resultado da resolução de cada ativo</caption>
-              <thead className="sr-only md:table-header-group">
+              <thead className="sr-only md:not-sr-only md:table-header-group">
                 <tr role="row" className="md:table-row md:border-b md:border-aligna-line md:text-aligna-muted">
                   <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Linha</th>
                   <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Ativo</th>
