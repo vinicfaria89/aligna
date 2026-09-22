@@ -1,10 +1,11 @@
+import { PLANEJADOR_API_URL } from "./planejador-api-url";
 import { ExtractedAsset, PerfilData, RiskProfile, ScoreSnapshot, UploadedFile } from "./types";
 
 // URL do backend do Planejador Financeiro -- é ele quem de fato recebe o
 // intake (ver POST /api/v1/intake/aligna, já construído e testado do lado
 // de lá). O Aligna não tem banco de dados próprio: é um funil sem estado
-// persistente até este último passo.
-const PLANEJADOR_API_URL = process.env.NEXT_PUBLIC_PLANEJADOR_API_URL ?? "http://localhost:8000";
+// persistente até este último passo. A resolução (incl. a checagem de
+// ambiente de produção) vive em lib/planejador-api-url.ts (TASK-033).
 
 export class ApiError extends Error {
   status: number;

@@ -1,3 +1,4 @@
+import { PLANEJADOR_API_URL } from "./planejador-api-url";
 import {
   parseSavedSnapshot,
   type SavedSnapshot,
@@ -20,8 +21,6 @@ import type { SessionAccess } from "./session";
  * TASK-026) and is never retried. 404 on a read is the normal "nothing saved".
  */
 
-// The same public base URL the rest of the app uses for the Planejador (lib/api.ts).
-const PLANEJADOR_API_URL = process.env.NEXT_PUBLIC_PLANEJADOR_API_URL ?? "http://localhost:8000";
 
 export const PORTFOLIO_SNAPSHOT_URL = `${PLANEJADOR_API_URL}/api/v1/portfolio-snapshot`;
 
