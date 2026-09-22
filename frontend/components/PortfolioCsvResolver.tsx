@@ -2,6 +2,7 @@
 
 import {
   CheckCircle2,
+  Download,
   HelpCircle,
   Info,
   Loader2,
@@ -47,6 +48,11 @@ import {
   toSnapshotItems,
   type SavedSnapshot,
 } from "@/lib/portfolio-snapshot-mapping";
+import {
+  downloadCsvFile,
+  resultExportFileName,
+  snapshotItemsToResultCsv,
+} from "@/lib/portfolio-snapshot-export";
 import { FOCUS_RING } from "@/lib/ui/focus-ring";
 import { acquireAccessToken, clearSession } from "@/lib/session";
 
@@ -838,13 +844,33 @@ export default function PortfolioCsvResolver({
     };
   });
 
-  // What "Salvar resultado" would send; nothing to send means no button.
-  const savableCount =
-    items && selection ? toSnapshotItems(items, selection.rows).length : 0;
+  // The same normalized items "Salvar resultado" would send (TASK-029B) --
+  // TASK-040's CSV export reuses this exact array, so a fresh result exports
+  // precisely what could be (or was) saved, never something derived separately.
+  const exportableItems =
+    items && selection ? toSnapshotItems(items, selection.rows) : [];
+
+  const savableCount = exportableItems.length;
 
   const savedRows = saved ? toDisplayRows(saved) : null;
 
   const savedAt = saved ? savedAtText(saved.updatedAt) : null;
+
+  function handleExportResult() {
+    downloadCsvFile(
+      resultExportFileName(),
+      snapshotItemsToResultCsv(exportableItems),
+    );
+  }
+
+  function handleExportSaved() {
+    if (!saved) return;
+
+    downloadCsvFile(
+      resultExportFileName(),
+      snapshotItemsToResultCsv(saved.items),
+    );
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -922,16 +948,26 @@ export default function PortfolioCsvResolver({
                 </div>
               </div>
             ) : (
-              <button
-                type="button"
-                className={`btn-ghost ${FOCUS_RING}`}
-                onClick={() => {
-                  setSavedNote(null);
-                  setConfirmingDelete(true);
-                }}
-              >
-                Apagar resultado salvo
-              </button>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={handleExportSaved}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  Exportar CSV
+                </button>
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={() => {
+                    setSavedNote(null);
+                    setConfirmingDelete(true);
+                  }}
+                >
+                  Apagar resultado salvo
+                </button>
+              </div>
             )}
           </div>
         </section>
@@ -1257,6 +1293,17 @@ export default function PortfolioCsvResolver({
                   <SignInLink />
                 </div>
               )}
+
+              <div>
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={handleExportResult}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  Exportar CSV
+                </button>
+              </div>
             </div>
           )}
 

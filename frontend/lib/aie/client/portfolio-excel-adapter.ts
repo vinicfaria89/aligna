@@ -1,5 +1,6 @@
 import { readSheet } from "read-excel-file/browser";
 
+import { csvDocument } from "../../csv-format";
 import { MAX_PORTFOLIO_ROWS } from "../ingestion/portfolio-csv-limits";
 
 /**
@@ -115,11 +116,6 @@ function formatCell(value: unknown): string {
   return "";
 }
 
-/** RFC 4180 escaping matching what portfolio-csv-adapter.ts's tokenizer expects. */
-function escapeCsvField(value: string): string {
-  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
 /**
  * Converts spreadsheet rows into CSV text for the EXISTING CSV pipeline. Pure:
  * no I/O, no knowledge of portfolio semantics (header names are passed through
@@ -130,7 +126,9 @@ export function excelRowsToCsvText(
   headerRow: readonly unknown[],
   dataRows: readonly (readonly unknown[])[],
 ): string {
-  return [headerRow, ...dataRows]
-    .map((row) => row.map((cell) => escapeCsvField(formatCell(cell))).join(","))
-    .join("\r\n");
+  return csvDocument(
+    [headerRow, ...dataRows].map((row) =>
+      row.map((cell) => formatCell(cell)),
+    ),
+  );
 }
