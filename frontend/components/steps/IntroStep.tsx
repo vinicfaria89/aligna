@@ -23,9 +23,14 @@ export default function IntroStep({ onNext }: { onNext: () => void }) {
         </div>
 
         <div className="flex items-center justify-between">
-          <a href="/evolucao" className="text-sm font-medium text-aligna-muted hover:text-aligna-ink">
-            Já tenho conta — ver minha evolução
-          </a>
+          <div className="flex flex-col gap-2">
+            <a href="/evolucao" className="text-sm font-medium text-aligna-muted hover:text-aligna-ink">
+              Já tenho conta — ver minha evolução
+            </a>
+            <a href="/carteira" className="text-sm font-medium text-aligna-muted hover:text-aligna-ink">
+              Já tenho conta — resolver carteira por CSV
+            </a>
+          </div>
           <button className="btn-primary" onClick={onNext}>
             Começar
             <ArrowRight size={16} />

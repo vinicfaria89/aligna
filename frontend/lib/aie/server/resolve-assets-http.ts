@@ -1,0 +1,479 @@
+import type {
+  CandidateAsset,
+} from "../contracts";
+
+import {
+  handleAieRequest,
+} from "./aie-audited-request";
+
+import {
+  readBoundedBytes,
+} from "./bounded-body";
+
+import {
+  errorResponse,
+  hasJsonContentType,
+  jsonResponse,
+  unsupportedMediaType,
+} from "./aie-http";
+
+import {
+  validateCandidateAsset,
+} from "./candidate-asset-validation";
+
+import type {
+  ValidationIssue,
+} from "./candidate-asset-validation";
+
+import type {
+  AieHttpOptions,
+} from "./request-authorization";
+
+import {
+  BatchResolutionError,
+  MAX_BATCH_CONCURRENCY,
+  MAX_BATCH_SIZE,
+  resolveAssets,
+} from "./resolve-assets";
+
+/**
+ * HTTP mapping for POST /api/aie/resolve-assets (see TASK-016).
+ *
+ *   body -> content type / size / JSON -> batch shape -> CandidateAsset[]
+ *     -> resolveAssets() -> safe JSON
+ *
+ * Responsibilities ONLY: accept the HTTP input, validate it, call
+ * resolveAssets() and map safe results/errors to HTTP responses. Nothing here
+ * knows about providers, ANBIMA, tokens, cache, rate limiting, the process
+ * environment or the verification policy, and nothing is logged.
+ *
+ * Status mapping:
+ *   200 the batch ran: every item is either a ResolutionResult (including
+ *       unresolved ones and provider failures already recorded inside the
+ *       InvestigationCase) or a safe item-level error. A partial failure is
+ *       NEVER an HTTP error.
+ *   400 malformed JSON, invalid batch shape, invalid CandidateAsset, too many
+ *       assets, invalid concurrency
+ *   413 body larger than MAX_BATCH_BODY_BYTES
+ *   415 Content-Type is not application/json
+ *   500 unexpected exception
+ *
+ * Difference from the single-asset route: there is NO 503 here. When the
+ * server AIE cannot be created, resolveAssets() attempts it once and reports a
+ * safe AIE_CONFIGURATION_UNAVAILABLE on every item (TASK-014). This layer does
+ * not reinterpret that service contract.
+ *
+ * The client controls only the assets and, optionally, `options.concurrency`
+ * (bounded by the service limits). Rate limiting, cache and providers are not
+ * client-configurable. Concurrency is not rate limiting.
+ *
+ * Authorization (TASK-017/020/021) and auditing (TASK-022) wrap the execution in
+ * aie-audited-request.ts: authorization always runs first, and every response
+ * carries X-Correlation-Id.
+ */
+
+/**
+ * 512 KiB. A batch holds at most MAX_BATCH_SIZE assets and one validated
+ * asset is a few KiB at its field limits (well below 4 KiB), so 100 assets fit
+ * comfortably while the body stays bounded.
+ */
+export const MAX_BATCH_BODY_BYTES =
+  512 * 1024;
+
+const MAX_ISSUES = 20;
+
+const ROOT_FIELDS = [
+  "assets",
+  "options",
+] as const;
+
+const OPTION_FIELDS = [
+  "concurrency",
+] as const;
+
+type PlainObject = Record<
+  string,
+  unknown
+>;
+
+function isPlainObject(
+  value: unknown,
+): value is PlainObject {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    !Array.isArray(value)
+  );
+}
+
+function hasUnknownField(
+  source: PlainObject,
+  allowed: readonly string[],
+): boolean {
+  return Object.keys(source).some(
+    (key) =>
+      !allowed.includes(key),
+  );
+}
+
+export interface BatchRequestOptions {
+  concurrency?: number;
+}
+
+export type BatchRequestValidation =
+  | {
+      ok: true;
+
+      assets: CandidateAsset[];
+
+      options: BatchRequestOptions;
+    }
+  | {
+      ok: false;
+
+      issues: ValidationIssue[];
+    };
+
+/**
+ * Validates the untrusted batch body. Each asset goes through the existing
+ * validateCandidateAsset (no second validator); its issue paths are prefixed
+ * with the array position, e.g. "assets[2].hints.ticker". Issues never carry
+ * values or unknown key names.
+ */
+export function validateBatchRequest(
+  input: unknown,
+): BatchRequestValidation {
+  const issues: ValidationIssue[] =
+    [];
+
+  const add = (
+    path: string,
+    code: ValidationIssue["code"],
+  ): void => {
+    if (issues.length < MAX_ISSUES) {
+      issues.push({
+        path,
+        code,
+      });
+    }
+  };
+
+  if (!isPlainObject(input)) {
+    return {
+      ok: false,
+
+      issues: [
+        {
+          path: "$",
+
+          code: "type",
+        },
+      ],
+    };
+  }
+
+  if (
+    hasUnknownField(
+      input,
+      ROOT_FIELDS,
+    )
+  ) {
+    // The unknown key name is user controlled: report the parent path only.
+    add("$", "unknown_field");
+  }
+
+  const rawAssets = input.assets;
+
+  const assets: CandidateAsset[] =
+    [];
+
+  if (rawAssets === undefined) {
+    add("assets", "required");
+  } else if (
+    !Array.isArray(rawAssets)
+  ) {
+    add("assets", "type");
+  } else if (
+    rawAssets.length > MAX_BATCH_SIZE
+  ) {
+    add("assets", "too_long");
+  } else {
+    rawAssets.forEach(
+      (raw: unknown, index) => {
+        const result =
+          validateCandidateAsset(raw);
+
+        if (result.ok) {
+          assets.push(result.value);
+
+          return;
+        }
+
+        for (const issue of result.issues) {
+          add(
+            issue.path === "$"
+              ? `assets[${index}]`
+              : `assets[${index}].${issue.path}`,
+            issue.code,
+          );
+        }
+      },
+    );
+  }
+
+  const options: BatchRequestOptions =
+    {};
+
+  const rawOptions = input.options;
+
+  if (rawOptions !== undefined) {
+    if (!isPlainObject(rawOptions)) {
+      add("options", "type");
+    } else {
+      if (
+        hasUnknownField(
+          rawOptions,
+          OPTION_FIELDS,
+        )
+      ) {
+        add(
+          "options",
+          "unknown_field",
+        );
+      }
+
+      const concurrency =
+        rawOptions.concurrency;
+
+      if (concurrency !== undefined) {
+        if (
+          typeof concurrency !==
+          "number"
+        ) {
+          add(
+            "options.concurrency",
+            "type",
+          );
+        } else if (
+          !Number.isInteger(
+            concurrency,
+          ) ||
+          concurrency < 1 ||
+          concurrency >
+            MAX_BATCH_CONCURRENCY
+        ) {
+          add(
+            "options.concurrency",
+            "invalid_value",
+          );
+        } else {
+          options.concurrency =
+            concurrency;
+        }
+      }
+    }
+  }
+
+  if (issues.length > 0) {
+    return {
+      ok: false,
+
+      issues,
+    };
+  }
+
+  return {
+    ok: true,
+
+    assets,
+
+    options,
+  };
+}
+
+function invalidBatch(
+  issues: ValidationIssue[],
+): Response {
+  return errorResponse(
+    400,
+    "INVALID_ASSET_BATCH",
+    "Invalid asset batch.",
+    issues,
+  );
+}
+
+function payloadTooLarge(): Response {
+  return errorResponse(
+    413,
+    "PAYLOAD_TOO_LARGE",
+    "Request payload is too large.",
+  );
+}
+
+/**
+ * Reads the body through the shared bounded reader and maps its failures to the
+ * JSON batch contract (413, or 400 for an unreadable stream).
+ */
+async function readBoundedBody(
+  request: Request,
+  maxBytes: number,
+): Promise<
+  | {
+      ok: true;
+
+      text: string;
+    }
+  | {
+      ok: false;
+
+      response: Response;
+    }
+> {
+  const body = await readBoundedBytes(
+    request,
+    maxBytes,
+  );
+
+  if (!body.ok) {
+    return {
+      ok: false,
+
+      response:
+        body.reason === "too_large"
+          ? payloadTooLarge()
+          : invalidBatch([
+              {
+                path: "$",
+
+                code: "type",
+              },
+            ]),
+    };
+  }
+
+  return {
+    ok: true,
+
+    text: new TextDecoder().decode(
+      body.bytes,
+    ),
+  };
+}
+/**
+ * POST /api/aie/resolve-assets entry point.
+ * Authorization and auditing wrap the execution (see aie-audited-request.ts):
+ * authorization runs first, before the body is read or anything is validated.
+ */
+export async function handleResolveAssetsRequest(
+  request: Request,
+  options: AieHttpOptions = {},
+): Promise<Response> {
+  return handleAieRequest(
+    request,
+    "resolve-assets",
+    options,
+    () => executeResolveAssets(request),
+  );
+}
+
+async function executeResolveAssets(
+  request: Request,
+): Promise<Response> {
+  if (!hasJsonContentType(request)) {
+    return unsupportedMediaType();
+  }
+
+  const body =
+    await readBoundedBody(
+      request,
+      MAX_BATCH_BODY_BYTES,
+    );
+
+  if (!body.ok) {
+    return body.response;
+  }
+
+  let json: unknown;
+
+  try {
+    json = JSON.parse(body.text);
+  } catch {
+    return invalidBatch([
+      {
+        path: "$",
+
+        code: "invalid_json",
+      },
+    ]);
+  }
+
+  const validation =
+    validateBatchRequest(json);
+
+  if (!validation.ok) {
+    return invalidBatch(
+      validation.issues,
+    );
+  }
+
+  return resolveBatchToResponse(
+    validation.assets,
+    validation.options,
+  );
+}
+
+/**
+ * Runs the batch service and maps its outcome to the HTTP contract shared by the JSON
+ * and CSV routes (TASK-024): 200 with the BatchResolutionResult (partial item
+ * failures included), a defensive 400 for a BatchResolutionError, otherwise a
+ * generic 500. Nothing about the failure is exposed.
+ */
+export async function resolveBatchToResponse(
+  assets: CandidateAsset[],
+  options: BatchRequestOptions,
+): Promise<Response> {
+  try {
+    const result =
+      await resolveAssets(
+        assets,
+        options,
+      );
+
+    return jsonResponse(200, {
+      ok: true,
+
+      result,
+    });
+  } catch (error) {
+    // Defense in depth: the request was validated above with the same limits.
+    if (
+      error instanceof
+      BatchResolutionError
+    ) {
+      return invalidBatch([
+        {
+          path:
+            error.code ===
+            "INVALID_CONCURRENCY"
+              ? "options.concurrency"
+              : "assets",
+
+          code:
+            error.code ===
+            "INVALID_INPUT"
+              ? "type"
+              : error.code ===
+                  "BATCH_TOO_LARGE"
+                ? "too_long"
+                : "invalid_value",
+        },
+      ]);
+    }
+
+    return errorResponse(
+      500,
+      "AIE_INTERNAL_ERROR",
+      "Unable to resolve assets.",
+    );
+  }
+}
