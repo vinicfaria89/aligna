@@ -98,7 +98,7 @@ The embedded browser's 390 px screenshots were cropped on the right by the captu
 ## Limitations
 
 - The client, not the server, decides what a result is: the snapshot is display data (TASK-029A's integrity note); re-resolving is the only way to refresh it, and the saved statuses can be stale (hence the date).
-- The saved card shows the same columns as a fresh result (line, name, status, details). The saved amount, type and code are stored but not shown yet.
+- The saved card shows the same columns as a fresh result (line, name, status, details). The saved amount, type and code are stored but not shown yet. (Update, TASK-030: they are now shown; see `TASK-030-saved-result-display.md`.)
 - Signing in from the save/delete messages loses the on-screen result (a page navigation, by design: the file is never kept).
 - Opening `/carteira` with a session now costs one refresh and one GET.
 - The saved result is one per account and only the last; no history, no export.

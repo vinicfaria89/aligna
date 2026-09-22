@@ -1200,3 +1200,315 @@ describe("privacy text, accessibility and storage", () => {
     expect(html).not.toContain("SECRET-EVIDENCE");
   });
 });
+
+/**
+ * TASK-030: the saved result shows what was saved (type, ticker/code, amount with its
+ * currency), on the same responsive markup: a semantic table from `md`, stacked cards
+ * below it. A value the row does not have is simply not shown (no placeholder).
+ */
+describe("the saved result shows type, ticker/code and amount", () => {
+  const FULL_BODY = {
+    items: [
+      {
+        lineNumber: 2,
+        rawName: "DEB PETROBRAS SERIE 1",
+        assetType: "debenture",
+        code: "ABCD11",
+        amount: 98765.43,
+        currency: "BRL",
+        status: "verified",
+        pendingFields: [],
+        sources: ["anbima"],
+        verifiedAsset: { code: "ABCD11", type: "debenture", currency: "BRL" },
+      },
+      {
+        lineNumber: 3,
+        rawName: "Petrobras PN",
+        assetType: "stock",
+        ticker: "PETR4",
+        code: "SHOULD-NOT-WIN",
+        amount: 1500,
+        currency: "BRL",
+        status: "needs-more-evidence",
+        pendingFields: ["issuer"],
+        sources: [],
+      },
+      {
+        lineNumber: 4,
+        rawName: "CDB Banco Exemplo 2027",
+        status: "needs-more-evidence",
+        pendingFields: [],
+        sources: [],
+      },
+      {
+        lineNumber: 5,
+        rawName: "Sem moeda",
+        assetType: "fundos",
+        amount: 1234.5,
+        status: "needs-user",
+        pendingFields: [],
+        sources: [],
+      },
+    ],
+    updatedAt: "2026-09-21T14:32:00+00:00",
+  };
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  async function savedTable(body: unknown = FULL_BODY) {
+    setup({ get: () => json(body) });
+
+    const table = await screen.findByRole("table", {
+      name: "Resultado salvo de cada ativo",
+    });
+
+    return {
+      table,
+      rows: within(table).getAllByRole("row").slice(1),
+    };
+  }
+
+  function labelsOf(row: HTMLElement): string[] {
+    return [...row.querySelectorAll("span[aria-hidden=true]")].map(
+      (label) => label.textContent ?? "",
+    );
+  }
+
+  it("adds the Tipo, Ticker / código and Valor columns, keeping the semantic table", async () => {
+    const { table } = await savedTable();
+
+    expect(table.tagName).toBe("TABLE");
+
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual([
+      "Linha",
+      "Ativo",
+      "Tipo",
+      "Ticker / código",
+      "Valor",
+      "Situação",
+      "Detalhes",
+    ]);
+
+    for (const th of table.querySelectorAll("th")) {
+      expect(th).toHaveAttribute("scope", "col");
+    }
+
+    expect(table.querySelector("caption")).toHaveTextContent(
+      "Resultado salvo de cada ativo",
+    );
+  });
+
+  it("shows the value with its currency when there is one", async () => {
+    const { rows } = await savedTable();
+
+    const cells = within(rows[0]!).getAllByRole("cell");
+
+    // Currency-formatted, pt-BR (a non-breaking space follows the symbol).
+    expect(cells[4]?.textContent).toMatch(/^ValorR\$\s98\.765,43$/);
+
+    expect(within(rows[1]!).getAllByRole("cell")[4]?.textContent).toMatch(
+      /^ValorR\$\s1\.500,00$/,
+    );
+  });
+
+  it("shows a plain number when the amount has no currency", async () => {
+    const { rows } = await savedTable();
+
+    expect(within(rows[3]!).getAllByRole("cell")[4]).toHaveTextContent(
+      "Valor1.234,5",
+    );
+  });
+
+  it("shows the type when there is one", async () => {
+    const { rows } = await savedTable();
+
+    expect(within(rows[0]!).getAllByRole("cell")[2]).toHaveTextContent("Tipodebenture");
+    expect(within(rows[1]!).getAllByRole("cell")[2]).toHaveTextContent("Tipostock");
+    expect(within(rows[3]!).getAllByRole("cell")[2]).toHaveTextContent("Tipofundos");
+  });
+
+  it("shows the ticker, else the code", async () => {
+    const { rows } = await savedTable();
+
+    expect(within(rows[0]!).getAllByRole("cell")[3]).toHaveTextContent(
+      "Ticker / códigoABCD11",
+    );
+
+    const second = within(rows[1]!).getAllByRole("cell")[3];
+
+    expect(second).toHaveTextContent("Ticker / códigoPETR4");
+
+    expect(second).not.toHaveTextContent("SHOULD-NOT-WIN");
+  });
+
+  it("a row without those values shows nothing for them: no placeholder, and no labels in its card", async () => {
+    const { rows } = await savedTable();
+
+    const bare = rows[2]!;
+
+    // No dash, no "sem valor" placeholder, none of the extra labels in the card.
+    expect(bare.textContent).not.toContain("—");
+    expect(bare.textContent).not.toMatch(/Tipo|Valor|Ticker|sem (valor|tipo|c[oó]digo)/i);
+
+    expect(labelsOf(bare)).toEqual(["Linha", "Ativo"]);
+
+    // The empty cells exist for the table but are hidden in the card layout.
+    const empty = within(bare)
+      .getAllByRole("cell", { hidden: true })
+      .filter((cell) => cell.textContent === "");
+
+    expect(empty).toHaveLength(3);
+
+    for (const cell of empty) {
+      expect(cell).toHaveClass("hidden", "md:table-cell");
+    }
+
+    // The rest of the row is intact.
+    expect(bare).toHaveTextContent("CDB Banco Exemplo 2027");
+    expect(bare).toHaveTextContent("Precisa de mais evidências");
+  });
+
+  it("a card carries a label for each value it has, hidden from assistive technology and from md up", async () => {
+    const { rows } = await savedTable();
+
+    expect(labelsOf(rows[0]!)).toEqual([
+      "Linha",
+      "Ativo",
+      "Tipo",
+      "Ticker / código",
+      "Valor",
+    ]);
+
+    for (const label of rows[0]!.querySelectorAll("span[aria-hidden=true]")) {
+      expect(label).toHaveClass("md:hidden");
+    }
+  });
+
+  it("keeps the responsive markup: cards below md, table from md, no horizontal scroll wrapper", async () => {
+    const { table, rows } = await savedTable();
+
+    expect(table).toHaveClass("block", "md:table");
+
+    expect(table.querySelector("thead")).toHaveClass(
+      "sr-only",
+      "md:not-sr-only",
+      "md:table-header-group",
+    );
+
+    for (const row of rows) {
+      expect(row).toHaveClass("block", "rounded-lg", "md:table-row");
+    }
+
+    for (const cell of within(rows[0]!).getAllByRole("cell")) {
+      expect(cell).toHaveClass("block", "md:table-cell");
+    }
+
+    expect(document.querySelector(".overflow-x-auto")).toBeNull();
+  });
+
+  it("a column that no row has is not shown", async () => {
+    const { table } = await savedTable({
+      items: [
+        {
+          lineNumber: 2,
+          rawName: "SO VALOR",
+          amount: 10,
+          currency: "BRL",
+          status: "needs-more-evidence",
+          pendingFields: [],
+          sources: [],
+        },
+      ],
+      updatedAt: "2026-09-21T14:32:00+00:00",
+    });
+
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Linha", "Ativo", "Valor", "Situação", "Detalhes"]);
+  });
+
+  it("a saved result with none of them keeps the four columns it always had", async () => {
+    const { table } = await savedTable(SAVED_BODY);
+
+    expect(
+      within(table)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Linha", "Ativo", "Situação", "Detalhes"]);
+  });
+
+  it("keeps the date, the counts and the delete button around it", async () => {
+    setup({ get: () => json(FULL_BODY) });
+
+    const card = await screen.findByRole("region", { name: "Resultado salvo" });
+
+    expect(card).toHaveTextContent(/Resultado salvo em \d{2}\/\d{2}\/\d{4} às \d{2}:\d{2}\./);
+
+    expect(card).toHaveTextContent("1 verificados · 3 com pendências · 0 com erro.");
+
+    expect(
+      within(card).getByRole("button", { name: "Apagar resultado salvo" }),
+    ).toBeInTheDocument();
+  });
+
+  it("after saving, the card shows the extras of what the server returned", async () => {
+    const rig = setup({ put: () => json(FULL_BODY) });
+
+    await opened(rig);
+
+    await resolveIt(rig);
+
+    await rig.user.click(saveButton()!);
+
+    const table = await screen.findByRole("table", {
+      name: "Resultado salvo de cada ativo",
+    });
+
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(7);
+
+    expect(table).toHaveTextContent("debenture");
+    expect(table).toHaveTextContent("PETR4");
+  });
+
+  it("the fresh result table is unchanged: it does not gain the extra columns", async () => {
+    const rig = setup();
+
+    await opened(rig);
+
+    await resolveIt(rig);
+
+    const fresh = screen.getByRole("table", {
+      name: "Resultado da resolução de cada ativo",
+    });
+
+    expect(
+      within(fresh)
+        .getAllByRole("columnheader")
+        .map((header) => header.textContent),
+    ).toEqual(["Linha", "Ativo", "Situação", "Detalhes"]);
+  });
+
+  it("Limpar, a new upload and the save still behave as before around the richer card", async () => {
+    const rig = setup({ get: () => json(FULL_BODY) });
+
+    await screen.findByRole("region", { name: "Resultado salvo" });
+
+    await resolveIt(rig);
+
+    await rig.user.click(screen.getByRole("button", { name: "Limpar" }));
+
+    await choose(rig, csv("rawName\nOUTRO\n", "outra.csv"));
+
+    expect(savedCard()).toHaveTextContent("DEB PETROBRAS SERIE 1");
+
+    expect(methods(rig)).toEqual(["GET"]);
+  });
+});

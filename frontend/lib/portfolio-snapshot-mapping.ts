@@ -281,6 +281,12 @@ export interface SavedDisplayRow {
   key: string;
   line: number;
   name: string;
+  /** What the user typed for the asset, shown only when it was saved (TASK-030). */
+  assetType?: string;
+  /** The ticker, else the instrument code (the same rule as the preview). */
+  code?: string;
+  amount?: number;
+  currency?: string;
   item: ResolvedItemView;
 }
 
@@ -289,6 +295,10 @@ export function toDisplayRows(snapshot: SavedSnapshot): SavedDisplayRow[] {
     key: `saved-${index}-${saved.lineNumber}`,
     line: saved.lineNumber,
     name: saved.rawName,
+    ...(saved.assetType !== undefined ? { assetType: saved.assetType } : {}),
+    ...(saved.ticker ?? saved.code ? { code: (saved.ticker ?? saved.code) as string } : {}),
+    ...(saved.amount !== undefined ? { amount: saved.amount } : {}),
+    ...(saved.currency !== undefined ? { currency: saved.currency } : {}),
     item: {
       index,
       candidateAssetId: `saved-${index}`,

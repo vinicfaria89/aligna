@@ -285,7 +285,31 @@ interface ResultRowView {
 
   name: string;
 
+  /** Optional extras, given only by the saved result (TASK-030); a fresh result has none. */
+  assetType?: string;
+
+  code?: string;
+
+  amount?: number;
+
+  currency?: string;
+
   item: ResolvedItemView;
+}
+
+/**
+ * A cell that exists only for a value the row has: with no value it takes no room in a
+ * card (hidden below `md`) and stays an empty cell in the table, never a placeholder.
+ */
+function OptionalCell({ label, value }: { label: string; value?: string }) {
+  return value !== undefined ? (
+    <td role="cell" className="block py-0.5 md:table-cell md:py-2 md:pr-4">
+      <CardLabel>{label}</CardLabel>
+      {value}
+    </td>
+  ) : (
+    <td role="cell" className="hidden md:table-cell md:py-2 md:pr-4" />
+  );
 }
 
 function countItems(items: ResolvedItemView[]) {
@@ -313,6 +337,12 @@ function countsText(items: ResolvedItemView[]): string {
  * roles keep the table semantics when the layout is not a CSS table.
  */
 function ResultsTable({ caption, rows }: { caption: string; rows: ResultRowView[] }) {
+  // A column exists only if some row has that value: a fresh result (no extras) keeps
+  // its four columns, and a saved one shows what was saved.
+  const showType = rows.some((row) => row.assetType !== undefined);
+  const showCode = rows.some((row) => row.code !== undefined);
+  const showAmount = rows.some((row) => row.amount !== undefined);
+
   return (
     <table role="table" className="block w-full text-left text-[13px] md:table">
       <caption className="sr-only">{caption}</caption>
@@ -320,12 +350,21 @@ function ResultsTable({ caption, rows }: { caption: string; rows: ResultRowView[
         <tr role="row" className="md:table-row md:border-b md:border-aligna-line md:text-aligna-muted">
           <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Linha</th>
           <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Ativo</th>
+          {showType && (
+            <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Tipo</th>
+          )}
+          {showCode && (
+            <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Ticker / código</th>
+          )}
+          {showAmount && (
+            <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Valor</th>
+          )}
           <th role="columnheader" scope="col" className="py-2 pr-4 font-semibold">Situação</th>
           <th role="columnheader" scope="col" className="py-2 font-semibold">Detalhes</th>
         </tr>
       </thead>
       <tbody className="block md:table-row-group">
-        {rows.map(({ key, line, name, item }) => (
+        {rows.map(({ key, line, name, assetType, code, amount, currency, item }) => (
           <tr
             role="row"
             key={key}
@@ -339,6 +378,14 @@ function ResultsTable({ caption, rows }: { caption: string; rows: ResultRowView[
               <CardLabel>Ativo</CardLabel>
               {name}
             </td>
+            {showType && <OptionalCell label="Tipo" value={assetType} />}
+            {showCode && <OptionalCell label="Ticker / código" value={code} />}
+            {showAmount && (
+              <OptionalCell
+                label="Valor"
+                value={amount !== undefined ? formatAmount(amount, currency) : undefined}
+              />
+            )}
             <td role="cell" className="block py-1 md:table-cell md:py-2 md:pr-4">
               <StatusBadge item={item} />
             </td>

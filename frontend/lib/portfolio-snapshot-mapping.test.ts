@@ -480,6 +480,56 @@ describe("toDisplayRows: the saved result as the results table expects it", () =
     expect(new Set(rows.map((r) => r.key)).size).toBe(3);
   });
 
+  it("carries the saved type, ticker/code, amount and currency, and only when they exist (TASK-030)", () => {
+    const rows = toDisplayRows({
+      updatedAt: "2026-09-21T14:32:00Z",
+      items: [
+        {
+          lineNumber: 2,
+          rawName: "FULL",
+          assetType: "debenture",
+          code: "ABCD11",
+          amount: 98765.43,
+          currency: "BRL",
+          status: "needs-more-evidence",
+          pendingFields: [],
+          sources: [],
+        },
+        {
+          lineNumber: 3,
+          rawName: "TICKER WINS",
+          ticker: "PETR4",
+          code: "OTHER-CODE",
+          status: "needs-more-evidence",
+          pendingFields: [],
+          sources: [],
+        },
+        {
+          lineNumber: 4,
+          rawName: "NOTHING EXTRA",
+          status: "needs-more-evidence",
+          pendingFields: [],
+          sources: [],
+        },
+      ],
+    });
+
+    expect(rows[0]).toMatchObject({
+      assetType: "debenture",
+      code: "ABCD11",
+      amount: 98765.43,
+      currency: "BRL",
+    });
+
+    // The same rule as the preview: the ticker, else the instrument code.
+    expect(rows[1]?.code).toBe("PETR4");
+
+    // Absent fields are absent (no empty strings, no placeholders).
+    for (const key of ["assetType", "code", "amount", "currency"]) {
+      expect(rows[2]).not.toHaveProperty(key);
+    }
+  });
+
   it("invents no internal ids", () => {
     const rows = toDisplayRows({
       updatedAt: "2026-09-21T14:32:00Z",
