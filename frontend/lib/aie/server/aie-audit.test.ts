@@ -627,7 +627,7 @@ describe("audit contract", () => {
       ).resolves.toBeUndefined();
     });
 
-    it("the production sink is the no-op one (no durable storage yet)", async () => {
+    it("the production sink is the no-op one when the durable-sink env vars are unset (TASK-037 is opt-in; see create-server-audit-sink.test.ts for the configured case)", async () => {
       const sink = getAieAuditSink();
 
       expect(getAieAuditSink()).toBe(
@@ -661,9 +661,13 @@ describe("audit contract", () => {
   });
 
   describe("static guards (audit production code)", () => {
+    // create-server-audit-sink.ts is deliberately NOT in this list since TASK-037:
+    // it is the one module allowed to read the environment and use the network for
+    // the audit boundary (mirrors create-server-authorizer.ts for the request
+    // authorizer) -- see create-server-audit-sink.test.ts and
+    // planejador-audit-sink.test.ts for its own guards.
     const files = [
       "./aie-audit.ts",
-      "./create-server-audit-sink.ts",
       "./aie-audited-request.ts",
     ];
 

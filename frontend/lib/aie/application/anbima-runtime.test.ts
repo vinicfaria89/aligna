@@ -799,14 +799,18 @@ describe(
                     "/",
                   ),
                 )
-                // The two server composition boundaries: ANBIMA (TASK-008) and
-                // the request authorizer (TASK-020). Nothing else reads it.
+                // The three server composition boundaries: ANBIMA (TASK-008),
+                // the request authorizer (TASK-020) and the audit sink
+                // (TASK-037, shares the authorizer's Planejador base URL plus
+                // its own shared-secret variable). Nothing else reads it.
                 .filter(
                   (file) =>
                     file !==
                       "server/create-server-aie.ts" &&
                     file !==
-                      "server/create-server-authorizer.ts",
+                      "server/create-server-authorizer.ts" &&
+                    file !==
+                      "server/create-server-audit-sink.ts",
                 );
 
             expect(

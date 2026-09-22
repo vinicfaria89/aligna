@@ -137,3 +137,9 @@ limiting (TASK-023), console logging (deliberately none).
 ## Update (TASK-023)
 
 The execution stage gained two outcomes, ate-limited (status 429) and usage-control-error (status 500), for requests that were authorized but not executed because of the identity usage control. No new field or stage was added. See TASK-023-aie-identity-rate-limits.md.
+
+## Update (TASK-037) - durable sink
+
+The "Persistence status" section above is now out of date: the production sink is no longer always the no-op. See
+`TASK-037-durable-aie-audit-sink.md` for the durable Planejador-backed sink, its failure-mode split from the request
+authorizer, and the retention gap that remains open.

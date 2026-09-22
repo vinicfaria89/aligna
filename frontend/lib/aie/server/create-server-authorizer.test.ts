@@ -386,7 +386,7 @@ describe("authorizer configuration guards (static)", () => {
       .replace(/^\//, "");
   }
 
-  it("only create-server-authorizer.ts reads the environment for the identity integration", () => {
+  it("only create-server-authorizer.ts and create-server-audit-sink.ts read the environment for the identity/audit base URL (TASK-037: the audit sink shares the same Planejador URL)", () => {
     const readers = production
       .filter((file) => {
         const source = stripComments(
@@ -397,9 +397,11 @@ describe("authorizer configuration guards (static)", () => {
           ENV_NAME,
         );
       })
-      .map(posix);
+      .map(posix)
+      .sort();
 
     expect(readers).toEqual([
+      "lib/aie/server/create-server-audit-sink.ts",
       "lib/aie/server/create-server-authorizer.ts",
     ]);
   });
@@ -508,6 +510,8 @@ describe("authorizer configuration guards (static)", () => {
       "create-server-authorizer",
       "planejador-request-authorizer",
       "deny-all-authorizer",
+      "create-server-audit-sink",
+      "planejador-audit-sink",
       "server",
     ]) {
       expect(barrel).not.toContain(
