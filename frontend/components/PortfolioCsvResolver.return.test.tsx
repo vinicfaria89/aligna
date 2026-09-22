@@ -32,8 +32,9 @@ vi.mock("@/lib/session", () => ({
 
 /**
  * TASK-027: the sign-in action offered by /carteira. Only the authentication
- * states (no session, expired) point to the login with the safe return route; 403,
- * 429, 500 and the rest never offer it, and nothing but the route is in the link.
+ * states (no session, expired) point to the login with the safe return route; 401
+ * (TASK-036: the AIE's own access gate, not a session rejection), 403, 429, 500 and
+ * the rest never offer it, and nothing but the route is in the link.
  */
 
 const TOKEN = "sentinel-return-token";
@@ -156,18 +157,6 @@ describe("sign-in action from /carteira", () => {
     ).toHaveAttribute("href", LOGIN_RETURN);
   });
 
-  it("a 401 from the server: the same safe link", async () => {
-    const { alert } = await attempt(ok, () =>
-      response(401),
-    );
-
-    expect(
-      within(alert).getByRole("link", {
-        name: "Entrar",
-      }),
-    ).toHaveAttribute("href", LOGIN_RETURN);
-  });
-
   it("the copy says the user comes back to the page and picks the file again", async () => {
     const { alert } = await attempt(
       async () => ({ status: "expired" }),
@@ -179,6 +168,7 @@ describe("sign-in action from /carteira", () => {
   });
 
   for (const [name, status, headers] of [
+    ["401", 401, {}],
     ["403", 403, {}],
     ["429", 429, { "retry-after": "7" }],
     ["500", 500, {}],
@@ -223,7 +213,6 @@ describe("sign-in action from /carteira", () => {
     for (const session of [
       async () => ({ status: "none" as const }),
       async () => ({ status: "expired" as const }),
-      ok,
     ]) {
       const { alert } = await attempt(
         session,

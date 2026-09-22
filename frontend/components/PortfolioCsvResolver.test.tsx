@@ -1109,7 +1109,7 @@ describe("PortfolioCsvResolver", () => {
       ).toBeNull();
     });
 
-    it("401 says the session expired and asks the user to sign in again", async () => {
+    it("401 says the AIE access is not released yet, and does not ask to sign in again (TASK-036)", async () => {
       const { user } = setup(() =>
         failure(401),
       );
@@ -1120,11 +1120,19 @@ describe("PortfolioCsvResolver", () => {
 
       await submit(user);
 
-      expect(
-        await screen.findByRole("alert"),
-      ).toHaveTextContent(
-        /sua sessão expirou.*entre novamente/i,
+      const alert = await screen.findByRole("alert");
+
+      expect(alert).toHaveTextContent(
+        /ainda não tem acesso à resolução de carteiras em lote/i,
       );
+
+      expect(alert).not.toHaveTextContent(
+        /sua sessão expirou/i,
+      );
+
+      expect(
+        within(alert).queryByRole("link"),
+      ).toBeNull();
 
       expect(
         screen.queryByRole("table", {
@@ -1746,7 +1754,7 @@ describe("PortfolioCsvResolver", () => {
       ).toBeInTheDocument();
     });
 
-    it("a 401 ends the session ONCE, asks to sign in again, keeps no result and never retries", async () => {
+    it("a 401 keeps the session, does not ask to sign in again, keeps no result and never retries (TASK-036)", async () => {
       const { user, fetchImpl, getSession, clearSession } =
         await prepared(() => failure(401));
 
@@ -1756,16 +1764,18 @@ describe("PortfolioCsvResolver", () => {
         await screen.findByRole("alert");
 
       expect(alert).toHaveTextContent(
+        /ainda não tem acesso à resolução de carteiras em lote/i,
+      );
+
+      expect(alert).not.toHaveTextContent(
         /sua sessão expirou/i,
       );
 
       expect(
-        within(alert).getByRole("link", {
-          name: "Entrar",
-        }),
-      ).toHaveAttribute("href", "/evolucao?voltar=/carteira");
+        within(alert).queryByRole("link"),
+      ).toBeNull();
 
-      expect(clearSession).toHaveBeenCalledTimes(1);
+      expect(clearSession).not.toHaveBeenCalled();
 
       // One session lookup, one request: no refresh-and-retry, no loop.
       expect(getSession).toHaveBeenCalledTimes(1);
@@ -1787,10 +1797,10 @@ describe("PortfolioCsvResolver", () => {
 
       expect(fetchImpl).toHaveBeenCalledTimes(1);
 
-      expect(clearSession).toHaveBeenCalledTimes(1);
+      expect(clearSession).not.toHaveBeenCalled();
     });
 
-    it("a 401 after a good result removes the old result and does not resubmit by itself", async () => {
+    it("a 401 after a good result removes the old result, keeps the session and does not resubmit by itself", async () => {
       let attempt = 0;
 
       const { user, fetchImpl, clearSession } =
@@ -1827,7 +1837,7 @@ describe("PortfolioCsvResolver", () => {
 
       expect(fetchImpl).toHaveBeenCalledTimes(2);
 
-      expect(clearSession).toHaveBeenCalledTimes(1);
+      expect(clearSession).not.toHaveBeenCalled();
     });
 
     it("the user can submit again after a 401 (explicit action), and it asks the session again", async () => {

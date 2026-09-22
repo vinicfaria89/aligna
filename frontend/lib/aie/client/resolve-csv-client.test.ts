@@ -187,16 +187,12 @@ describe("submitPortfolioCsv", () => {
     });
 
     it("sends nothing when there is no stored session", async () => {
-      const clearSession = vi.fn();
-
       const { promise, calls } = run(
         () => json({}),
         {
           getSession: async () => ({
             status: "none",
           }),
-
-          clearSession,
         },
       );
 
@@ -207,22 +203,15 @@ describe("submitPortfolioCsv", () => {
       });
 
       expect(calls).toHaveLength(0);
-
-      // The session layer already did its own cleanup; the client never adds one.
-      expect(clearSession).not.toHaveBeenCalled();
     });
 
     it("sends nothing when the refresh was refused (expired session)", async () => {
-      const clearSession = vi.fn();
-
       const { promise, calls } = run(
         () => json({}),
         {
           getSession: async () => ({
             status: "expired",
           }),
-
-          clearSession,
         },
       );
 
@@ -233,13 +222,9 @@ describe("submitPortfolioCsv", () => {
       });
 
       expect(calls).toHaveLength(0);
-
-      expect(clearSession).not.toHaveBeenCalled();
     });
 
     it("sends nothing, and keeps the session, when the identity service is unavailable", async () => {
-      const clearSession = vi.fn();
-
       for (const getSession of [
         async () => ({
           status: "unavailable" as const,
@@ -257,7 +242,7 @@ describe("submitPortfolioCsv", () => {
       ]) {
         const { promise, calls } = run(
           () => json({}),
-          { getSession, clearSession },
+          { getSession },
         );
 
         expect(await promise).toEqual({
@@ -266,8 +251,6 @@ describe("submitPortfolioCsv", () => {
 
         expect(calls).toHaveLength(0);
       }
-
-      expect(clearSession).not.toHaveBeenCalled();
     });
 
     it("asks the session once per submission and sends the token it returned", async () => {
@@ -437,7 +420,7 @@ describe("submitPortfolioCsv", () => {
     const simple: Array<
       [number, string]
     > = [
-      [401, "unauthenticated"],
+      [401, "aie-access-denied"],
       [403, "forbidden"],
       [413, "too-large"],
       [415, "unsupported-media"],
@@ -463,9 +446,7 @@ describe("submitPortfolioCsv", () => {
       });
     }
 
-    it("401 from the server is a rejected session: the session is cleared once, and there is no retry", async () => {
-      const clearSession = vi.fn();
-
+    it("401 from the server is the AIE's own authorization boundary, not a session rejection: the session is left alone, and there is no retry", async () => {
       const getSession = vi.fn(
         async () => ({
           status: "ok" as const,
@@ -476,22 +457,16 @@ describe("submitPortfolioCsv", () => {
 
       const { promise, calls } = run(
         () => json({}, 401),
-        { clearSession, getSession },
+        { getSession },
       );
 
       expect(
         await promise,
       ).toMatchObject({
-        kind: "unauthenticated",
-
-        reason: "rejected",
+        kind: "aie-access-denied",
 
         correlationId: "corr-77",
       });
-
-      expect(clearSession).toHaveBeenCalledTimes(
-        1,
-      );
 
       // The token was issued a moment ago: asking for another one would repeat
       // the same refresh. One session call, one request, no loop.
@@ -502,32 +477,11 @@ describe("submitPortfolioCsv", () => {
       expect(calls).toHaveLength(1);
     });
 
-    it("a 401 still ends as unauthenticated when clearing the session throws", async () => {
-      const { promise } = run(
-        () => json({}, 401),
-        {
-          clearSession: () => {
-            throw new Error("storage blocked");
-          },
-        },
-      );
-
-      expect(
-        await promise,
-      ).toMatchObject({
-        kind: "unauthenticated",
-
-        reason: "rejected",
-      });
-    });
-
-    it("only a 401 touches the session: 400, 403, 413, 415, 429 and 5xx neither clear it nor ask for another token", async () => {
+    it("no status touches the session: 400, 401, 403, 413, 415, 429 and 5xx neither clear it nor ask for another token (TASK-036)", async () => {
       for (const status of [
-        400, 403, 413, 415, 418, 429,
+        400, 401, 403, 413, 415, 418, 429,
         500, 502, 503,
       ]) {
-        const clearSession = vi.fn();
-
         const getSession = vi.fn(
           async () => ({
             status: "ok" as const,
@@ -538,12 +492,10 @@ describe("submitPortfolioCsv", () => {
 
         const { promise, calls } = run(
           () => json({}, status),
-          { clearSession, getSession },
+          { getSession },
         );
 
         await promise;
-
-        expect(clearSession).not.toHaveBeenCalled();
 
         expect(getSession).toHaveBeenCalledTimes(
           1,
@@ -553,9 +505,7 @@ describe("submitPortfolioCsv", () => {
       }
     });
 
-    it("a network failure neither clears the session nor retries", async () => {
-      const clearSession = vi.fn();
-
+    it("a network failure does not retry", async () => {
       const getSession = vi.fn(
         async () => ({
           status: "ok" as const,
@@ -573,8 +523,6 @@ describe("submitPortfolioCsv", () => {
 
         getSession,
 
-        clearSession,
-
         fetchImpl: async () => {
           attempts += 1;
 
@@ -589,8 +537,6 @@ describe("submitPortfolioCsv", () => {
       });
 
       expect(attempts).toBe(1);
-
-      expect(clearSession).not.toHaveBeenCalled();
     });
 
     it("no outcome carries the token, the CSV or the Authorization header", async () => {

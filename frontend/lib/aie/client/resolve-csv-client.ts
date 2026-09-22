@@ -26,11 +26,22 @@ import type {
  *
  * Authentication (TASK-026): the token comes from an injected `getSession` (in the
  * app, `acquireAccessToken` of lib/session.ts, which owns storage and refresh and
- * exchanges the refresh token before every call). A 401 ends the session through
- * the injected `clearSession` and is never retried; 403, 429, 5xx and validation
- * errors never touch the session. The token goes ONLY in the Authorization header: never in the URL,
- * the CSV, an outcome or a message. The CSV goes only in the request body; the
- * URL carries only the opaque upload id.
+ * exchanges the refresh token before every call).
+ *
+ * A 401 from THIS server is never treated as the Planejador session being
+ * invalid (TASK-036): `getSession` already refreshed the token moments before
+ * this request, so by the time the server answers, the token was just
+ * confirmed valid at the Planejador. A 401 here can only come from the AIE's
+ * own request-authorization boundary (currently a fail-closed deny-all,
+ * `lib/aie/server/deny-all-authorizer.ts`, pending TASK-019/020) denying the
+ * operation for its own reasons -- it says nothing about whether the caller's
+ * Planejador session is still good. This client never ends the session on a
+ * 401: no `clearSession` is called, and the outcome is the distinct
+ * `aie-access-denied` kind, never `unauthenticated`. 403, 429, 5xx and
+ * validation errors never touch the session either. The token goes ONLY in
+ * the Authorization header: never in the URL, the CSV, an outcome or a
+ * message. The CSV goes only in the request body; the URL carries only the
+ * opaque upload id.
  *
  * Browser-safe: no environment, no storage, no logging.
  */
@@ -92,10 +103,10 @@ export type ResolveCsvOutcome =
 
       /**
        * `no-session`: nothing stored, no request made. `expired`: the refresh was
-       * refused (session already cleared), no request made. `rejected`: the server
-       * answered 401 (session cleared).
+       * refused (session already cleared), no request made. Never set from an HTTP
+       * response of this server: see `aie-access-denied`.
        */
-      reason: "no-session" | "expired" | "rejected";
+      reason: "no-session" | "expired";
 
       correlationId?: string;
     }
@@ -105,6 +116,17 @@ export type ResolveCsvOutcome =
     }
   | {
       kind: "forbidden";
+
+      correlationId?: string;
+    }
+  | {
+      /**
+       * The server answered 401 (TASK-036): the AIE's own authorization boundary
+       * denied the operation, NOT a rejection of the Planejador session -- the
+       * token was just confirmed fresh by `getSession` before this request. The
+       * session is left untouched: no `clearSession` call, no sign-in prompt.
+       */
+      kind: "aie-access-denied";
 
       correlationId?: string;
     }
@@ -145,13 +167,6 @@ export interface SubmitPortfolioCsvInput {
    * refreshes BEFORE every request, so a token it returns was just issued.
    */
   getSession: () => Promise<SessionAccess>;
-
-  /**
-   * Called when the server rejects the token with a 401 (in the app, the existing
-   * `clearSession`). Refreshing again would only repeat what `getSession` just
-   * did, so there is NO retry: the session is ended and the user signs in again.
-   */
-  clearSession?: () => void;
 
   /** Test seam. Defaults to the global fetch. */
   fetchImpl?: (
@@ -585,19 +600,12 @@ export async function submitPortfolioCsv(
     }
 
     case 401:
-      // The token was issued a moment ago and the server still refuses it: the
-      // session cannot be recovered here. End it (existing API) and ask for a new
-      // sign-in. 403, 429 and 5xx never reach this branch.
-      try {
-        input.clearSession?.();
-      } catch {
-        // Clearing is best effort; the outcome is the same.
-      }
-
+      // TASK-036: the token was issued a moment ago and confirmed fresh at the
+      // Planejador -- a 401 here is the AIE's own authorization boundary saying
+      // no, not the Planejador session being invalid. The session is left
+      // alone: no clearSession, no "unauthenticated" outcome, no retry.
       return {
-        kind: "unauthenticated",
-
-        reason: "rejected",
+        kind: "aie-access-denied",
 
         ...withId,
       };

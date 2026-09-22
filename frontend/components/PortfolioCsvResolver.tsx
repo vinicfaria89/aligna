@@ -92,6 +92,7 @@ type View =
   | { kind: "unauthenticated"; expired: boolean }
   | { kind: "session-unavailable" }
   | { kind: "forbidden" }
+  | { kind: "aie-access-denied" }
   | { kind: "too-large" }
   | { kind: "unsupported-media" }
   | { kind: "rate-limited"; retryAfterSeconds?: number }
@@ -603,7 +604,6 @@ export default function PortfolioCsvResolver({
       csvText: selection.text,
       fileId: selection.fileId,
       getSession,
-      clearSession: endSession,
       fetchImpl,
     });
 
@@ -631,6 +631,9 @@ export default function PortfolioCsvResolver({
         break;
       case "forbidden":
         setView({ kind: "forbidden" });
+        break;
+      case "aie-access-denied":
+        setView({ kind: "aie-access-denied" });
         break;
       case "too-large":
         setView({ kind: "too-large" });
@@ -1039,6 +1042,16 @@ export default function PortfolioCsvResolver({
         <div role="alert" className="rounded-lg bg-aligna-warnSoft p-4 text-sm text-aligna-ink">
           <p className="font-semibold">Sem acesso a este recurso.</p>
           <p className="mt-1">Sua conta não tem acesso à resolução de carteiras em lote.</p>
+        </div>
+      )}
+
+      {view.kind === "aie-access-denied" && (
+        <div role="alert" className="rounded-lg bg-aligna-warnSoft p-4 text-sm text-aligna-ink">
+          <p className="font-semibold">Resolução de carteiras ainda não está liberada.</p>
+          <p className="mt-1">
+            Sua conta ainda não tem acesso à resolução de carteiras em lote. Você continua logado; o arquivo não fica
+            guardado, então basta tentar de novo mais tarde.
+          </p>
         </div>
       )}
 

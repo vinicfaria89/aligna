@@ -671,15 +671,6 @@ describe("the sign-in action from /carteira", () => {
       }),
       undefined,
     ],
-    [
-      "a 401 from the server",
-      async () => ({
-        status: "ok" as const,
-
-        accessToken: TOKEN,
-      }),
-      () => response(401),
-    ],
   ] as Array<
     [
       string,
@@ -794,6 +785,7 @@ describe("the sign-in action from /carteira", () => {
   });
 
   for (const [name, status] of [
+    ["401", 401],
     ["403", 403],
     ["429", 429],
     ["500", 500],

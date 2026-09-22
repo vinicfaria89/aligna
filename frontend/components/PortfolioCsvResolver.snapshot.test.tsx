@@ -1078,7 +1078,7 @@ describe("Limpar and a new upload never touch the saved result", () => {
     expect(screen.queryByText("Este resultado está salvo na sua conta.")).toBeNull();
   });
 
-  it("a 401 while resolving does not remove the saved result already shown", async () => {
+  it("a 401 while resolving does not remove the saved result already shown, and does not end the session (TASK-036)", async () => {
     const rig = setup({ get: () => json(SAVED_BODY), aie: () => json({}, 401) });
 
     await screen.findByRole("region", { name: "Resultado salvo" });
@@ -1087,9 +1087,13 @@ describe("Limpar and a new upload never touch the saved result", () => {
 
     await rig.user.click(screen.getByRole("button", { name: /resolver carteira/i }));
 
-    await screen.findByText("Sua sessão expirou.");
+    await screen.findByText("Resolução de carteiras ainda não está liberada.");
+
+    expect(screen.queryByText("Sua sessão expirou.")).toBeNull();
 
     expect(savedCard()).toHaveTextContent("SAVED ALPHA");
+
+    expect(rig.clearSession).not.toHaveBeenCalled();
   });
 });
 
