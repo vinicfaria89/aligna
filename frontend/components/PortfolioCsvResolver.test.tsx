@@ -229,7 +229,7 @@ function setup(
 
 function fileInput(): HTMLInputElement {
   return screen.getByLabelText(
-    "Arquivo CSV da carteira",
+    "Arquivo CSV ou Excel da carteira",
   );
 }
 

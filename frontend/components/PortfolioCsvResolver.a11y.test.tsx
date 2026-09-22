@@ -94,7 +94,7 @@ async function chooseFile(
 
   await user.upload(
     screen.getByLabelText(
-      "Arquivo CSV da carteira",
+      "Arquivo CSV ou Excel da carteira",
     ),
     new File([content], name, {
       type: "text/csv",
@@ -432,7 +432,7 @@ describe("keyboard focus", () => {
 
     expect(
       screen.getByLabelText(
-        "Arquivo CSV da carteira",
+        "Arquivo CSV ou Excel da carteira",
       ),
     ).toHaveClass("input");
   });
@@ -462,7 +462,7 @@ describe("regressions around the preview", () => {
 
     await user.upload(
       screen.getByLabelText(
-        "Arquivo CSV da carteira",
+        "Arquivo CSV ou Excel da carteira",
       ),
       new File(
         ["id,rawName\nz,ONLY ONE ASSET\n"],
@@ -497,7 +497,7 @@ describe("regressions around the preview", () => {
 
     expect(
       screen.getByLabelText(
-        "Arquivo CSV da carteira",
+        "Arquivo CSV ou Excel da carteira",
       ),
     ).toHaveValue("");
   });
@@ -552,7 +552,7 @@ describe("regressions around the preview", () => {
 
     await user.upload(
       screen.getByLabelText(
-        "Arquivo CSV da carteira",
+        "Arquivo CSV ou Excel da carteira",
       ),
       new File([CSV], "carteira.csv", {
         type: "text/csv",
@@ -638,7 +638,7 @@ describe("the sign-in action from /carteira", () => {
 
     await user.upload(
       screen.getByLabelText(
-        "Arquivo CSV da carteira",
+        "Arquivo CSV ou Excel da carteira",
       ),
       new File([CSV], "carteira.csv", {
         type: "text/csv",

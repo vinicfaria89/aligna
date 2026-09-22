@@ -227,7 +227,7 @@ function csv(content = CSV_TEXT, name = FILE_NAME) {
 }
 
 async function choose(rig: Rig, file: File = csv()) {
-  await rig.user.upload(screen.getByLabelText("Arquivo CSV da carteira"), file);
+  await rig.user.upload(screen.getByLabelText("Arquivo CSV ou Excel da carteira"), file);
 
   await screen.findByRole("table", { name: /prévia/i });
 }
@@ -285,7 +285,7 @@ describe("reading the saved result when the page opens", () => {
 
     expect(screen.queryByRole("status")).toBeNull();
 
-    expect(screen.getByLabelText("Arquivo CSV da carteira")).toBeEnabled();
+    expect(screen.getByLabelText("Arquivo CSV ou Excel da carteira")).toBeEnabled();
   });
 
   it("with a saved result it shows it, with its date, using the same results table", async () => {
@@ -376,7 +376,7 @@ describe("reading the saved result when the page opens", () => {
 
     expect(savedCard()).toBeNull();
 
-    expect(screen.getByLabelText("Arquivo CSV da carteira")).toBeEnabled();
+    expect(screen.getByLabelText("Arquivo CSV ou Excel da carteira")).toBeEnabled();
   });
 
   it("a failure on open (500) shows a discreet note and the page keeps working", async () => {
@@ -390,7 +390,7 @@ describe("reading the saved result when the page opens", () => {
 
     expect(rig.clearSession).not.toHaveBeenCalled();
 
-    expect(screen.getByLabelText("Arquivo CSV da carteira")).toBeEnabled();
+    expect(screen.getByLabelText("Arquivo CSV ou Excel da carteira")).toBeEnabled();
 
     // and the normal flow still works
     await resolveIt(rig);
@@ -413,7 +413,7 @@ describe("reading the saved result when the page opens", () => {
 
     await opened(rig);
 
-    await rig.user.upload(screen.getByLabelText("Arquivo CSV da carteira"), csv());
+    await rig.user.upload(screen.getByLabelText("Arquivo CSV ou Excel da carteira"), csv());
 
     await screen.findByRole("table", { name: /prévia/i });
 

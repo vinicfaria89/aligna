@@ -88,7 +88,7 @@ async function attempt(
 
   await user.upload(
     screen.getByLabelText(
-      "Arquivo CSV da carteira",
+      "Arquivo CSV ou Excel da carteira",
     ),
     new File([CSV], FILE_NAME, {
       type: "text/csv",
@@ -272,7 +272,7 @@ describe("coming back to /carteira", () => {
 
     expect(
       screen.getByLabelText(
-        "Arquivo CSV da carteira",
+        "Arquivo CSV ou Excel da carteira",
       ),
     ).toHaveValue("");
 

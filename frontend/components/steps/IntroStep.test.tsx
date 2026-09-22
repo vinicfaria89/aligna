@@ -113,7 +113,7 @@ describe("reaching /carteira", () => {
     expect(screen.queryByRole("alert")).toBeNull();
 
     expect(
-      screen.getByLabelText("Arquivo CSV da carteira"),
+      screen.getByLabelText("Arquivo CSV ou Excel da carteira"),
     ).toBeEnabled();
 
     vi.unstubAllGlobals();

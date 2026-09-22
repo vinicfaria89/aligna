@@ -954,7 +954,7 @@ export default function PortfolioCsvResolver({
         </p>
 
         <label htmlFor="csv-file" className="text-sm font-medium">
-          Arquivo CSV da carteira
+          Arquivo CSV ou Excel da carteira
         </label>
         <input
           key={inputKey}
