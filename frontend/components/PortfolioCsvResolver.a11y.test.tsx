@@ -22,6 +22,7 @@ import {
 } from "vitest";
 
 import PortfolioCsvResolver from "./PortfolioCsvResolver";
+import { fakeSnapshotClient } from "./portfolio-snapshot-test-support";
 
 import type { SubmitPortfolioCsvInput } from "@/lib/aie/client/resolve-csv-client";
 
@@ -80,6 +81,7 @@ async function chooseFile(
 
   const view = render(
     <PortfolioCsvResolver
+      snapshotClient={fakeSnapshotClient()}
       getSession={async () => ({
         status: "ok",
 
@@ -533,6 +535,7 @@ describe("regressions around the preview", () => {
 
     render(
       <PortfolioCsvResolver
+        snapshotClient={fakeSnapshotClient()}
         getSession={async () => ({
           status: "ok",
 
@@ -626,6 +629,7 @@ describe("the sign-in action from /carteira", () => {
 
     render(
       <PortfolioCsvResolver
+        snapshotClient={fakeSnapshotClient()}
         getSession={session}
         clearSession={() => undefined}
         fetchImpl={async () => respond()}

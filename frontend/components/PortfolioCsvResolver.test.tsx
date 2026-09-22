@@ -19,6 +19,7 @@ import {
 } from "vitest";
 
 import PortfolioCsvResolver from "./PortfolioCsvResolver";
+import { fakeSnapshotClient } from "./portfolio-snapshot-test-support";
 
 import type { SubmitPortfolioCsvInput } from "@/lib/aie/client/resolve-csv-client";
 import { MAX_CSV_UPLOAD_BYTES } from "@/lib/aie/ingestion/portfolio-csv-limits";
@@ -210,6 +211,7 @@ function setup(
 
   const view = render(
     <PortfolioCsvResolver
+      snapshotClient={fakeSnapshotClient()}
       getSession={getSession}
       clearSession={clearSession}
       fetchImpl={fetchImpl}
@@ -602,6 +604,7 @@ describe("PortfolioCsvResolver", () => {
 
       render(
         <PortfolioCsvResolver
+          snapshotClient={fakeSnapshotClient()}
           fetchImpl={fetchImpl}
         />,
       );
@@ -1296,6 +1299,7 @@ describe("PortfolioCsvResolver", () => {
 
       render(
         <PortfolioCsvResolver
+          snapshotClient={fakeSnapshotClient()}
           getSession={async () => ({
             status: "ok",
 
@@ -1558,7 +1562,11 @@ describe("PortfolioCsvResolver", () => {
       return rig;
     }
 
-    it("a direct visit with no session shows the ready screen and calls neither the session nor the endpoint", () => {
+    // TASK-029B: the page now also reads the saved result when it opens. These tests
+    // inject a saved-result client that answers "nothing saved" (see
+    // portfolio-snapshot-test-support.ts) so they stay about the resolution; the read on
+    // open, with and without a session, is covered in PortfolioCsvResolver.snapshot.test.tsx.
+    it("a direct visit with no session shows the ready screen and makes no AIE request and no session call of its own", () => {
       const { fetchImpl, getSession, clearSession } =
         setup(
           () => ok([]),

@@ -18,6 +18,7 @@ import {
 } from "vitest";
 
 import PortfolioCsvResolver from "./PortfolioCsvResolver";
+import { fakeSnapshotClient } from "./portfolio-snapshot-test-support";
 
 import type { SubmitPortfolioCsvInput } from "@/lib/aie/client/resolve-csv-client";
 
@@ -77,6 +78,7 @@ async function attempt(
 
   render(
     <PortfolioCsvResolver
+      snapshotClient={fakeSnapshotClient()}
       getSession={session}
       clearSession={clearSession}
       fetchImpl={fetchImpl}
@@ -273,6 +275,7 @@ describe("coming back to /carteira", () => {
 
     render(
       <PortfolioCsvResolver
+        snapshotClient={fakeSnapshotClient()}
         getSession={getSession}
         fetchImpl={fetchImpl}
       />,
