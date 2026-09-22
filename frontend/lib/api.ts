@@ -15,6 +15,31 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Extracts a safe, user-facing string from a Planejador error body's `detail`
+ * (TASK-034, used by `login`). The Planejador's own errors ("E-mail ou senha
+ * inválidos", "Refresh token inválido", ...) send `detail` as a plain string; a
+ * 422 the REQUEST ITSELF fails schema validation on -- a payload malformed enough
+ * that FastAPI never reaches the app's own login logic -- sends `detail` as an
+ * array of Pydantic error objects (`{loc, msg, type}`) instead. Passing that array
+ * straight into `new Error(...)` (as `body.detail ?? fallback` used to) coerces it
+ * through `Array.prototype.toString`, which stringifies each object as
+ * "[object Object]" -- never anything a user can read. The array case here shows a
+ * generic message instead of the raw Pydantic text: consistent with the rest of
+ * the app's rule against echoing backend/field internals to the user.
+ */
+function readableApiErrorMessage(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail.trim().length > 0) {
+    return detail;
+  }
+
+  if (Array.isArray(detail) && detail.length > 0) {
+    return "Não foi possível concluir com os dados enviados. Confira as informações e tente novamente.";
+  }
+
+  return fallback;
+}
+
 export interface IntakeTokens {
   access_token: string;
   refresh_token: string;
@@ -113,7 +138,10 @@ export async function login(email: string, password: string): Promise<IntakeToke
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new ApiError(res.status, body.detail ?? "Não conseguimos entrar com esse e-mail e senha");
+    throw new ApiError(
+      res.status,
+      readableApiErrorMessage(body.detail, "Não conseguimos entrar com esse e-mail e senha"),
+    );
   }
 
   return res.json();
