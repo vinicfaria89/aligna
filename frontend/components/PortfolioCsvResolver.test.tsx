@@ -296,7 +296,7 @@ describe("PortfolioCsvResolver", () => {
         fileInput(),
       ).toHaveAttribute(
         "accept",
-        ".csv,text/csv",
+        ".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       );
 
       expect(resolveButton()).toBeDisabled();

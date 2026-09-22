@@ -25,6 +25,12 @@ import {
   type ResolvedItemView,
   type SubmitPortfolioCsvInput,
 } from "@/lib/aie/client/resolve-csv-client";
+import {
+  excelRowsToCsvText,
+  MAX_EXCEL_DATA_ROWS,
+  MAX_XLSX_UPLOAD_BYTES,
+  readPortfolioExcelFile,
+} from "@/lib/aie/client/portfolio-excel-adapter";
 import { deriveUploadFileId } from "@/lib/aie/client/upload-file-id";
 import {
   MAX_CSV_UPLOAD_BYTES,
@@ -47,7 +53,10 @@ import { acquireAccessToken, clearSession } from "@/lib/session";
 /**
  * First user-facing AIE workflow (TASK-025): choose a CSV, preview it locally,
  * send the raw CSV to POST /api/aie/resolve-csv, and show what the server
- * resolved.
+ * resolved. TASK-038 adds .xlsx as a second input FORMAT only: an .xlsx file is
+ * converted to the same CSV text client-side (see portfolio-excel-adapter.ts),
+ * then handed to the exact same preview and submission path as a .csv file --
+ * the server, `lib/aie/server`, never learns which format the user chose.
  *
  * The UI reproduces NO AIE logic: it reads a file, previews it with the same
  * browser-safe adapter the server uses, asks the server to resolve, and renders
@@ -57,10 +66,14 @@ import { acquireAccessToken, clearSession } from "@/lib/session";
  *
  * Privacy: the file, its text and the preview live only in component memory. They
  * are never written to localStorage/sessionStorage, the URL, analytics or the
- * console, and disappear on reload or "Limpar".
+ * console, and disappear on reload or "Limpar". This holds for .xlsx exactly as
+ * for .csv: the original spreadsheet is never sent anywhere and never saved --
+ * only the converted CSV text (itself never persisted either) is submitted.
  */
 
 const MAX_KIB = MAX_CSV_UPLOAD_BYTES / 1024;
+
+const MAX_XLSX_KIB = MAX_XLSX_UPLOAD_BYTES / 1024;
 
 interface Selection {
   name: string;
@@ -174,6 +187,18 @@ function readFileText(file: File): Promise<string> {
     reader.onerror = () => reject(new Error("read failed"));
     reader.readAsText(file);
   });
+}
+
+/** By extension only (TASK-038): matches the file picker's `accept` list and
+ * needs no MIME sniffing, same as the existing CSV path. */
+function detectPortfolioFileKind(file: File): "csv" | "xlsx" | "xls" | "unknown" {
+  const name = file.name.toLowerCase();
+
+  if (name.endsWith(".xlsx")) return "xlsx";
+  if (name.endsWith(".xls")) return "xls";
+  if (name.endsWith(".csv")) return "csv";
+
+  return "unknown";
 }
 
 function formatAmount(amount: number | undefined, currency?: string): string {
@@ -526,37 +551,96 @@ export default function PortfolioCsvResolver({
       return;
     }
 
-    if (file.size > MAX_CSV_UPLOAD_BYTES) {
+    const kind = detectPortfolioFileKind(file);
+
+    if (kind === "xls") {
       setView({
         kind: "invalid-local-file",
         messages: [
-          `O arquivo é grande demais. O limite é ${MAX_KIB} KB.`,
+          "Arquivos .xls antigos não são aceitos. Salve como .xlsx (Excel 2007 ou mais recente) e tente de novo.",
         ],
       });
       return;
     }
 
-    setView({ kind: "reading" });
-
     let text: string;
 
-    try {
-      text = await readFileText(file);
-    } catch {
-      if (seq === selectionSeq.current) {
+    if (kind === "xlsx") {
+      // .xlsx path (TASK-038): converted to CSV text client-side, then handed
+      // to the exact same preview below as a .csv file -- nothing past this
+      // block knows the upload was a spreadsheet.
+      if (file.size > MAX_XLSX_UPLOAD_BYTES) {
         setView({
           kind: "invalid-local-file",
-          messages: ["Não foi possível ler o arquivo. Tente escolher de novo."],
+          messages: [
+            `O arquivo é grande demais. O limite é ${MAX_XLSX_KIB} KB.`,
+          ],
         });
+        return;
       }
-      return;
-    }
 
-    if (seq !== selectionSeq.current) return;
+      setView({ kind: "reading" });
 
-    if (text.trim().length === 0) {
-      setView({ kind: "invalid-local-file", messages: ["O arquivo está vazio."] });
-      return;
+      const excel = await readPortfolioExcelFile(file);
+
+      if (seq !== selectionSeq.current) return;
+
+      if (!excel.ok) {
+        setView({
+          kind: "invalid-local-file",
+          messages: [
+            excel.reason === "empty"
+              ? "A planilha está vazia."
+              : "Não foi possível ler a planilha. Confira se é um arquivo .xlsx válido e tente de novo.",
+          ],
+        });
+        return;
+      }
+
+      if (excel.dataRows.length > MAX_EXCEL_DATA_ROWS) {
+        setView({
+          kind: "invalid-local-file",
+          messages: [
+            `O arquivo tem linhas demais. O limite é ${MAX_PORTFOLIO_ROWS} ativos por envio.`,
+          ],
+        });
+        return;
+      }
+
+      text = excelRowsToCsvText(excel.headerRow, excel.dataRows);
+    } else {
+      // .csv path (and anything with no recognized extension), unchanged from
+      // before TASK-038.
+      if (file.size > MAX_CSV_UPLOAD_BYTES) {
+        setView({
+          kind: "invalid-local-file",
+          messages: [
+            `O arquivo é grande demais. O limite é ${MAX_KIB} KB.`,
+          ],
+        });
+        return;
+      }
+
+      setView({ kind: "reading" });
+
+      try {
+        text = await readFileText(file);
+      } catch {
+        if (seq === selectionSeq.current) {
+          setView({
+            kind: "invalid-local-file",
+            messages: ["Não foi possível ler o arquivo. Tente escolher de novo."],
+          });
+        }
+        return;
+      }
+
+      if (seq !== selectionSeq.current) return;
+
+      if (text.trim().length === 0) {
+        setView({ kind: "invalid-local-file", messages: ["O arquivo está vazio."] });
+        return;
+      }
     }
 
     const fileId = deriveUploadFileId({
@@ -858,9 +942,10 @@ export default function PortfolioCsvResolver({
           1. Escolha o arquivo
         </h2>
         <p className="mb-4 text-[13px] text-aligna-muted">
-          Um arquivo CSV com um ativo por linha (até {MAX_PORTFOLIO_ROWS} ativos e {MAX_KIB} KB).
-          A coluna <code>rawName</code> é obrigatória. O arquivo é lido só no seu navegador e enviado
-          apenas quando você pedir para resolver.
+          Um arquivo CSV (até {MAX_KIB} KB) ou Excel <code>.xlsx</code> (até {MAX_XLSX_KIB} KB), com um
+          ativo por linha (até {MAX_PORTFOLIO_ROWS} ativos). No Excel, só a primeira planilha é lida. A
+          coluna <code>rawName</code> é obrigatória. O arquivo é lido só no seu navegador e enviado apenas
+          quando você pedir para resolver.
         </p>
         <p id="csv-privacy" className="mb-4 text-[13px] text-aligna-muted">
           O arquivo original nunca é guardado. Salvar o resultado é opcional: se você escolher salvar,
@@ -876,7 +961,7 @@ export default function PortfolioCsvResolver({
           id="csv-file"
           className="input mt-1"
           type="file"
-          accept=".csv,text/csv"
+          accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           onChange={handleFileChange}
           disabled={submitting}
         />
