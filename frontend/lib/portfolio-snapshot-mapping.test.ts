@@ -8,6 +8,8 @@ import type { PreviewRow } from "./aie/client/portfolio-csv-preview";
 import type { ResolvedItemView } from "./aie/client/resolve-csv-client";
 import {
   parseSavedSnapshot,
+  parseSnapshotHistoryEntry,
+  parseSnapshotHistoryList,
   SNAPSHOT_LIMITS,
   SNAPSHOT_STATUSES,
   toDisplayRows,
@@ -432,6 +434,81 @@ describe("parseSavedSnapshot: what is read back", () => {
     expect(saved).not.toHaveProperty("amount");
     expect(saved).not.toHaveProperty("verifiedAsset");
     expect(saved?.pendingFields).toEqual([]);
+  });
+});
+
+describe("parseSnapshotHistoryEntry / parseSnapshotHistoryList (TASK-048B)", () => {
+  const goodEntry = {
+    id: "11111111-1111-1111-1111-111111111111",
+    createdAt: "2026-09-21T14:32:00+00:00",
+    updatedAt: "2026-09-21T14:32:00+00:00",
+    items: [
+      {
+        lineNumber: 2,
+        rawName: "DEB PETROBRAS SERIE 1",
+        status: "verified",
+        pendingFields: [],
+        sources: ["anbima"],
+        verifiedAsset: { code: "ABCD11", type: "debenture", currency: "BRL" },
+      },
+    ],
+  };
+
+  it("reads a valid entry, with id and createdAt", () => {
+    const entry = parseSnapshotHistoryEntry(goodEntry);
+
+    expect(entry?.id).toBe(goodEntry.id);
+    expect(entry?.createdAt).toBe(goodEntry.createdAt);
+    expect(entry?.updatedAt).toBe(goodEntry.updatedAt);
+    expect(entry?.items).toHaveLength(1);
+  });
+
+  it("refuses an entry with no id, an empty id, no createdAt, or malformed items", () => {
+    for (const bad of [
+      { ...goodEntry, id: undefined },
+      { ...goodEntry, id: "" },
+      { ...goodEntry, id: 5 },
+      { ...goodEntry, createdAt: undefined },
+      { ...goodEntry, items: "x" },
+      { ...goodEntry, items: [{ ...goodEntry.items[0], status: "inventado" }] },
+      null,
+      "text",
+      {},
+    ]) {
+      expect(parseSnapshotHistoryEntry(bad)).toBeNull();
+    }
+  });
+
+  it("keeps only contract fields (anything extra is dropped)", () => {
+    const entry = parseSnapshotHistoryEntry({
+      ...goodEntry,
+      user_id: "SENTINEL-USER",
+      correlationId: "SENTINEL-CORRELATION",
+    });
+
+    const text = JSON.stringify(entry);
+
+    for (const leaked of ["SENTINEL"]) {
+      expect(text).not.toContain(leaked);
+    }
+  });
+
+  it("lists every valid entry, most-recent-first order preserved as given", () => {
+    const second = { ...goodEntry, id: "22222222-2222-2222-2222-222222222222", createdAt: "2026-09-20T10:00:00+00:00" };
+
+    const list = parseSnapshotHistoryList([goodEntry, second]);
+
+    expect(list?.map((e) => e.id)).toEqual([goodEntry.id, second.id]);
+  });
+
+  it("an empty array is a valid (empty) list", () => {
+    expect(parseSnapshotHistoryList([])).toEqual([]);
+  });
+
+  it("refuses anything that is not an array, or with one malformed entry (all-or-nothing)", () => {
+    for (const bad of [null, "text", {}, [goodEntry, { ...goodEntry, id: "" }]]) {
+      expect(parseSnapshotHistoryList(bad)).toBeNull();
+    }
   });
 });
 

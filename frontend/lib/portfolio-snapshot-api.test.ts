@@ -13,6 +13,7 @@ import {
 import {
   createPortfolioSnapshotClient,
   PORTFOLIO_SNAPSHOT_URL,
+  PORTFOLIO_SNAPSHOTS_URL,
   type SnapshotFetch,
 } from "./portfolio-snapshot-api";
 import type { SnapshotItem } from "./portfolio-snapshot-mapping";
@@ -41,6 +42,13 @@ const ITEMS: SnapshotItem[] = [
 
 const SNAPSHOT_BODY = {
   items: ITEMS,
+  updatedAt: "2026-09-21T14:32:00+00:00",
+};
+
+const HISTORY_ENTRY = {
+  id: "11111111-1111-1111-1111-111111111111",
+  items: ITEMS,
+  createdAt: "2026-09-21T14:32:00+00:00",
   updatedAt: "2026-09-21T14:32:00+00:00",
 };
 
@@ -366,6 +374,203 @@ describe("remove", () => {
   });
 });
 
+describe("list", () => {
+  it("targets /api/v1/portfolio-snapshots (plural) with GET", async () => {
+    const { client, calls } = rig(() => json([]));
+
+    await client.list();
+
+    expect(calls[0]!.url).toBe(PORTFOLIO_SNAPSHOTS_URL);
+    expect(calls[0]!.init.method).toBe("GET");
+  });
+
+  it("200 with a valid array: found", async () => {
+    const { client } = rig(() => json([HISTORY_ENTRY]));
+
+    const outcome = await client.list();
+
+    expect(outcome.kind).toBe("found");
+
+    if (outcome.kind === "found") {
+      expect(outcome.snapshots).toHaveLength(1);
+      expect(outcome.snapshots[0]?.id).toBe(HISTORY_ENTRY.id);
+      expect(outcome.snapshots[0]?.createdAt).toBe(HISTORY_ENTRY.createdAt);
+    }
+  });
+
+  it("200 with an empty array: found, empty", async () => {
+    const { client } = rig(() => json([]));
+
+    expect(await client.list()).toEqual({ kind: "found", snapshots: [] });
+  });
+
+  it("401: the session is ended once, no retry", async () => {
+    const { client, clearSession, calls } = rig(() => json({}, 401));
+
+    expect(await client.list()).toEqual({ kind: "unauthenticated" });
+
+    expect(clearSession).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("5xx, network failure and a malformed body: unavailable, session untouched", async () => {
+    for (const status of [500, 403]) {
+      const { client, clearSession } = rig(() => json({}, status));
+
+      expect(await client.list()).toEqual({ kind: "unavailable" });
+
+      expect(clearSession).not.toHaveBeenCalled();
+    }
+
+    const failing = rig(() => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    expect(await failing.client.list()).toEqual({ kind: "unavailable" });
+
+    const notAnArray = rig(() => json({ notAnArray: true }));
+
+    expect(await notAnArray.client.list()).toEqual({ kind: "unavailable" });
+
+    // One malformed entry makes the whole list unusable (same all-or-nothing
+    // rule as `load`).
+    const badEntry = rig(() => json([{ ...HISTORY_ENTRY, id: undefined }]));
+
+    expect(await badEntry.client.list()).toEqual({ kind: "unavailable" });
+  });
+
+  it("without a session nothing is sent", async () => {
+    const { client, calls } = rig(undefined, async () => ({ status: "none" }));
+
+    expect(await client.list()).toEqual({ kind: "no-session" });
+
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("get", () => {
+  it("targets /api/v1/portfolio-snapshots/{id} (URI-encoded) with GET", async () => {
+    const { client, calls } = rig(() => json(HISTORY_ENTRY));
+
+    await client.get("id with spaces/slash");
+
+    expect(calls[0]!.url).toBe(
+      `${PORTFOLIO_SNAPSHOTS_URL}/${encodeURIComponent("id with spaces/slash")}`,
+    );
+    expect(calls[0]!.init.method).toBe("GET");
+  });
+
+  it("200 with a valid body: found", async () => {
+    const { client } = rig(() => json(HISTORY_ENTRY));
+
+    const outcome = await client.get(HISTORY_ENTRY.id);
+
+    expect(outcome.kind).toBe("found");
+
+    if (outcome.kind === "found") {
+      expect(outcome.snapshot.id).toBe(HISTORY_ENTRY.id);
+    }
+  });
+
+  it("404: none, the session untouched", async () => {
+    const { client, clearSession } = rig(() => json({}, 404));
+
+    expect(await client.get(HISTORY_ENTRY.id)).toEqual({ kind: "none" });
+
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
+  it("401: the session is ended once, no retry", async () => {
+    const { client, clearSession, calls } = rig(() => json({}, 401));
+
+    expect(await client.get(HISTORY_ENTRY.id)).toEqual({ kind: "unauthenticated" });
+
+    expect(clearSession).toHaveBeenCalledTimes(1);
+    expect(calls).toHaveLength(1);
+  });
+
+  it("5xx, network failure and a malformed body: unavailable", async () => {
+    const { client } = rig(() => json({}, 500));
+
+    expect(await client.get(HISTORY_ENTRY.id)).toEqual({ kind: "unavailable" });
+
+    const failing = rig(() => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    expect(await failing.client.get(HISTORY_ENTRY.id)).toEqual({ kind: "unavailable" });
+
+    const garbage = rig(() => json({ id: HISTORY_ENTRY.id }));
+
+    expect(await garbage.client.get(HISTORY_ENTRY.id)).toEqual({ kind: "unavailable" });
+  });
+
+  it("without a session nothing is sent", async () => {
+    const { client, calls } = rig(undefined, async () => ({ status: "none" }));
+
+    expect(await client.get(HISTORY_ENTRY.id)).toEqual({ kind: "no-session" });
+
+    expect(calls).toHaveLength(0);
+  });
+});
+
+describe("removeById", () => {
+  it("targets /api/v1/portfolio-snapshots/{id} (URI-encoded) with DELETE", async () => {
+    const { client, calls } = rig(() => new Response(null, { status: 204 }));
+
+    await client.removeById("id with spaces/slash");
+
+    expect(calls[0]!.url).toBe(
+      `${PORTFOLIO_SNAPSHOTS_URL}/${encodeURIComponent("id with spaces/slash")}`,
+    );
+    expect(calls[0]!.init.method).toBe("DELETE");
+  });
+
+  it("204: deleted", async () => {
+    const { client } = rig(() => new Response(null, { status: 204 }));
+
+    expect(await client.removeById(HISTORY_ENTRY.id)).toEqual({ kind: "deleted" });
+  });
+
+  it("404: not-found, the session untouched", async () => {
+    const { client, clearSession } = rig(() => json({}, 404));
+
+    expect(await client.removeById(HISTORY_ENTRY.id)).toEqual({ kind: "not-found" });
+
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
+  it("401: the session is ended once", async () => {
+    const { client, clearSession } = rig(() => json({}, 401));
+
+    expect(await client.removeById(HISTORY_ENTRY.id)).toEqual({ kind: "unauthenticated" });
+
+    expect(clearSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("5xx and network failure: failed, session untouched", async () => {
+    const { client, clearSession } = rig(() => json({}, 500));
+
+    expect(await client.removeById(HISTORY_ENTRY.id)).toEqual({ kind: "failed" });
+
+    expect(clearSession).not.toHaveBeenCalled();
+
+    const failing = rig(() => {
+      throw new TypeError("Failed to fetch");
+    });
+
+    expect(await failing.client.removeById(HISTORY_ENTRY.id)).toEqual({ kind: "failed" });
+  });
+
+  it("without a session nothing is sent", async () => {
+    const { client, calls } = rig(undefined, async () => ({ status: "none" }));
+
+    expect(await client.removeById(HISTORY_ENTRY.id)).toEqual({ kind: "no-session" });
+
+    expect(calls).toHaveLength(0);
+  });
+});
+
 describe("privacy", () => {
   it("no outcome carries the token, a response body or an error text", async () => {
     const bodies = [
@@ -383,6 +588,9 @@ describe("privacy", () => {
         await client.load(),
         await client.save(ITEMS),
         await client.remove(),
+        await client.list(),
+        await client.get(HISTORY_ENTRY.id),
+        await client.removeById(HISTORY_ENTRY.id),
       ]) {
         const text = JSON.stringify(outcome);
 
@@ -403,6 +611,9 @@ describe("privacy", () => {
     await client.load();
     await client.save(ITEMS);
     await client.remove();
+    await client.list();
+    await client.get(HISTORY_ENTRY.id);
+    await client.removeById(HISTORY_ENTRY.id);
 
     for (const spy of spies) {
       expect(spy).not.toHaveBeenCalled();

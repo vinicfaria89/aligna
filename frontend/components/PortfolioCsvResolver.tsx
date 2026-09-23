@@ -47,6 +47,7 @@ import {
   toDisplayRows,
   toSnapshotItems,
   type SavedSnapshot,
+  type SnapshotHistoryEntry,
 } from "@/lib/portfolio-snapshot-mapping";
 import {
   downloadCsvFile,
@@ -484,15 +485,28 @@ export default function PortfolioCsvResolver({
   // Saved result (TASK-029B). It is independent of the file and of the on-screen
   // result: choosing a file, "Limpar" and a new resolution never touch it. Only the
   // explicit "Salvar resultado" replaces it and only the confirmed "Apagar" removes it.
-  const [saved, setSaved] = useState<SavedSnapshot | null>(null);
+  // TASK-048B: this can now be either the plain latest (`SavedSnapshot`, from the
+  // singular compat endpoint, no `id`) or a specific history item opened by the user
+  // (`SnapshotHistoryEntry`, has `id`) -- `"id" in saved` tells the two apart.
+  const [saved, setSaved] = useState<SavedSnapshot | SnapshotHistoryEntry | null>(null);
   const [loadUnavailable, setLoadUnavailable] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [savedNote, setSavedNote] = useState<SavedNote | null>(null);
 
+  // History of saved results (TASK-048B). `null` = still loading; `[]` = loaded,
+  // nothing saved yet. Independent of `saved`: opening/exporting/deleting one
+  // entry never re-fetches the whole list except after a save (a new snapshot
+  // was created) or a delete (an entry needs to disappear).
+  const [history, setHistory] = useState<SnapshotHistoryEntry[] | null>(null);
+  const [historyUnavailable, setHistoryUnavailable] = useState(false);
+  const [confirmingHistoryDeleteId, setConfirmingHistoryDeleteId] = useState<string | null>(null);
+  const [deletingHistoryId, setDeletingHistoryId] = useState<string | null>(null);
+
   const savingRef = useRef(false);
   const deletingRef = useRef(false);
+  const deletingHistoryRef = useRef(false);
 
   // The client is cheap to build; the ref keeps the read-on-open effect from depending
   // on the identity of inline props.
@@ -510,6 +524,8 @@ export default function PortfolioCsvResolver({
   // Read the saved result once, when the page opens. Without a session this asks for
   // nothing over the network; a 404 is the normal "nothing saved"; an expired session
   // or a failure never raises an alert here (the user has not asked for anything yet).
+  // TASK-048B: the history list loads the same way, independently -- a failure here
+  // never blocks the latest-result load above nor the rest of the page.
   useEffect(() => {
     let active = true;
 
@@ -528,10 +544,48 @@ export default function PortfolioCsvResolver({
         if (active) setLoadUnavailable(true);
       });
 
+    clientRef.current
+      .list()
+      .then((outcome) => {
+        if (!active) return;
+
+        if (outcome.kind === "found") {
+          setHistory(outcome.snapshots);
+        } else if (outcome.kind === "unavailable") {
+          // Same silence rule as `load` above: no session / an expired one
+          // raises nothing here (the user has not asked for anything yet);
+          // only a real failure to reach the Planejador shows a note.
+          setHistory([]);
+          setHistoryUnavailable(true);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setHistory([]);
+          setHistoryUnavailable(true);
+        }
+      });
+
     return () => {
       active = false;
     };
   }, []);
+
+  /** Re-reads the history list (after a save or a delete changed it). A failure here
+   * only shows a discreet note -- it never blocks the rest of the page. */
+  function refreshHistory() {
+    clientRef.current
+      .list()
+      .then((outcome) => {
+        if (outcome.kind === "found") {
+          setHistory(outcome.snapshots);
+          setHistoryUnavailable(false);
+        } else if (outcome.kind === "unavailable") {
+          setHistoryUnavailable(true);
+        }
+      })
+      .catch(() => setHistoryUnavailable(true));
+  }
 
   function reset() {
     selectionSeq.current += 1;
@@ -767,6 +821,9 @@ export default function PortfolioCsvResolver({
       setSaved(outcome.snapshot);
       setSavedNote(null);
       setConfirmingDelete(false);
+      // A new snapshot was created on the Planejador (TASK-048A: PUT no longer
+      // overwrites) -- the history list needs to show it.
+      refreshHistory();
     }
 
     // The message belongs to the result that is still on screen.
@@ -781,16 +838,28 @@ export default function PortfolioCsvResolver({
     );
   }
 
-  /** The confirmed "Apagar resultado salvo": DELETE, then the saved state goes away. */
+  /**
+   * The confirmed "Apagar resultado salvo": DELETE, then the saved state goes away.
+   *
+   * TASK-048B decision: if the result on screen came from the history list (it has
+   * an `id`), delete THAT specific snapshot via the new by-id endpoint -- deleting
+   * "the most recent" would be wrong once the user is looking at an older one. Only
+   * the plain latest (no `id`, from the singular compat endpoint) still uses the
+   * old "delete the most recent" endpoint.
+   */
   async function handleDelete() {
     if (deletingRef.current) {
       return;
     }
 
+    const displayedId = saved && "id" in saved ? saved.id : undefined;
+
     deletingRef.current = true;
     setDeleting(true);
 
-    const outcome = await client.remove();
+    const outcome = displayedId
+      ? await client.removeById(displayedId)
+      : await client.remove();
 
     deletingRef.current = false;
     setDeleting(false);
@@ -801,6 +870,11 @@ export default function PortfolioCsvResolver({
       // The result on screen (if any) is no longer saved: offer to save it again.
       setSaveState({ kind: "idle" });
       setSavedNote({ tone: "info", text: "Resultado salvo apagado da sua conta." });
+      if (displayedId) {
+        setHistory((prev) => (prev ? prev.filter((entry) => entry.id !== displayedId) : prev));
+      } else {
+        refreshHistory();
+      }
     } else if (outcome.kind === "no-session" || outcome.kind === "unauthenticated") {
       setSavedNote({
         tone: "error",
@@ -811,6 +885,56 @@ export default function PortfolioCsvResolver({
       setSavedNote({
         tone: "error",
         text: "Não foi possível apagar o resultado salvo agora. Ele continua na sua conta; tente de novo em instantes.",
+      });
+    }
+  }
+
+  /** "Abrir" a specific history entry: only swaps what is displayed. Never touches
+   * the upload/preview, never calls the AIE resolver, never changes any snapshot. */
+  function handleOpenHistoryItem(entry: SnapshotHistoryEntry) {
+    setSaved(entry);
+    setSavedNote(null);
+    setConfirmingDelete(false);
+  }
+
+  /** "Exportar CSV" for one history entry: the same pure export as the displayed
+   * result's own button, from the items already loaded in the list -- no network,
+   * no change to `saved` or to the entry itself. */
+  function handleExportHistoryItem(entry: SnapshotHistoryEntry) {
+    downloadCsvFile(resultExportFileName(), snapshotItemsToResultCsv(entry.items));
+  }
+
+  /** "Apagar" one specific history entry (distinct from `handleDelete`, which acts
+   * on the displayed result). Removes it from the list only on success; if the
+   * deleted entry is the one currently displayed, clears the displayed result
+   * (TASK-048B: never auto-switches to another one, to avoid confusion). */
+  async function handleDeleteHistoryItem(id: string) {
+    if (deletingHistoryRef.current) {
+      return;
+    }
+
+    deletingHistoryRef.current = true;
+    setDeletingHistoryId(id);
+
+    const outcome = await client.removeById(id);
+
+    deletingHistoryRef.current = false;
+    setDeletingHistoryId(null);
+    setConfirmingHistoryDeleteId(null);
+
+    if (outcome.kind === "deleted") {
+      setHistory((prev) => (prev ? prev.filter((entry) => entry.id !== id) : prev));
+      setSaved((current) => (current && "id" in current && current.id === id ? null : current));
+    } else if (outcome.kind === "no-session" || outcome.kind === "unauthenticated") {
+      setSavedNote({
+        tone: "error",
+        text: "Sua sessão expirou, então o resultado não foi apagado. Entre novamente para apagá-lo.",
+        signIn: true,
+      });
+    } else {
+      setSavedNote({
+        tone: "error",
+        text: "Não foi possível apagar este resultado agora. Ele continua na sua conta; tente de novo em instantes.",
       });
     }
   }
@@ -904,8 +1028,10 @@ export default function PortfolioCsvResolver({
             {savedAt ? `Resultado salvo em ${savedAt}.` : "Resultado salvo na sua conta."}
           </p>
           <p className="mb-4 text-[13px] text-aligna-muted">
-            {countsText(savedRows.map((row) => row.item))} Este é o último resultado que você
-            salvou; para atualizá-lo, resolva uma carteira e clique em &quot;Salvar resultado&quot;.
+            {countsText(savedRows.map((row) => row.item))}{" "}
+            {saved && "id" in saved
+              ? "Este é um resultado aberto do seu histórico."
+              : 'Este é o último resultado que você salvou; para atualizá-lo, resolva uma carteira e clique em "Salvar resultado".'}
           </p>
 
           <ResultsTable caption="Resultado salvo de cada ativo" rows={savedRows} />
@@ -970,6 +1096,118 @@ export default function PortfolioCsvResolver({
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {history !== null && (
+        <section className="card" aria-labelledby="csv-history-title">
+          <h2 id="csv-history-title" className="mb-1 text-[14.5px] font-semibold">
+            Histórico de resultados salvos
+          </h2>
+
+          {historyUnavailable && history.length === 0 && (
+            <p role="status" className="mb-3 text-[13px] text-aligna-muted">
+              Não foi possível carregar o histórico de resultados agora. Você pode continuar usando a
+              página normalmente.
+            </p>
+          )}
+
+          {history.length === 0 ? (
+            !historyUnavailable && (
+              <p className="text-[13px] text-aligna-muted">Nenhum resultado salvo ainda.</p>
+            )
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {history.map((entry, index) => {
+                const at = savedAtText(entry.createdAt) ?? "data desconhecida";
+                const isConfirming = confirmingHistoryDeleteId === entry.id;
+                const isDeletingThis = deletingHistoryId === entry.id;
+
+                return (
+                  <li key={entry.id} className="rounded-lg border border-aligna-line p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-[13px] font-medium text-aligna-ink">
+                          {at}
+                          {index === 0 && (
+                            <span className="ml-2 rounded-full bg-aligna-pale px-2 py-0.5 text-[11px] font-semibold text-aligna-deep">
+                              Mais recente
+                            </span>
+                          )}
+                        </p>
+                        <p className="text-[12px] text-aligna-muted">
+                          {entry.items.length} {entry.items.length === 1 ? "ativo" : "ativos"}
+                        </p>
+                      </div>
+
+                      {!isConfirming && (
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className={`btn-ghost ${FOCUS_RING}`}
+                            onClick={() => handleOpenHistoryItem(entry)}
+                          >
+                            {`Abrir resultado salvo de ${at}`}
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn-ghost ${FOCUS_RING}`}
+                            onClick={() => handleExportHistoryItem(entry)}
+                          >
+                            <Download size={16} aria-hidden="true" />
+                            {`Exportar CSV de ${at}`}
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn-ghost ${FOCUS_RING}`}
+                            onClick={() => setConfirmingHistoryDeleteId(entry.id)}
+                          >
+                            {`Apagar resultado salvo de ${at}`}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {isConfirming && (
+                      <div
+                        role="group"
+                        aria-labelledby={`csv-history-delete-question-${entry.id}`}
+                        className="mt-3 rounded-lg bg-aligna-warnSoft p-3 text-sm text-aligna-ink"
+                      >
+                        <p id={`csv-history-delete-question-${entry.id}`} className="font-semibold">
+                          {`Apagar este resultado salvo de ${at}?`}
+                        </p>
+                        <p className="mt-1">Isso não pode ser desfeito.</p>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          <button
+                            type="button"
+                            className={`btn-primary ${FOCUS_RING}`}
+                            onClick={() => handleDeleteHistoryItem(entry.id)}
+                            disabled={isDeletingThis}
+                            aria-busy={isDeletingThis}
+                          >
+                            {isDeletingThis ? (
+                              <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+                            ) : null}
+                            {isDeletingThis ? "Apagando..." : "Sim, apagar"}
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn-ghost ${FOCUS_RING}`}
+                            onClick={() => setConfirmingHistoryDeleteId(null)}
+                            disabled={isDeletingThis}
+                            autoFocus
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </section>
       )}
 

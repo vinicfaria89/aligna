@@ -207,6 +207,20 @@ function asObject(value: unknown): Record<string, unknown> | null {
 }
 
 /**
+ * One entry of the saved-history list (TASK-048A/048B): the same contract as
+ * `SavedSnapshot`, plus `id` (which snapshot this is, for opening/exporting/
+ * deleting a specific one) and `createdAt` (when it was saved -- the
+ * ordering/retention key on the Planejador; distinct from `updatedAt`, which
+ * in practice always equals it since nothing mutates a snapshot after it is
+ * created).
+ */
+export interface SnapshotHistoryEntry extends SavedSnapshot {
+  id: string;
+  /** ISO timestamp from the Planejador. */
+  createdAt: string;
+}
+
+/**
  * Reads the Planejador's answer defensively: only the contract's fields are kept and
  * anything malformed makes the whole answer unusable (`null`), never a half result.
  */
@@ -274,6 +288,57 @@ export function parseSavedSnapshot(body: unknown): SavedSnapshot | null {
   }
 
   return { items, updatedAt: root.updatedAt };
+}
+
+/**
+ * Reads one entry of the history list defensively (same "malformed means
+ * unusable" rule as `parseSavedSnapshot`, which this reuses for the shared
+ * `items`/`updatedAt` fields).
+ */
+export function parseSnapshotHistoryEntry(
+  body: unknown,
+): SnapshotHistoryEntry | null {
+  const root = asObject(body);
+
+  if (
+    !root ||
+    typeof root.id !== "string" ||
+    root.id.length === 0 ||
+    typeof root.createdAt !== "string"
+  ) {
+    return null;
+  }
+
+  const base = parseSavedSnapshot(root);
+
+  return base ? { ...base, id: root.id, createdAt: root.createdAt } : null;
+}
+
+/**
+ * The full history list. All-or-nothing like `parseSavedSnapshot`: one
+ * malformed entry makes the whole list unusable rather than silently
+ * dropping an item the user might expect to see.
+ */
+export function parseSnapshotHistoryList(
+  body: unknown,
+): SnapshotHistoryEntry[] | null {
+  if (!Array.isArray(body)) {
+    return null;
+  }
+
+  const out: SnapshotHistoryEntry[] = [];
+
+  for (const raw of body) {
+    const entry = parseSnapshotHistoryEntry(raw);
+
+    if (!entry) {
+      return null;
+    }
+
+    out.push(entry);
+  }
+
+  return out;
 }
 
 /** A saved item as the existing results table expects it. */

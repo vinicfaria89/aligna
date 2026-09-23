@@ -21,7 +21,10 @@ import {
 import PortfolioCsvResolver from "./PortfolioCsvResolver";
 
 import type { SubmitPortfolioCsvInput } from "@/lib/aie/client/resolve-csv-client";
-import type { SnapshotFetch } from "@/lib/portfolio-snapshot-api";
+import {
+  PORTFOLIO_SNAPSHOT_URL,
+  type SnapshotFetch,
+} from "@/lib/portfolio-snapshot-api";
 import type { SessionAccess } from "@/lib/session";
 
 vi.mock("@/lib/session", () => ({
@@ -148,13 +151,22 @@ interface Answers {
   put?: () => Response | Promise<Response>;
   del?: () => Response | Promise<Response>;
   aie?: () => Response | Promise<Response>;
+  /** GET /api/v1/portfolio-snapshots (plural, TASK-048B): the history list. */
+  list?: () => Response | Promise<Response>;
 }
 
 function setup(
   answers: Answers = {},
   sessions: SessionAccess[] | null = null,
 ) {
-  const snapshotFetch = vi.fn<SnapshotFetch>(async (_url, init) => {
+  const snapshotFetch = vi.fn<SnapshotFetch>(async (url, init) => {
+    // TASK-048B: the history list lives at a DIFFERENT (plural) URL, read
+    // once on mount alongside the singular "latest" endpoint below. Routed
+    // by URL, not just method, so it never collides with the singular GET.
+    if (url !== PORTFOLIO_SNAPSHOT_URL) {
+      return (answers.list ?? (() => json([])))();
+    }
+
     if (init.method === "GET") {
       return (answers.get ?? (() => json({}, 404)))();
     }
@@ -198,8 +210,23 @@ function setup(
 
 type Rig = ReturnType<typeof setup>;
 
+/** Only the singular "latest" endpoint's calls (TASK-048B: the history-list
+ * call to the plural endpoint happens in parallel on every open, but is
+ * unrelated to what these existing assertions are about). */
 function methods(rig: Rig): string[] {
-  return rig.snapshotFetch.mock.calls.map((call) => call[1].method);
+  return rig.snapshotFetch.mock.calls
+    .filter((call) => call[0] === PORTFOLIO_SNAPSHOT_URL)
+    .map((call) => call[1].method);
+}
+
+/** Calls to the singular "latest" endpoint only, in order -- use this instead
+ * of a raw `mock.calls[n]` index whenever a test needs a specific one of
+ * them, since the parallel history-list call (a different URL) also lands
+ * in `mock.calls` and would otherwise shift the index. */
+function singularCalls(rig: Rig) {
+  return rig.snapshotFetch.mock.calls.filter(
+    (call) => call[0] === PORTFOLIO_SNAPSHOT_URL,
+  );
 }
 
 function bodyOf(rig: Rig, method: string): Record<string, unknown> {
@@ -259,7 +286,9 @@ describe("reading the saved result when the page opens", () => {
   });
 
   it("without a session it asks the Planejador for nothing and shows no saved result", async () => {
-    const rig = setup({}, [{ status: "none" }]);
+    // TASK-048B: the mount effect makes two calls (load + list); both see
+    // the same session state.
+    const rig = setup({}, [{ status: "none" }, { status: "none" }]);
 
     await opened(rig);
 
@@ -293,7 +322,7 @@ describe("reading the saved result when the page opens", () => {
 
     const card = await screen.findByRole("region", { name: "Resultado salvo" });
 
-    expect(rig.snapshotFetch.mock.calls[0]![1].headers.Authorization).toBe(
+    expect(singularCalls(rig)[0]![1].headers.Authorization).toBe(
       `Bearer ${TOKEN}`,
     );
 
@@ -350,7 +379,7 @@ describe("reading the saved result when the page opens", () => {
   });
 
   it("an expired session on open is silent: no alert, no saved result", async () => {
-    const rig = setup({}, [{ status: "expired" }]);
+    const rig = setup({}, [{ status: "expired" }, { status: "expired" }]);
 
     await opened(rig);
 
@@ -528,7 +557,7 @@ describe("saving", () => {
 
     expect(methods(rig)).toEqual(["GET", "PUT"]);
 
-    const put = rig.snapshotFetch.mock.calls[1]!;
+    const put = singularCalls(rig)[1]!;
 
     expect(put[1].headers.Authorization).toBe(`Bearer ${TOKEN}`);
 
@@ -581,7 +610,7 @@ describe("saving", () => {
 
     await screen.findByText("Este resultado está salvo na sua conta.");
 
-    const put = rig.snapshotFetch.mock.calls[1]!;
+    const put = singularCalls(rig)[1]!;
 
     const wire = `${put[0]} ${JSON.stringify(put[1])}`;
 
@@ -748,7 +777,8 @@ describe("saving", () => {
 
   it("an expired session at save time sends nothing and keeps the result", async () => {
     const rig = setup({}, [
-      { status: "ok", accessToken: TOKEN }, // open
+      { status: "ok", accessToken: TOKEN }, // open (load)
+      { status: "ok", accessToken: TOKEN }, // open (list, TASK-048B)
       { status: "ok", accessToken: TOKEN }, // resolve
       { status: "expired" }, // save
     ]);
@@ -777,9 +807,10 @@ describe("saving", () => {
 
   it("with no session at save time it asks to sign in and sends nothing", async () => {
     const rig = setup({}, [
-      { status: "ok", accessToken: TOKEN },
-      { status: "ok", accessToken: TOKEN },
-      { status: "none" },
+      { status: "ok", accessToken: TOKEN }, // open (load)
+      { status: "ok", accessToken: TOKEN }, // open (list, TASK-048B)
+      { status: "ok", accessToken: TOKEN }, // resolve
+      { status: "none" }, // save
     ]);
 
     await opened(rig);
@@ -872,7 +903,7 @@ describe("deleting the saved result", () => {
 
     expect(methods(rig)).toEqual(["GET", "DELETE"]);
 
-    const del = rig.snapshotFetch.mock.calls[1]!;
+    const del = singularCalls(rig)[1]!;
 
     expect(del[1].headers.Authorization).toBe(`Bearer ${TOKEN}`);
 

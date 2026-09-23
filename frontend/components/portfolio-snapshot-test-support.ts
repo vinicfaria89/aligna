@@ -14,15 +14,27 @@ export function fakeSnapshotClient(
   load: ReturnType<typeof vi.fn>;
   save: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
+  list: ReturnType<typeof vi.fn>;
+  get: ReturnType<typeof vi.fn>;
+  removeById: ReturnType<typeof vi.fn>;
 } {
   return {
     load: vi.fn(async () => ({ kind: "none" as const })),
     save: vi.fn(async () => ({ kind: "failed" as const })),
     remove: vi.fn(async () => ({ kind: "deleted" as const })),
+    // TASK-048B: the history list, read the same way as `load` when the page
+    // opens -- "found, empty" by default, so a test about something else
+    // never sees an unrelated failure note or network call.
+    list: vi.fn(async () => ({ kind: "found" as const, snapshots: [] })),
+    get: vi.fn(async () => ({ kind: "none" as const })),
+    removeById: vi.fn(async () => ({ kind: "deleted" as const })),
     ...overrides,
   } as PortfolioSnapshotClient & {
     load: ReturnType<typeof vi.fn>;
     save: ReturnType<typeof vi.fn>;
     remove: ReturnType<typeof vi.fn>;
+    list: ReturnType<typeof vi.fn>;
+    get: ReturnType<typeof vi.fn>;
+    removeById: ReturnType<typeof vi.fn>;
   };
 }

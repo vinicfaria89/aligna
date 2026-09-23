@@ -1,15 +1,23 @@
 import { PLANEJADOR_API_URL } from "./planejador-api-url";
 import {
   parseSavedSnapshot,
+  parseSnapshotHistoryEntry,
+  parseSnapshotHistoryList,
   type SavedSnapshot,
+  type SnapshotHistoryEntry,
   type SnapshotItem,
 } from "./portfolio-snapshot-mapping";
 import type { SessionAccess } from "./session";
 
 /**
- * Browser client for the Planejador's saved-result endpoints (TASK-029A):
- * GET / PUT / DELETE `/api/v1/portfolio-snapshot`. Saving is always an explicit user
- * action; nothing here runs on its own except the read on page open.
+ * Browser client for the Planejador's saved-result endpoints. Saving is always an
+ * explicit user action; nothing here runs on its own except the reads on page open.
+ *
+ * `/api/v1/portfolio-snapshot` (singular, TASK-029A) is the "current result"
+ * endpoint, kept for compatibility: GET the most recent, PUT create a new one
+ * (TASK-048A: it no longer overwrites), DELETE the most recent.
+ * `/api/v1/portfolio-snapshots` (plural, TASK-048A/048B) is the full history:
+ * list, get one by id, delete one by id.
  *
  * The bearer comes from the app's existing session (`getSession`, in the app
  * `acquireAccessToken` of lib/session.ts, which refreshes before every call) and goes
@@ -18,11 +26,14 @@ import type { SessionAccess } from "./session";
  * and an outcome never carries the token, a response body or an error text.
  *
  * A 401 ends the session through the injected `clearSession` (the existing rule of
- * TASK-026) and is never retried. 404 on a read is the normal "nothing saved".
+ * TASK-026) and is never retried. 404 on a read is the normal "nothing saved"/
+ * "nothing with that id".
  */
 
 
 export const PORTFOLIO_SNAPSHOT_URL = `${PLANEJADOR_API_URL}/api/v1/portfolio-snapshot`;
+
+export const PORTFOLIO_SNAPSHOTS_URL = `${PLANEJADOR_API_URL}/api/v1/portfolio-snapshots`;
 
 export type SnapshotFetch = (
   url: string,
@@ -58,10 +69,36 @@ export type DeleteSnapshotOutcome =
   | { kind: "failed" }
   | SnapshotSessionFailure;
 
+export type ListSnapshotsOutcome =
+  | { kind: "found"; snapshots: SnapshotHistoryEntry[] }
+  | { kind: "unavailable" }
+  | SnapshotSessionFailure;
+
+export type GetSnapshotByIdOutcome =
+  | { kind: "found"; snapshot: SnapshotHistoryEntry }
+  | { kind: "none" }
+  | { kind: "unavailable" }
+  | SnapshotSessionFailure;
+
+export type DeleteSnapshotByIdOutcome =
+  | { kind: "deleted" }
+  | { kind: "not-found" }
+  | { kind: "failed" }
+  | SnapshotSessionFailure;
+
 export interface PortfolioSnapshotClient {
+  /** GET the current-result endpoint (singular, compat): the most recent snapshot. */
   load(): Promise<LoadSnapshotOutcome>;
+  /** PUT the current-result endpoint: creates a new snapshot (TASK-048A). */
   save(items: SnapshotItem[]): Promise<SaveSnapshotOutcome>;
+  /** DELETE the current-result endpoint: removes only the most recent snapshot. */
   remove(): Promise<DeleteSnapshotOutcome>;
+  /** GET the history endpoint (plural): every snapshot, most recent first. */
+  list(): Promise<ListSnapshotsOutcome>;
+  /** GET one snapshot from the history by id. */
+  get(id: string): Promise<GetSnapshotByIdOutcome>;
+  /** DELETE one snapshot from the history by id. */
+  removeById(id: string): Promise<DeleteSnapshotByIdOutcome>;
 }
 
 export interface PortfolioSnapshotClientOptions {
@@ -83,6 +120,7 @@ export function createPortfolioSnapshotClient(
     options.fetchImpl ?? ((url, init) => globalThis.fetch(url, init));
 
   async function call(
+    url: string,
     method: "GET" | "PUT" | "DELETE",
     body?: unknown,
   ): Promise<Reply> {
@@ -107,7 +145,7 @@ export function createPortfolioSnapshotClient(
     }
 
     try {
-      const response = await doFetch(PORTFOLIO_SNAPSHOT_URL, {
+      const response = await doFetch(url, {
         method,
         headers: {
           Authorization: `Bearer ${session.accessToken}`,
@@ -136,7 +174,7 @@ export function createPortfolioSnapshotClient(
 
   return {
     async load() {
-      const reply = await call("GET");
+      const reply = await call(PORTFOLIO_SNAPSHOT_URL, "GET");
 
       if (reply.kind === "network-error") {
         return { kind: "unavailable" };
@@ -172,7 +210,7 @@ export function createPortfolioSnapshotClient(
     },
 
     async save(items) {
-      const reply = await call("PUT", { items });
+      const reply = await call(PORTFOLIO_SNAPSHOT_URL, "PUT", { items });
 
       if (reply.kind === "network-error") {
         return { kind: "failed" };
@@ -210,7 +248,7 @@ export function createPortfolioSnapshotClient(
     },
 
     async remove() {
-      const reply = await call("DELETE");
+      const reply = await call(PORTFOLIO_SNAPSHOT_URL, "DELETE");
 
       if (reply.kind === "network-error") {
         return { kind: "failed" };
@@ -224,6 +262,104 @@ export function createPortfolioSnapshotClient(
 
       if (response.status === 401) {
         return unauthenticated();
+      }
+
+      return response.ok ? { kind: "deleted" } : { kind: "failed" };
+    },
+
+    async list() {
+      const reply = await call(PORTFOLIO_SNAPSHOTS_URL, "GET");
+
+      if (reply.kind === "network-error") {
+        return { kind: "unavailable" };
+      }
+
+      if (reply.kind !== "response") {
+        return reply;
+      }
+
+      const { response } = reply;
+
+      if (response.status === 401) {
+        return unauthenticated();
+      }
+
+      if (response.status !== 200) {
+        return { kind: "unavailable" };
+      }
+
+      let snapshots: SnapshotHistoryEntry[] | null = null;
+
+      try {
+        snapshots = parseSnapshotHistoryList(await response.json());
+      } catch {
+        snapshots = null;
+      }
+
+      return snapshots ? { kind: "found", snapshots } : { kind: "unavailable" };
+    },
+
+    async get(id) {
+      const reply = await call(
+        `${PORTFOLIO_SNAPSHOTS_URL}/${encodeURIComponent(id)}`,
+        "GET",
+      );
+
+      if (reply.kind === "network-error") {
+        return { kind: "unavailable" };
+      }
+
+      if (reply.kind !== "response") {
+        return reply;
+      }
+
+      const { response } = reply;
+
+      if (response.status === 404) {
+        return { kind: "none" };
+      }
+
+      if (response.status === 401) {
+        return unauthenticated();
+      }
+
+      if (response.status !== 200) {
+        return { kind: "unavailable" };
+      }
+
+      let snapshot: SnapshotHistoryEntry | null = null;
+
+      try {
+        snapshot = parseSnapshotHistoryEntry(await response.json());
+      } catch {
+        snapshot = null;
+      }
+
+      return snapshot ? { kind: "found", snapshot } : { kind: "unavailable" };
+    },
+
+    async removeById(id) {
+      const reply = await call(
+        `${PORTFOLIO_SNAPSHOTS_URL}/${encodeURIComponent(id)}`,
+        "DELETE",
+      );
+
+      if (reply.kind === "network-error") {
+        return { kind: "failed" };
+      }
+
+      if (reply.kind !== "response") {
+        return reply;
+      }
+
+      const { response } = reply;
+
+      if (response.status === 401) {
+        return unauthenticated();
+      }
+
+      if (response.status === 404) {
+        return { kind: "not-found" };
       }
 
       return response.ok ? { kind: "deleted" } : { kind: "failed" };
