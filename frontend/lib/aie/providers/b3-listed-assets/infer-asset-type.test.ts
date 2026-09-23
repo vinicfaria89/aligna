@@ -16,6 +16,19 @@ describe("inferListedB3AssetTypeFromTicker", () => {
     expect(inferListedB3AssetTypeFromTicker(ticker)).toBe(expected);
   });
 
+  // TASK-052: representative sample of the expanded catalog.
+  it.each([
+    ["WEGE3", "stock"],
+    ["BBAS3", "stock"],
+    ["MXRF11", "fii"],
+    ["XPML11", "fii"],
+    ["SMAL11", "etf"],
+    ["HASH11", "etf"],
+    ["MSFT34", "international"],
+  ] as const)("TASK-052: infers %s as %s from rawName/ticker alone", (ticker, expected) => {
+    expect(inferListedB3AssetTypeFromTicker(ticker)).toBe(expected);
+  });
+
   it("normalizes lowercase before matching", () => {
     expect(inferListedB3AssetTypeFromTicker("petr4")).toBe("stock");
   });

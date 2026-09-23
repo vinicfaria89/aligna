@@ -405,4 +405,39 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
     }
   });
+
+  it("TASK-052: amostra do catálogo B3 expandido resolve a partir de rawName sozinho", async () => {
+    const rows = await runAllFixtures();
+
+    const expandedCoveredIds = [
+      "EXPANDIDO-ABEV3",
+      "EXPANDIDO-B3SA3",
+      "EXPANDIDO-BBAS3",
+      "EXPANDIDO-WEGE3",
+      "EXPANDIDO-MXRF11",
+      "EXPANDIDO-XPML11",
+      "EXPANDIDO-BTLG11",
+      "EXPANDIDO-SMAL11",
+      "EXPANDIDO-HASH11",
+      "EXPANDIDO-MSFT34",
+      "EXPANDIDO-TSLA34",
+    ];
+
+    for (const id of expandedCoveredIds) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
+
+  it("TASK-052: um ticker plausível mas não catalogado (PETR5) continua pendente, nunca falso positivo", async () => {
+    const rows = await runAllFixtures();
+
+    const row = rows.find((candidate) => candidate.id === "EXPANDIDO-NEGATIVO-PETR5");
+
+    expect(row).toBeDefined();
+    expect(row?.afterB3Provider.status).not.toBe("verified");
+  });
 });

@@ -33,6 +33,54 @@ describe("B3ListedAssetProvider", () => {
     expect(result.found).toBe(true);
   });
 
+  // TASK-052: representative sample of the expanded catalog (35 tickers total).
+  it.each([
+    "ABEV3",
+    "B3SA3",
+    "BBAS3",
+    "BBDC4",
+    "BPAC11",
+    "CMIG4",
+    "ELET3",
+    "EMBR3",
+    "GGBR4",
+    "LREN3",
+    "RENT3",
+    "WEGE3",
+  ])("TASK-052: finds the stock %s by exact ticker", async (ticker) => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+    expect(result.found).toBe(true);
+    expect(result.evidence.map((item) => item.field).sort()).toEqual(["identity", "issuer"]);
+  });
+
+  it.each(["BTLG11", "MXRF11", "XPML11", "VISC11", "KNCR11", "XPLG11"])(
+    "TASK-052: finds the FII %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["SMAL11", "HASH11", "GOLD11", "DIVO11"])(
+    "TASK-052: finds the ETF %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["MSFT34", "GOGL34", "AMZO34", "TSLA34", "NFLX34"])(
+    "TASK-052: finds the BDR %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
   it.each(["BOVA11", "IVVB11"])("finds the ETF %s by exact ticker", async (ticker) => {
     const result = await createProvider().search({ assetId: "asset-1", ticker });
 

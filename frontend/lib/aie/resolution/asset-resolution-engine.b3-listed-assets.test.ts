@@ -64,6 +64,51 @@ describe("AssetResolutionEngine + B3ListedAssetProvider (TASK-051B)", () => {
     expect(result.verifiedAsset?.issuerEntityId).toBeDefined();
   });
 
+  // TASK-052: end-to-end for the expanded catalog, resolving from rawName
+  // ALONE (basic CSV, no ticker column, no assetType) -- the same realistic
+  // shape as the TASK-051C production smoke.
+  it.each([
+    ["WEGE3", "stock"],
+    ["BBAS3", "stock"],
+    ["ABEV3", "stock"],
+    ["MXRF11", "fii"],
+    ["XPML11", "fii"],
+    ["SMAL11", "etf"],
+    ["HASH11", "etf"],
+    ["MSFT34", "international"],
+  ] as const)("TASK-052: resolves %s as verified from rawName alone", async (rawName, expectedAssetType) => {
+    const result = await engine.resolve({
+      candidateAsset: candidate({
+        id: `asset-052-${rawName}`,
+        rawName,
+        hints: { currency: "BRL", amount: 1000 },
+      }),
+      now: NOW,
+    });
+
+    expect(result.status).toBe("verified");
+    expect(result.verifiedAsset?.assetType).toBe(expectedAssetType);
+  });
+
+  it.each([
+    "ZZZZ99",
+    "XPTO4",
+    "ABCD11",
+    "PETR5", // parece ticker B3 plausivel, mas nao esta no catalogo
+  ])("TASK-052: an uncatalogued-but-plausible ticker (%s) stays pending", async (ticker) => {
+    const result = await engine.resolve({
+      candidateAsset: candidate({
+        id: `asset-052-uncatalogued-${ticker}`,
+        rawName: ticker,
+        hints: { currency: "BRL", amount: 1000 },
+      }),
+      now: NOW,
+    });
+
+    expect(result.status).toBe("needs-more-evidence");
+    expect(result.verifiedAsset).toBeNull();
+  });
+
   it.each([
     ["PETR4", "stock"],
     ["VALE3", "stock"],

@@ -24,7 +24,8 @@ export type DiagnosticCategory =
   | "fixed-income-generic"
   | "treasury"
   | "ambiguous"
-  | "b3-no-assettype";
+  | "b3-no-assettype"
+  | "b3-expanded";
 
 export interface DiagnosticFixture {
   /** Stable id for the report table. Never the raw free-text name. */
@@ -456,5 +457,91 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
       amount: 4000,
     },
     expectedAssetType: "international",
+  },
+
+  // --- TASK-052: amostra do catálogo B3 expandido, todos só com rawName
+  // (CSV básico, sem ticker/assetType), replicando o smoke real de produção.
+  {
+    id: "EXPANDIDO-ABEV3",
+    category: "b3-expanded",
+    description: "ABEV3 (ação nova do catálogo) só com rawName",
+    input: { id: "diag:expandido-abev3", rawName: "ABEV3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO-B3SA3",
+    category: "b3-expanded",
+    description: "B3SA3 (ação nova do catálogo) só com rawName",
+    input: { id: "diag:expandido-b3sa3", rawName: "B3SA3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO-BBAS3",
+    category: "b3-expanded",
+    description: "BBAS3 (ação nova do catálogo) só com rawName",
+    input: { id: "diag:expandido-bbas3", rawName: "BBAS3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO-WEGE3",
+    category: "b3-expanded",
+    description: "WEGE3 (ação nova do catálogo) só com rawName",
+    input: { id: "diag:expandido-wege3", rawName: "WEGE3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO-MXRF11",
+    category: "b3-expanded",
+    description: "MXRF11 (FII novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-mxrf11", rawName: "MXRF11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "EXPANDIDO-XPML11",
+    category: "b3-expanded",
+    description: "XPML11 (FII novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-xpml11", rawName: "XPML11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "EXPANDIDO-BTLG11",
+    category: "b3-expanded",
+    description: "BTLG11 (FII novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-btlg11", rawName: "BTLG11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "EXPANDIDO-SMAL11",
+    category: "b3-expanded",
+    description: "SMAL11 (ETF novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-smal11", rawName: "SMAL11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "etf",
+  },
+  {
+    id: "EXPANDIDO-HASH11",
+    category: "b3-expanded",
+    description: "HASH11 (ETF novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-hash11", rawName: "HASH11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "etf",
+  },
+  {
+    id: "EXPANDIDO-MSFT34",
+    category: "b3-expanded",
+    description: "MSFT34 (BDR novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-msft34", rawName: "MSFT34", currency: "BRL", amount: 1000 },
+    expectedAssetType: "international",
+  },
+  {
+    id: "EXPANDIDO-TSLA34",
+    category: "b3-expanded",
+    description: "TSLA34 (BDR novo do catálogo) só com rawName",
+    input: { id: "diag:expandido-tsla34", rawName: "TSLA34", currency: "BRL", amount: 1000 },
+    expectedAssetType: "international",
+  },
+  {
+    id: "EXPANDIDO-NEGATIVO-PETR5",
+    category: "b3-expanded",
+    description: "PETR5 -- parece ticker B3 plausível, mas não está no catálogo",
+    input: { id: "diag:expandido-negativo-petr5", rawName: "PETR5", currency: "BRL", amount: 1000 },
   },
 ];
