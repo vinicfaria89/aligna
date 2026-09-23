@@ -386,4 +386,23 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       expect(row?.afterB3Provider.status, id).not.toBe("verified");
     }
   });
+
+  it("TASK-051C (correção pós-smoke): ativos B3 resolvem só com rawName, sem coluna ticker", async () => {
+    const rows = await runAllFixtures();
+
+    const rawNameOnlyIds = [
+      "SOMENTE-RAWNAME-PETR4",
+      "SOMENTE-RAWNAME-HGLG11",
+      "SOMENTE-RAWNAME-BOVA11",
+      "SOMENTE-RAWNAME-AAPL34",
+    ];
+
+    for (const id of rawNameOnlyIds) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
 });

@@ -90,6 +90,44 @@ describe("AssetResolutionEngine + B3ListedAssetProvider (TASK-051B)", () => {
     },
   );
 
+  it.each([
+    ["PETR4", "stock"],
+    ["HGLG11", "fii"],
+    ["BOVA11", "etf"],
+    ["AAPL34", "international"],
+  ] as const)(
+    "TASK-051C (production smoke fix): resolves %s as verified from rawName ALONE -- no ticker column, no assetType",
+    async (rawName, expectedAssetType) => {
+      const result = await engine.resolve({
+        candidateAsset: candidate({
+          id: `asset-rawname-only-${rawName}`,
+          rawName,
+          hints: { currency: "BRL", amount: 1000 },
+        }),
+        now: NOW,
+      });
+
+      expect(result.status).toBe("verified");
+      expect(result.verifiedAsset?.assetType).toBe(expectedAssetType);
+    },
+  );
+
+  it("TASK-051C: rawName-only CDB/Tesouro never resolve as B3 by mistake", async () => {
+    for (const rawName of ["CDB Banco Teste", "Tesouro Selic"]) {
+      const result = await engine.resolve({
+        candidateAsset: candidate({
+          id: `asset-rawname-only-${rawName}`,
+          rawName,
+          hints: { currency: "BRL", amount: 1000 },
+        }),
+        now: NOW,
+      });
+
+      expect(result.status, rawName).toBe("needs-more-evidence");
+      expect(result.verifiedAsset, rawName).toBeNull();
+    }
+  });
+
   it("TASK-051C: never infers assetType for an uncatalogued ticker, even without assetType", async () => {
     const result = await engine.resolve({
       candidateAsset: candidate({

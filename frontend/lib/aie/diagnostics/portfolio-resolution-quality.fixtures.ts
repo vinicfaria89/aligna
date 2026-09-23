@@ -405,4 +405,56 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
       amount: 6000,
     },
   },
+
+  // --- TASK-051C (correção pós-smoke em produção): o CSV "mínimo" de
+  // verdade nem sempre tem uma coluna ticker separada -- às vezes só
+  // rawName. Replica exatamente o CSV usado no smoke manual da TASK-051C.
+  {
+    id: "SOMENTE-RAWNAME-PETR4",
+    category: "b3-no-assettype",
+    description: "PETR4 só com rawName -- sem coluna ticker nem assetType",
+    input: {
+      id: "diag:somente-rawname-petr4",
+      rawName: "PETR4",
+      currency: "BRL",
+      amount: 1000,
+    },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "SOMENTE-RAWNAME-HGLG11",
+    category: "b3-no-assettype",
+    description: "HGLG11 só com rawName",
+    input: {
+      id: "diag:somente-rawname-hglg11",
+      rawName: "HGLG11",
+      currency: "BRL",
+      amount: 2000,
+    },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "SOMENTE-RAWNAME-BOVA11",
+    category: "b3-no-assettype",
+    description: "BOVA11 só com rawName",
+    input: {
+      id: "diag:somente-rawname-bova11",
+      rawName: "BOVA11",
+      currency: "BRL",
+      amount: 3000,
+    },
+    expectedAssetType: "etf",
+  },
+  {
+    id: "SOMENTE-RAWNAME-AAPL34",
+    category: "b3-no-assettype",
+    description: "AAPL34 só com rawName",
+    input: {
+      id: "diag:somente-rawname-aapl34",
+      rawName: "AAPL34",
+      currency: "BRL",
+      amount: 4000,
+    },
+    expectedAssetType: "international",
+  },
 ];

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { inferListedB3AssetTypeFromTicker } from "./infer-asset-type";
+import { findListedB3CatalogEntry, inferListedB3AssetTypeFromTicker } from "./infer-asset-type";
 
 describe("inferListedB3AssetTypeFromTicker", () => {
   it.each([
@@ -39,5 +39,39 @@ describe("inferListedB3AssetTypeFromTicker", () => {
     expect(inferListedB3AssetTypeFromTicker(undefined)).toBeUndefined();
     expect(inferListedB3AssetTypeFromTicker("   ")).toBeUndefined();
     expect(inferListedB3AssetTypeFromTicker("")).toBeUndefined();
+  });
+});
+
+describe("findListedB3CatalogEntry", () => {
+  it("matches by hints.ticker when present", () => {
+    const entry = findListedB3CatalogEntry({ rawName: "Qualquer coisa", hints: { ticker: "PETR4" } });
+
+    expect(entry?.ticker).toBe("PETR4");
+    expect(entry?.assetType).toBe("stock");
+  });
+
+  it("falls back to rawName when hints.ticker is absent (basic CSV, no ticker column)", () => {
+    const entry = findListedB3CatalogEntry({ rawName: "PETR4", hints: {} });
+
+    expect(entry?.ticker).toBe("PETR4");
+    expect(entry?.assetType).toBe("stock");
+  });
+
+  it("prefers an explicit ticker over rawName when both are present and differ", () => {
+    const entry = findListedB3CatalogEntry({ rawName: "algo qualquer", hints: { ticker: "HGLG11" } });
+
+    expect(entry?.ticker).toBe("HGLG11");
+  });
+
+  it("does not match rawName as a substring ('MEUPETR4FUNDO' never matches 'PETR4')", () => {
+    expect(findListedB3CatalogEntry({ rawName: "MEUPETR4FUNDO", hints: {} })).toBeUndefined();
+  });
+
+  it("does not match a generic rawName with no ticker information", () => {
+    expect(
+      findListedB3CatalogEntry({ rawName: "Investimento em Renda Fixa", hints: {} }),
+    ).toBeUndefined();
+    expect(findListedB3CatalogEntry({ rawName: "CDB Banco Teste", hints: {} })).toBeUndefined();
+    expect(findListedB3CatalogEntry({ rawName: "Tesouro Selic", hints: {} })).toBeUndefined();
   });
 });

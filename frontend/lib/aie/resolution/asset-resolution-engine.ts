@@ -26,7 +26,7 @@ import type {
 } from "../providers";
 
 import {
-  inferListedB3AssetTypeFromTicker,
+  findListedB3CatalogEntry,
 } from "../providers/b3-listed-assets/infer-asset-type";
 
 export interface AssetResolutionInput {
@@ -40,14 +40,23 @@ export interface AssetResolutionInput {
 }
 
 /**
- * TASK-051C: fills `hints.assetType` ONLY when the candidate has none AND
- * its ticker exact-matches `B3ListedAssetProvider`'s own catalog (see
+ * TASK-051C: fills `hints.assetType` (and `hints.ticker`, when it was
+ * absent) ONLY when the candidate has no `assetType` AND its ticker OR
+ * rawName exact-matches `B3ListedAssetProvider`'s own catalog (see
  * lib/aie/providers/b3-listed-assets/infer-asset-type.ts for the "catalog
  * membership only, never appearance" rule). An explicit `assetType` -- right
  * or wrong -- is NEVER overwritten here: a conflicting one is left as is and
  * caught downstream by `B3ListedAssetProvider`'s own guard, not silently
- * fixed. Never mutates the input; returns the same reference when there is
- * nothing to infer.
+ * fixed. An explicit `hints.ticker` is likewise never overwritten -- it is
+ * only filled in when absent, from the SAME catalog entry that supplied the
+ * inferred type, so it can never disagree with it. Never mutates the input;
+ * returns the same reference when there is nothing to infer.
+ *
+ * Filling `hints.ticker` too (not just `assetType`) matters for the most
+ * basic real CSV: a row with just `rawName` ("PETR4"), no separate `ticker`
+ * column at all -- `B3ListedAssetProvider` looks up `hints.ticker`, so
+ * inferring the type alone would still leave the provider unable to find
+ * anything.
  *
  * Deliberately the earliest point in resolution: everything below (the
  * plan, the provider query, the final `VerifiedAsset.assetType`) reads from
@@ -61,11 +70,9 @@ function withInferredAssetType(
     return candidate;
   }
 
-  const inferred = inferListedB3AssetTypeFromTicker(
-    candidate.hints.ticker,
-  );
+  const entry = findListedB3CatalogEntry(candidate);
 
-  if (!inferred) {
+  if (!entry) {
     return candidate;
   }
 
@@ -73,7 +80,8 @@ function withInferredAssetType(
     ...candidate,
     hints: {
       ...candidate.hints,
-      assetType: inferred,
+      assetType: entry.assetType,
+      ticker: candidate.hints.ticker ?? entry.ticker,
     },
   };
 }
