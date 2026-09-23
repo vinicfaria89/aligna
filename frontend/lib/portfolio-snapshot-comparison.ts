@@ -16,15 +16,31 @@ import type { SnapshotItem, SnapshotStatus } from "./portfolio-snapshot-mapping"
  * Each item gets a single stable key, taken from the first field that is
  * present (trimmed to non-empty), in this priority order:
  *
- *   1. `verifiedAsset.code`  -- the canonical code from a real verification
- *      (e.g. the B3ListedAssetProvider's `canonicalAssetId`, TASK-051B).
- *   2. `ticker`               -- the raw ticker the user's CSV carried.
- *   3. `code`                 -- the raw instrument code (e.g. ANBIMA's).
+ *   1. `ticker`               -- the raw ticker the user's CSV carried.
+ *   2. `code`                 -- the raw instrument code (e.g. ANBIMA's).
+ *   3. `verifiedAsset.code`   -- the canonical code from a real verification
+ *      (e.g. the B3ListedAssetProvider's `canonicalAssetId`, TASK-051B),
+ *      used only when the item has neither a raw `ticker` nor a raw `code`.
  *   4. `rawName`              -- last resort: the free-text name.
+ *
+ * BUG FOUND WHILE BUILDING TASK-053B (fixed here, in TASK-053A's own
+ * function, per that task's "fix a real discovered bug" allowance): an
+ * earlier version of this priority put `verifiedAsset.code` FIRST. That
+ * broke the single most important use case this function exists for --
+ * "an item went from needs-more-evidence to verified between two
+ * snapshots" (the flagship example in the original spec) -- because a
+ * `SnapshotItem` normally KEEPS the same `ticker` across that exact
+ * transition while `verifiedAsset` only appears once resolved. Keying on
+ * `verifiedAsset.code` first meant the base item (no `verifiedAsset`, keyed
+ * by ticker) and the target item (now has `verifiedAsset`, keyed by the
+ * canonical code) produced DIFFERENT keys -- so the comparison reported a
+ * false "removed" + "added" pair instead of the intended `statusChanged`.
+ * `ticker`/`code` are the fields that stay stable across a verification
+ * outcome, so they now rank above the canonical code.
  *
  * Every tier is normalized the same way (trim + uppercase), so `petr4`,
  * `PETR4` and `  PETR4  ` are the same asset. The key is PREFIXED by which
- * tier produced it (`code:`, `ticker:`, `code-raw:`, `name:`) so a ticker
+ * tier produced it (`ticker:`, `code-raw:`, `code:`, `name:`) so a ticker
  * "ABC" can never accidentally collide with a differently-sourced rawName
  * "ABC" for an unrelated item -- a deliberately conservative choice: this
  * function never merges two items on a guess, only within a single field.
@@ -154,11 +170,6 @@ function normalize(value: string): string {
 
 /** The stable identity key for one item -- see the module docstring. */
 function itemKey(item: SnapshotItem): string {
-  const verifiedCode = nonEmpty(item.verifiedAsset?.code);
-  if (verifiedCode !== undefined) {
-    return `code:${normalize(verifiedCode)}`;
-  }
-
   const ticker = nonEmpty(item.ticker);
   if (ticker !== undefined) {
     return `ticker:${normalize(ticker)}`;
@@ -167,6 +178,11 @@ function itemKey(item: SnapshotItem): string {
   const code = nonEmpty(item.code);
   if (code !== undefined) {
     return `code-raw:${normalize(code)}`;
+  }
+
+  const verifiedCode = nonEmpty(item.verifiedAsset?.code);
+  if (verifiedCode !== undefined) {
+    return `code:${normalize(verifiedCode)}`;
   }
 
   return `name:${normalize(item.rawName)}`;

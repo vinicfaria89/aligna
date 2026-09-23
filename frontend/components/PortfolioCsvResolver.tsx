@@ -57,6 +57,8 @@ import {
 import { FOCUS_RING } from "@/lib/ui/focus-ring";
 import { acquireAccessToken, clearSession } from "@/lib/session";
 
+import { PortfolioSnapshotComparison } from "./PortfolioSnapshotComparison";
+
 /**
  * First user-facing AIE workflow (TASK-025): choose a CSV, preview it locally,
  * send the raw CSV to POST /api/aie/resolve-csv, and show what the server
@@ -208,7 +210,7 @@ function detectPortfolioFileKind(file: File): "csv" | "xlsx" | "xls" | "unknown"
   return "unknown";
 }
 
-function formatAmount(amount: number | undefined, currency?: string): string {
+export function formatAmount(amount: number | undefined, currency?: string): string {
   if (amount === undefined) return "—";
 
   try {
@@ -436,7 +438,7 @@ function ResultsTable({ caption, rows }: { caption: string; rows: ResultRowView[
  * "21/09/2026 às 14:32" in the user's time zone. The Planejador sends an ISO instant;
  * a value without a zone designator is read as UTC (never as a local time).
  */
-function savedAtText(iso: string): string | null {
+export function savedAtText(iso: string): string | null {
   const date = new Date(/(Z|[+-]\d{2}:?\d{2})$/.test(iso) ? iso : `${iso}Z`);
 
   if (Number.isNaN(date.getTime())) {
@@ -1210,6 +1212,8 @@ export default function PortfolioCsvResolver({
           )}
         </section>
       )}
+
+      {history !== null && <PortfolioSnapshotComparison history={history} />}
 
       <section className="card" aria-labelledby="csv-file-title">
         <h2 id="csv-file-title" className="mb-1 text-[14.5px] font-semibold">

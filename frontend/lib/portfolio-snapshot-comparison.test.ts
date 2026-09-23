@@ -260,24 +260,81 @@ describe("comparePortfolioSnapshots", () => {
     expect(target).toEqual(targetSnapshot);
   });
 
-  it("identity priority: verifiedAsset.code wins over ticker, which wins over code, which wins over rawName", () => {
-    const withVerifiedCode = item({
+  it("identity priority: ticker wins over code, which wins over verifiedAsset.code, which wins over rawName", () => {
+    const withTicker = item({
       rawName: "Ação X",
       ticker: "XYZW3",
       code: "OLDCODE",
       verifiedAsset: { code: "b3:XYZW3", type: "stock", currency: "BRL" },
     });
 
-    const sameVerifiedCode = item({
+    const sameTickerDifferentEverythingElse = item({
       rawName: "Nome diferente",
-      ticker: "OUTRO4",
+      ticker: "XYZW3",
+      code: "SOMETHING-ELSE",
+    });
+
+    const result = comparePortfolioSnapshots([withTicker], [sameTickerDifferentEverythingElse]);
+
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0].key).toBe("ticker:XYZW3");
+  });
+
+  it("without a ticker, code (raw instrument code) wins over verifiedAsset.code", () => {
+    const withCode = item({ ticker: undefined, code: "ABCD11", verifiedAsset: undefined });
+    const sameCode = item({
+      ticker: undefined,
+      code: "ABCD11",
+      verifiedAsset: { code: "anbima:ABCD11", type: "debenture", currency: "BRL" },
+    });
+
+    const result = comparePortfolioSnapshots([withCode], [sameCode]);
+
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0].key).toBe("code-raw:ABCD11");
+  });
+
+  it("without a ticker or a raw code, falls back to verifiedAsset.code", () => {
+    const withVerifiedCodeOnly = item({
+      ticker: undefined,
+      code: undefined,
+      verifiedAsset: { code: "b3:XYZW3", type: "stock", currency: "BRL" },
+    });
+    const sameVerifiedCodeOnly = item({
+      ticker: undefined,
+      code: undefined,
+      rawName: "Nome completamente diferente",
       verifiedAsset: { code: "b3:XYZW3", type: "stock", currency: "BRL" },
     });
 
-    const result = comparePortfolioSnapshots([withVerifiedCode], [sameVerifiedCode]);
+    const result = comparePortfolioSnapshots([withVerifiedCodeOnly], [sameVerifiedCodeOnly]);
 
     expect(result.kept).toHaveLength(1);
     expect(result.kept[0].key).toBe("code:B3:XYZW3");
+  });
+
+  it("BUG FIX (found while building TASK-053B): an item keeps the same identity when it gains a verifiedAsset between snapshots (needs-more-evidence -> verified) -- the flagship statusChanged case", () => {
+    const beforeVerification = item({
+      ticker: "PETR4",
+      amount: 1000,
+      status: "needs-more-evidence",
+      verifiedAsset: undefined,
+    });
+    const afterVerification = item({
+      ticker: "PETR4",
+      amount: 1000,
+      status: "verified",
+      verifiedAsset: { code: "b3:PETR4", type: "stock", currency: "BRL" },
+    });
+
+    const result = comparePortfolioSnapshots([beforeVerification], [afterVerification]);
+
+    expect(result.added).toEqual([]);
+    expect(result.removed).toEqual([]);
+    expect(result.kept).toHaveLength(1);
+    expect(result.kept[0].statusChanged).toBe(true);
+    expect(result.kept[0].baseStatus).toBe("needs-more-evidence");
+    expect(result.kept[0].targetStatus).toBe("verified");
   });
 
   it("does not collide a ticker-derived key with a rawName-derived key sharing the same text", () => {
