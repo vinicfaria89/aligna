@@ -34,6 +34,14 @@ function normalizeTicker(value: string): string {
  * match -- "PETR" never matches "PETR4", "Banco Teste" never matches
  * anything here, an unlisted ticker never matches. Nothing outside
  * `B3_LISTED_ASSETS` is ever found.
+ *
+ * TASK-051C: an explicit `query.assetType` that DISAGREES with the
+ * catalog's type for that ticker is never overridden and never matched --
+ * `supports`/`search` both report no match (never an error, never a silent
+ * "wins by ticker anyway"). A caller declaring `PETR4` as `fii` never gets a
+ * false "verified" out of this provider; it stays a documented conflict for
+ * `needs-more-evidence` to reflect. `query.assetType === undefined` (no
+ * explicit type -- the common real-world CSV) is never a conflict.
  */
 export class B3ListedAssetProvider implements EvidenceProvider {
   readonly id = "B3";
@@ -50,9 +58,7 @@ export class B3ListedAssetProvider implements EvidenceProvider {
   }
 
   supports(query: ProviderQuery): boolean {
-    const ticker = query.ticker?.trim();
-
-    return Boolean(ticker) && this.byTicker.has(normalizeTicker(ticker as string));
+    return this.matchingEntry(query) !== null;
   }
 
   async search(query: ProviderQuery): Promise<ProviderResult> {
@@ -67,9 +73,13 @@ export class B3ListedAssetProvider implements EvidenceProvider {
       };
     }
 
-    const entry = this.byTicker.get(normalizeTicker(ticker));
+    const entry = this.matchingEntry(query);
 
     if (!entry) {
+      // Covers two cases identically: the ticker is not in the catalog, OR
+      // it is, but the caller's own (explicit) `assetType` disagrees with
+      // it (TASK-051C) -- an unresolved conflict, never a silent override
+      // and never a false "found".
       return {
         providerId: this.id,
         searched: true,
@@ -91,6 +101,29 @@ export class B3ListedAssetProvider implements EvidenceProvider {
         },
       ],
     };
+  }
+
+  /** Catalog entry for the query's ticker, or `null` if absent OR if an
+   * explicit `query.assetType` conflicts with the catalog's type for it
+   * (TASK-051C). */
+  private matchingEntry(query: ProviderQuery): B3ListedAssetEntry | null {
+    const ticker = query.ticker?.trim();
+
+    if (!ticker) {
+      return null;
+    }
+
+    const entry = this.byTicker.get(normalizeTicker(ticker));
+
+    if (!entry) {
+      return null;
+    }
+
+    if (query.assetType !== undefined && query.assetType !== entry.assetType) {
+      return null;
+    }
+
+    return entry;
   }
 
   private toEvidence(

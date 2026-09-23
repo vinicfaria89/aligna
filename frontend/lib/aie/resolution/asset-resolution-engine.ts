@@ -25,6 +25,10 @@ import type {
   ProviderQuery,
 } from "../providers";
 
+import {
+  inferListedB3AssetTypeFromTicker,
+} from "../providers/b3-listed-assets/infer-asset-type";
+
 export interface AssetResolutionInput {
   candidateAsset: CandidateAsset;
 
@@ -33,6 +37,45 @@ export interface AssetResolutionInput {
   searches?: SearchExecution[];
 
   now?: string;
+}
+
+/**
+ * TASK-051C: fills `hints.assetType` ONLY when the candidate has none AND
+ * its ticker exact-matches `B3ListedAssetProvider`'s own catalog (see
+ * lib/aie/providers/b3-listed-assets/infer-asset-type.ts for the "catalog
+ * membership only, never appearance" rule). An explicit `assetType` -- right
+ * or wrong -- is NEVER overwritten here: a conflicting one is left as is and
+ * caught downstream by `B3ListedAssetProvider`'s own guard, not silently
+ * fixed. Never mutates the input; returns the same reference when there is
+ * nothing to infer.
+ *
+ * Deliberately the earliest point in resolution: everything below (the
+ * plan, the provider query, the final `VerifiedAsset.assetType`) reads from
+ * this single enriched candidate, so inference and the search plan/result
+ * can never disagree with each other.
+ */
+function withInferredAssetType(
+  candidate: CandidateAsset,
+): CandidateAsset {
+  if (candidate.hints.assetType !== undefined) {
+    return candidate;
+  }
+
+  const inferred = inferListedB3AssetTypeFromTicker(
+    candidate.hints.ticker,
+  );
+
+  if (!inferred) {
+    return candidate;
+  }
+
+  return {
+    ...candidate,
+    hints: {
+      ...candidate.hints,
+      assetType: inferred,
+    },
+  };
 }
 
 function buildProviderQuery(
@@ -82,7 +125,9 @@ export class AssetResolutionEngine {
     input: AssetResolutionInput,
   ): Promise<ResolutionResult> {
     const candidate =
-      input.candidateAsset;
+      withInferredAssetType(
+        input.candidateAsset,
+      );
 
     const existingEvidence = [
       ...(input.evidence ?? []),

@@ -354,4 +354,36 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       expect(row?.afterB3Provider.status, id).not.toBe("verified");
     }
   });
+
+  it("TASK-051C: ativos B3 catalogados resolvem mesmo SEM assetType explícito (CSV básico)", async () => {
+    const rows = await runAllFixtures();
+
+    const coveredWithoutAssetType = [
+      "SEMTIPO-PETR4",
+      "SEMTIPO-HGLG11",
+      "SEMTIPO-BOVA11",
+      "SEMTIPO-AAPL34",
+    ];
+
+    for (const id of coveredWithoutAssetType) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
+
+  it("TASK-051C: CDB/Tesouro sem assetType continuam sem falso positivo (nunca viram B3 por engano)", async () => {
+    const rows = await runAllFixtures();
+
+    const stillPendingWithoutAssetType = ["SEMTIPO-CDB-GENERICO", "SEMTIPO-TESOURO-SELIC"];
+
+    for (const id of stillPendingWithoutAssetType) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).not.toBe("verified");
+    }
+  });
 });

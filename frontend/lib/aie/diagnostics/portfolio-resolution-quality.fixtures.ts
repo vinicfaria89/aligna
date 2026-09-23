@@ -23,7 +23,8 @@ export type DiagnosticCategory =
   | "international"
   | "fixed-income-generic"
   | "treasury"
-  | "ambiguous";
+  | "ambiguous"
+  | "b3-no-assettype";
 
 export interface DiagnosticFixture {
   /** Stable id for the report table. Never the raw free-text name. */
@@ -323,6 +324,85 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
       rawName: "Investimento em Renda Fixa",
       currency: "BRL",
       amount: 2500,
+    },
+  },
+
+  // --- TASK-051C: CSV "básico" real -- só rawName/ticker/valor, SEM a coluna
+  // assetType. Antes da TASK-051C isso caía em "unknown" e nunca alcançava o
+  // B3ListedAssetProvider (achado do smoke da TASK-051B em produção). Estas
+  // fixtures replicam exatamente o CSV de validação manual da TASK-051C.
+  {
+    id: "SEMTIPO-PETR4",
+    category: "b3-no-assettype",
+    description: "PETR4 sem assetType (CSV básico, só nome/ticker/valor)",
+    input: {
+      id: "diag:semtipo-petr4",
+      rawName: "PETR4",
+      ticker: "PETR4",
+      currency: "BRL",
+      amount: 1000,
+    },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "SEMTIPO-HGLG11",
+    category: "b3-no-assettype",
+    description: "HGLG11 sem assetType",
+    input: {
+      id: "diag:semtipo-hglg11",
+      rawName: "HGLG11",
+      ticker: "HGLG11",
+      currency: "BRL",
+      amount: 2000,
+    },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "SEMTIPO-BOVA11",
+    category: "b3-no-assettype",
+    description: "BOVA11 sem assetType",
+    input: {
+      id: "diag:semtipo-bova11",
+      rawName: "BOVA11",
+      ticker: "BOVA11",
+      currency: "BRL",
+      amount: 3000,
+    },
+    expectedAssetType: "etf",
+  },
+  {
+    id: "SEMTIPO-AAPL34",
+    category: "b3-no-assettype",
+    description: "AAPL34 sem assetType",
+    input: {
+      id: "diag:semtipo-aapl34",
+      rawName: "AAPL34",
+      ticker: "AAPL34",
+      currency: "BRL",
+      amount: 4000,
+    },
+    expectedAssetType: "international",
+  },
+  {
+    id: "SEMTIPO-CDB-GENERICO",
+    category: "b3-no-assettype",
+    description: "CDB genérico sem assetType -- não deve virar B3 por engano",
+    input: {
+      id: "diag:semtipo-cdb",
+      rawName: "CDB Banco Teste",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "SEMTIPO-TESOURO-SELIC",
+    category: "b3-no-assettype",
+    description: "Tesouro Selic sem assetType -- não deve virar B3 por engano",
+    input: {
+      id: "diag:semtipo-tesouro",
+      rawName: "Tesouro Selic",
+      currency: "BRL",
+      amount: 6000,
     },
   },
 ];

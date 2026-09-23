@@ -64,6 +64,76 @@ describe("AssetResolutionEngine + B3ListedAssetProvider (TASK-051B)", () => {
     expect(result.verifiedAsset?.issuerEntityId).toBeDefined();
   });
 
+  it.each([
+    ["PETR4", "stock"],
+    ["VALE3", "stock"],
+    ["ITUB4", "stock"],
+    ["HGLG11", "fii"],
+    ["KNRI11", "fii"],
+    ["BOVA11", "etf"],
+    ["IVVB11", "etf"],
+    ["AAPL34", "international"],
+  ] as const)(
+    "TASK-051C: resolves %s as verified WITHOUT an explicit assetType (basic CSV)",
+    async (ticker, expectedAssetType) => {
+      const result = await engine.resolve({
+        candidateAsset: candidate({
+          id: `asset-semtipo-${ticker}`,
+          rawName: ticker,
+          hints: { ticker, currency: "BRL", amount: 1000 },
+        }),
+        now: NOW,
+      });
+
+      expect(result.status).toBe("verified");
+      expect(result.verifiedAsset?.assetType).toBe(expectedAssetType);
+    },
+  );
+
+  it("TASK-051C: never infers assetType for an uncatalogued ticker, even without assetType", async () => {
+    const result = await engine.resolve({
+      candidateAsset: candidate({
+        id: "asset-semtipo-desconhecido",
+        rawName: "XPTO4",
+        hints: { ticker: "XPTO4", currency: "BRL", amount: 1000 },
+      }),
+      now: NOW,
+    });
+
+    expect(result.status).toBe("needs-more-evidence");
+    expect(result.verifiedAsset).toBeNull();
+  });
+
+  it("TASK-051C: an explicit assetType that conflicts with the catalog is never overridden and never verifies", async () => {
+    const result = await engine.resolve({
+      candidateAsset: candidate({
+        id: "asset-conflito",
+        rawName: "PETR4",
+        hints: { assetType: "fii", ticker: "PETR4", currency: "BRL", amount: 1000 },
+      }),
+      now: NOW,
+    });
+
+    expect(result.status).toBe("needs-more-evidence");
+    expect(result.verifiedAsset).toBeNull();
+    // O tipo explícito (errado) nunca é sobrescrito silenciosamente.
+    expect(result.investigation.candidateAsset.hints.assetType).toBe("fii");
+  });
+
+  it("TASK-051C: explicit correct assetType keeps working exactly like TASK-051B", async () => {
+    const result = await engine.resolve({
+      candidateAsset: candidate({
+        id: "asset-tipo-correto",
+        rawName: "PETR4",
+        hints: { assetType: "stock", ticker: "PETR4", currency: "BRL", amount: 1000 },
+      }),
+      now: NOW,
+    });
+
+    expect(result.status).toBe("verified");
+    expect(result.verifiedAsset?.assetType).toBe("stock");
+  });
+
   it("does not resolve an unlisted ticker as verified (no false positive)", async () => {
     const result = await engine.resolve({
       candidateAsset: candidate({
