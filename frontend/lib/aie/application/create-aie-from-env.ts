@@ -3,6 +3,10 @@ import type {
 } from "../providers";
 
 import {
+  B3ListedAssetProvider,
+} from "../providers/b3-listed-assets/b3-listed-asset-provider";
+
+import {
   createAnbimaDebentureProviderFromEnv,
 } from "./anbima-runtime";
 
@@ -26,6 +30,10 @@ export interface CreateAieFromEnvOptions
  * explicitly provides valid credentials. Without them the engine is created
  * with no ANBIMA provider and never contacts ANBIMA.
  *
+ * `B3ListedAssetProvider` (TASK-051B) is always registered: it is a small,
+ * local, static catalog (lib/aie/providers/b3-listed-assets/catalog.ts) --
+ * no credentials, no network, no environment dependency.
+ *
  * The caller (application boundary) supplies the environment object; nothing
  * under lib/aie reads the process environment directly.
  */
@@ -43,6 +51,7 @@ export function createAieFromEnv(
     providers: [
       ...(options.providers ?? []),
       ...(anbima ? [anbima] : []),
+      new B3ListedAssetProvider(),
     ],
   });
 }

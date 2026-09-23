@@ -2,35 +2,33 @@ import { describe, expect, it } from "vitest";
 
 import { createAie } from "../application/create-aie";
 import { ingestPortfolioCandidate } from "../ingestion/portfolio-candidate-ingestion";
-import { RegistryProvider } from "../providers";
-import { EntityRegistryLoader } from "../registry";
+import { B3ListedAssetProvider } from "../providers/b3-listed-assets/b3-listed-asset-provider";
 
 import type { DiagnosticFixture } from "./portfolio-resolution-quality.fixtures";
 import { DIAGNOSTIC_FIXTURES } from "./portfolio-resolution-quality.fixtures";
 
 /**
- * TASK-051A -- diagnostic only. Never asserts that resolution quality is
- * "good"; it maps where the CURRENT resolver lands for a realistic battery
- * of common assets, so TASK-051B can be scoped from real evidence instead of
- * guesses. Nothing here touches production code: it composes the same
- * public building blocks `lib/aie/application/create-aie.ts` and the
- * existing tests already use (see `asset-resolution-engine.test.ts`).
+ * TASK-051A (baseline) + TASK-051B (updated baseline) -- diagnostic only.
+ * Never asserts that resolution quality is "good" across the board; it maps
+ * where the resolver lands for a realistic battery of common assets. Nothing
+ * here touches production LOGIC: it composes the same public building block
+ * `lib/aie/application/create-aie.ts` the existing tests already use (see
+ * `asset-resolution-engine.test.ts`), the second pass now mirroring real
+ * production wiring after TASK-051B
+ * (`lib/aie/application/create-aie-from-env.ts` always registers
+ * `B3ListedAssetProvider`).
  *
  * Two passes per fixture, both against the REAL, unmodified
  * `AssetResolutionEngine`/`VerificationPolicy`/`ResolutionPlanner`:
  *
- *  - "baseline": zero providers registered -- exactly `createAieFromEnv`'s
- *    production wiring when no ANBIMA credentials are set
- *    (lib/aie/application/create-aie-from-env.ts), and functionally
- *    identical to production WITH credentials for every fixture here, since
- *    none of them are debentures and ANBIMA only ever answers debenture
- *    queries. This is "what a user gets today".
- *  - "withRegistry": the same engine, plus a `RegistryProvider` backed by a
- *    TEST-ONLY registry seeded with the fixtures' `registryEntity` data --
- *    i.e. "what would happen if a registry of common assets existed,
- *    changing nothing else". The gap between the two passes tells TASK-051B
- *    how much is a DATA problem (no registry) versus an ARCHITECTURE
- *    problem (see the "registry evidence can never verify" finding below).
+ *  - "baseline": zero providers registered -- the TASK-051A snapshot, kept
+ *    unchanged on purpose so the improvement is visible in the same report.
+ *    Functionally identical to production WITHOUT ANBIMA credentials, and to
+ *    production WITH them for every fixture here, since none is a debenture.
+ *  - "afterB3Provider": the same engine, plus the real
+ *    `B3ListedAssetProvider` (TASK-051B) -- i.e. today's actual production
+ *    wiring for every fixture in this battery. This is "what a user gets
+ *    today", not a hypothetical.
  */
 
 type Diagnosis =
@@ -60,21 +58,15 @@ interface DiagnosticRow {
   expectedAssetType: string;
   tickerPreserved: string;
   baseline: PassOutcome;
-  withRegistry: PassOutcome;
+  afterB3Provider: PassOutcome;
 }
 
 function buildBaselineEngine() {
   return createAie({});
 }
 
-function buildRegistryEngine(fixtures: readonly DiagnosticFixture[]) {
-  const entities = fixtures
-    .map((fixture) => fixture.registryEntity)
-    .filter((entity): entity is NonNullable<typeof entity> => entity !== undefined);
-
-  const registry = new EntityRegistryLoader().load(entities);
-
-  return createAie({ providers: [new RegistryProvider(registry)] });
+function buildB3Engine() {
+  return createAie({ providers: [new B3ListedAssetProvider()] });
 }
 
 /**
@@ -105,7 +97,7 @@ function classify(
 
 async function runAllFixtures(): Promise<DiagnosticRow[]> {
   const baselineEngine = buildBaselineEngine();
-  const registryEngine = buildRegistryEngine(DIAGNOSTIC_FIXTURES);
+  const b3Engine = buildB3Engine();
 
   const rows: DiagnosticRow[] = [];
 
@@ -113,10 +105,10 @@ async function runAllFixtures(): Promise<DiagnosticRow[]> {
     const candidate = ingestPortfolioCandidate(fixture.input);
 
     let baselineError: string | undefined;
-    let registryError: string | undefined;
+    let b3Error: string | undefined;
 
     let baselineResult;
-    let registryResult;
+    let b3Result;
 
     try {
       baselineResult = await baselineEngine.resolve({
@@ -128,12 +120,12 @@ async function runAllFixtures(): Promise<DiagnosticRow[]> {
     }
 
     try {
-      registryResult = await registryEngine.resolve({
+      b3Result = await b3Engine.resolve({
         candidateAsset: candidate,
         now: "2026-09-23T12:00:00.000Z",
       });
     } catch (error) {
-      registryError = error instanceof Error ? error.message : String(error);
+      b3Error = error instanceof Error ? error.message : String(error);
     }
 
     const toOutcome = (
@@ -178,7 +170,7 @@ async function runAllFixtures(): Promise<DiagnosticRow[]> {
             ? "ok"
             : `PERDIDO (esperado ${fixture.input.ticker.trim().toUpperCase()}, obteve ${candidate.hints.ticker ?? "undefined"})`,
       baseline: toOutcome(baselineResult, baselineError),
-      withRegistry: toOutcome(registryResult, registryError),
+      afterB3Provider: toOutcome(b3Result, b3Error),
     });
   }
 
@@ -194,29 +186,31 @@ function printReport(rows: DiagnosticRow[]): void {
     ticker: row.tickerPreserved,
     "baseline.status": row.baseline.status,
     "baseline.diagnosis": row.baseline.diagnosis,
-    "registry.status": row.withRegistry.status,
-    "registry.identitySupported": row.withRegistry.identitySupported,
-    "registry.unresolvedFields": row.withRegistry.unresolvedFields.join("+"),
-    "registry.diagnosis": row.withRegistry.diagnosis,
+    "afterB3.status": row.afterB3Provider.status,
+    "afterB3.unresolvedFields": row.afterB3Provider.unresolvedFields.join("+"),
+    "afterB3.diagnosis": row.afterB3Provider.diagnosis,
   }));
 
-  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A)
+  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A/TASK-051B)
   console.table(table);
 
   const total = rows.length;
-  const count = (pass: "baseline" | "withRegistry", diagnosis: Diagnosis) =>
+  const count = (pass: "baseline" | "afterB3Provider", diagnosis: Diagnosis) =>
     rows.filter((row) => row[pass].diagnosis === diagnosis).length;
 
-  const identitySupportedByRegistry = rows.filter((row) => row.withRegistry.identitySupported).length;
   const withTicker = rows.filter((row) => row.tickerPreserved !== "(sem ticker)").length;
   const tickerOk = rows.filter((row) => row.tickerPreserved === "ok").length;
 
+  const newlyResolved = rows.filter(
+    (row) => row.baseline.diagnosis !== "resolved_expected" && row.afterB3Provider.diagnosis === "resolved_expected",
+  );
+
   const summary = [
     "",
-    "=== TASK-051A -- resumo do diagnóstico de qualidade de resolução AIE ===",
+    "=== TASK-051A/TASK-051B -- resumo do diagnóstico de qualidade de resolução AIE ===",
     `Total de casos: ${total}`,
     "",
-    "-- Baseline (produção hoje, sem credenciais ANBIMA relevantes para estes casos) --",
+    "-- Baseline (TASK-051A, sem nenhum provider primary para estes casos) --",
     `  resolved_expected: ${count("baseline", "resolved_expected")}`,
     `  needs_more_evidence_expected: ${count("baseline", "needs_more_evidence_expected")}`,
     `  unexpected_needs_more_evidence: ${count("baseline", "unexpected_needs_more_evidence")}`,
@@ -224,47 +218,42 @@ function printReport(rows: DiagnosticRow[]): void {
     `  wrong_code: ${count("baseline", "wrong_code")}`,
     `  unexpected_error: ${count("baseline", "unexpected_error")}`,
     "",
-    "-- Com um registry hipotético (TASK-051B, se apenas dados fossem adicionados) --",
-    `  resolved_expected: ${count("withRegistry", "resolved_expected")}`,
-    `  needs_more_evidence_expected: ${count("withRegistry", "needs_more_evidence_expected")}`,
-    `  unexpected_needs_more_evidence: ${count("withRegistry", "unexpected_needs_more_evidence")}`,
-    `  casos com evidência de identidade via REGISTRY: ${identitySupportedByRegistry} / ${total}`,
+    "-- Depois de B3ListedAssetProvider (TASK-051B, produção real hoje) --",
+    `  resolved_expected: ${count("afterB3Provider", "resolved_expected")}`,
+    `  needs_more_evidence_expected: ${count("afterB3Provider", "needs_more_evidence_expected")}`,
+    `  unexpected_needs_more_evidence: ${count("afterB3Provider", "unexpected_needs_more_evidence")}`,
+    `  wrong_type: ${count("afterB3Provider", "wrong_type")}`,
+    `  wrong_code: ${count("afterB3Provider", "wrong_code")}`,
+    `  unexpected_error: ${count("afterB3Provider", "unexpected_error")}`,
+    `  casos que passaram a 'resolved_expected' nesta task: ${newlyResolved.length}` +
+      ` (${newlyResolved.map((row) => row.id).join(", ")})`,
     "",
-    "-- Padrões de falha principais --",
-    "  1. NENHUM caso não-debênture pode chegar a 'verified' hoje, com ou sem",
-    "     registry: VerificationPolicy.evaluate (lib/aie/policy/verification-policy.ts)",
-    "     exige evidência de força 'primary' vinda de uma fonte != REGISTRY para",
-    "     os campos 'identity' E 'issuer'. O único provider 'primary' existente",
-    "     em todo o código é o ANBIMA (debêntures). Ações, FIIs, ETFs, BDR,",
-    "     Tesouro e CDB/LCI/LCA genéricos não têm NENHUM provider capaz de",
-    "     produzir evidência primária hoje.",
-    "  2. Mesmo com um registry hipotético perfeito (ticker/nome batendo",
-    `     exatamente), ${identitySupportedByRegistry}/${total} casos ganham evidência 'identity'`,
-    "     (supporting), mas o campo 'issuer' nunca é preenchido: RegistryProvider",
-    "     (lib/aie/providers/registry-provider.ts) só emite evidência para o campo",
-    "     'identity', nunca para 'issuer'. Popular um registry sozinho NÃO",
-    "     destrava 'verified' para nada.",
-    "  3. 'Tesouro Selic'/'Tesouro IPCA+' não têm NENHUM valor correspondente em",
-    "     CandidateAssetType (lib/aie/contracts/candidate-asset.ts) -- não é uma",
-    "     falha de reconhecimento, é uma categoria ausente do modelo de dados.",
+    "-- Padrões de falha principais (restantes) --",
+    "  1. CDB/LCI/LCA genéricos e 'Investimento em Renda Fixa' continuam sem",
+    "     'verified': não têm ticker/código oficial -- fora do escopo de um",
+    "     catálogo por ticker como o B3ListedAssetProvider (TASK-051B).",
+    "  2. 'Tesouro Selic'/'Tesouro IPCA+' continuam sem categoria correspondente",
+    "     em CandidateAssetType (lib/aie/contracts/candidate-asset.ts) -- fora de",
+    "     escopo desta task por decisão explícita.",
+    "  3. Um ticker desconhecido (fora do catálogo) continua em",
+    "     'needs-more-evidence', nunca em falso positivo -- ver",
+    "     'does not resolve an unlisted ticker as verified' em",
+    "     asset-resolution-engine.b3-listed-assets.test.ts.",
     "  4. Dados explícitos simples (ticker normalizado) sobrevivem corretamente",
     `     à ingestão em todos os casos testados (${tickerOk}/${withTicker} casos com` +
       " ticker chegam normalizados sem perda).",
     "",
-    "-- Candidatos prioritários para TASK-051B --",
-    "  a. Um provider 'primary' para ativos listados na B3 (ações/FIIs/ETFs/BDR)",
-    "     -- sem ele, nenhuma melhoria de regex/normalização muda o status final.",
-    "  b. RegistryProvider emitir também evidência de 'issuer' quando o registry",
-    "     souber o emissor/gestor (hoje só emite 'identity').",
-    "  c. Adicionar 'treasury'/'government-bond' a CandidateAssetType, com plano",
-    "     de busca próprio (SEARCH_PLANS em lib/aie/planner/resolution-planner.ts).",
-    "  d. Decisão de produto: permitir que REGISTRY conte como evidência",
-    "     suficiente (política mais permissiva) para certas classes de ativo,",
-    "     ao custo de menor garantia -- avaliar antes de mudar VerificationPolicy.",
+    "-- Candidatos prioritários para a próxima task --",
+    "  a. Cobertura de Tesouro Direto: exige categoria própria em",
+    "     CandidateAssetType e plano de busca (fora do escopo da TASK-051B).",
+    "  b. Renda fixa genérica (CDB/LCI/LCA) sem código oficial: exige uma fonte",
+    "     de evidência diferente de um catálogo por ticker (ex.: por emissor).",
+    "  c. Ampliar o catálogo de B3ListedAssetProvider para mais tickers, como",
+    "     decisão de produto explícita -- nunca crescimento silencioso.",
     "",
   ].join("\n");
 
-  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A)
+  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A/TASK-051B)
   console.log(summary);
 }
 
@@ -274,7 +263,7 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
 
     for (const row of rows) {
       expect(row.baseline.diagnosis, `${row.id} (baseline)`).not.toBe("unexpected_error");
-      expect(row.withRegistry.diagnosis, `${row.id} (withRegistry)`).not.toBe("unexpected_error");
+      expect(row.afterB3Provider.diagnosis, `${row.id} (afterB3Provider)`).not.toBe("unexpected_error");
     }
   });
 
@@ -305,15 +294,14 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
         id: row.id,
         baselineStatus: row.baseline.status,
         baselineDiagnosis: row.baseline.diagnosis,
-        registryStatus: row.withRegistry.status,
-        registryDiagnosis: row.withRegistry.diagnosis,
-        registryIdentitySupported: row.withRegistry.identitySupported,
+        afterB3Status: row.afterB3Provider.status,
+        afterB3Diagnosis: row.afterB3Provider.diagnosis,
       }));
 
     expect(strip(first)).toEqual(strip(second));
   });
 
-  it("produz e imprime o relatório de diagnóstico (TASK-051A)", async () => {
+  it("produz e imprime o relatório de diagnóstico (TASK-051A/TASK-051B)", async () => {
     const rows = await runAllFixtures();
 
     printReport(rows);
@@ -321,5 +309,49 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
     // Invariante fraca, só para o teste ter uma asserção própria: o relatório
     // cobre a bateria inteira.
     expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it("TASK-051B: os 8 ativos listados cobertos pelo catálogo passam a resolved_expected", async () => {
+    const rows = await runAllFixtures();
+
+    const coveredIds = [
+      "PETR4",
+      "VALE3",
+      "ITUB4",
+      "HGLG11",
+      "KNRI11",
+      "BOVA11",
+      "IVVB11",
+      "AAPL34",
+    ];
+
+    for (const id of coveredIds) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
+
+  it("TASK-051B: Tesouro, renda fixa genérica e nomes sem ticker continuam sem falso positivo", async () => {
+    const rows = await runAllFixtures();
+
+    const stillPendingIds = [
+      "CDB-GENERICO",
+      "LCI-GENERICO",
+      "LCA-GENERICO",
+      "TESOURO-SELIC",
+      "TESOURO-IPCA",
+      "AMBIGUO-SEM-TICKER",
+      "AMBIGUO-NOME-GENERICO",
+    ];
+
+    for (const id of stillPendingIds) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).not.toBe("verified");
+    }
   });
 });

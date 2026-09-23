@@ -236,7 +236,10 @@ function stock(
     hints: {
       assetType: "stock",
 
-      ticker: "PETR4",
+      // Not in B3ListedAssetProvider's catalog (TASK-051B) on purpose: this
+      // fixture exists to stay unresolved/unverified, unrelated to which
+      // real tickers that provider happens to cover.
+      ticker: "ZZZZ99",
     },
   };
 }

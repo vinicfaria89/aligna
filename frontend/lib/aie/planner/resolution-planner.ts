@@ -101,8 +101,13 @@ import type {
       "USER",
     ],
   
+    // TASK-051B: BDRs (ex.: AAPL34) sao cobertos pelo catalogo local de
+    // ativos B3/listados (lib/aie/providers/b3-listed-assets/catalog.ts) --
+    // sem "B3" aqui, o plano nunca chegaria a tentar esse provider para
+    // "international", mesmo com o ticker no catalogo.
     international: [
       "REGISTRY",
+      "B3",
       "USER",
     ],
   
