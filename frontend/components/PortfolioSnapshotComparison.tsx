@@ -1,7 +1,8 @@
 "use client";
 
-import { Download } from "lucide-react";
+import { ArrowUpDown, Download, Equal, Minus, Plus, RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
+import type { LucideIcon } from "lucide-react";
 
 import {
   comparePortfolioSnapshots,
@@ -28,6 +29,13 @@ import { formatAmount, savedAtText } from "./PortfolioCsvResolver";
  *
  * Selecting a comparison here never changes what "Abrir" displays elsewhere
  * on the page -- entirely independent state.
+ *
+ * TASK-055: visual/UX polish only -- four clearly separated blocks
+ * (seleção → resumo → diferenças → exportar), each difference category
+ * dual-coded with an icon AND a color (never color alone), and an explicit
+ * empty state per category instead of hiding the section. None of this
+ * changes what gets compared, exported or how identity/status are computed
+ * -- `comparePortfolioSnapshots` and the CSV export helper are untouched.
  */
 
 const SNAPSHOT_STATUS_LABEL: Record<SnapshotStatus, string> = {
@@ -37,6 +45,49 @@ const SNAPSHOT_STATUS_LABEL: Record<SnapshotStatus, string> = {
   conflict: "Evidências em conflito",
   blocked: "Bloqueado",
   "item-error": "Erro ao resolver",
+};
+
+type DiffTone = "added" | "removed" | "value" | "status" | "neutral";
+
+const TONE_STYLES: Record<
+  DiffTone,
+  { badgeBg: string; badgeText: string; rowBg: string; rowBorder: string; icon: string }
+> = {
+  added: {
+    badgeBg: "bg-aligna-pale",
+    badgeText: "text-aligna-deep",
+    rowBg: "bg-aligna-pale",
+    rowBorder: "border-aligna-mid",
+    icon: "text-aligna-deep",
+  },
+  removed: {
+    badgeBg: "bg-aligna-dangerSoft",
+    badgeText: "text-aligna-danger",
+    rowBg: "bg-aligna-dangerSoft",
+    rowBorder: "border-aligna-danger",
+    icon: "text-aligna-danger",
+  },
+  value: {
+    badgeBg: "bg-aligna-warnSoft",
+    badgeText: "text-aligna-warn",
+    rowBg: "bg-aligna-warnSoft",
+    rowBorder: "border-aligna-warn",
+    icon: "text-aligna-warn",
+  },
+  status: {
+    badgeBg: "bg-aligna-infoSoft",
+    badgeText: "text-aligna-info",
+    rowBg: "bg-aligna-infoSoft",
+    rowBorder: "border-aligna-info",
+    icon: "text-aligna-info",
+  },
+  neutral: {
+    badgeBg: "bg-aligna-paper",
+    badgeText: "text-aligna-muted",
+    rowBg: "bg-aligna-paper",
+    rowBorder: "border-aligna-line",
+    icon: "text-aligna-muted",
+  },
 };
 
 function describeItem(item: SnapshotItem): string {
@@ -98,7 +149,7 @@ export function PortfolioSnapshotComparison({ history }: PortfolioSnapshotCompar
         <h2 id="csv-compare-title" className="mb-1 text-[14.5px] font-semibold">
           Comparar resultados salvos
         </h2>
-        <p className="text-[13px] text-aligna-muted">
+        <p className="rounded-lg bg-aligna-paper px-3 py-2.5 text-[13px] text-aligna-muted">
           Salve pelo menos dois resultados para comparar.
         </p>
       </section>
@@ -116,61 +167,68 @@ export function PortfolioSnapshotComparison({ history }: PortfolioSnapshotCompar
 
   return (
     <section className="card" aria-labelledby="csv-compare-title">
-      <h2 id="csv-compare-title" className="mb-3 text-[14.5px] font-semibold">
+      <h2 id="csv-compare-title" className="mb-4 text-[14.5px] font-semibold">
         Comparar resultados salvos
       </h2>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div>
-          <label htmlFor="csv-compare-base" className="mb-1 block text-[13px] font-medium text-aligna-ink">
-            Base
-          </label>
-          <select
-            id="csv-compare-base"
-            className="w-full rounded-lg border border-aligna-line bg-white px-3 py-2 text-[13px]"
-            value={baseId ?? ""}
-            onChange={(event) => setBaseId(event.target.value || null)}
-          >
-            <option value="" disabled>
-              Selecione um resultado salvo
-            </option>
-            {history.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entryOptionLabel(entry)}
+      <div>
+        <h3 className="mb-2 text-[13px] font-semibold text-aligna-ink">Selecionar resultados</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="csv-compare-base" className="mb-1 block text-[13px] font-medium text-aligna-ink">
+              Base
+            </label>
+            <select
+              id="csv-compare-base"
+              className="w-full rounded-lg border border-aligna-line bg-white px-3 py-2 text-[13px]"
+              value={baseId ?? ""}
+              onChange={(event) => setBaseId(event.target.value || null)}
+            >
+              <option value="" disabled>
+                Selecione um resultado salvo
               </option>
-            ))}
-          </select>
-        </div>
+              {history.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entryOptionLabel(entry)}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        <div>
-          <label htmlFor="csv-compare-target" className="mb-1 block text-[13px] font-medium text-aligna-ink">
-            Alvo
-          </label>
-          <select
-            id="csv-compare-target"
-            className="w-full rounded-lg border border-aligna-line bg-white px-3 py-2 text-[13px]"
-            value={targetId ?? ""}
-            onChange={(event) => setTargetId(event.target.value || null)}
-          >
-            <option value="" disabled>
-              Selecione um resultado salvo
-            </option>
-            {history.map((entry) => (
-              <option key={entry.id} value={entry.id}>
-                {entryOptionLabel(entry)}
+          <div>
+            <label htmlFor="csv-compare-target" className="mb-1 block text-[13px] font-medium text-aligna-ink">
+              Alvo
+            </label>
+            <select
+              id="csv-compare-target"
+              className="w-full rounded-lg border border-aligna-line bg-white px-3 py-2 text-[13px]"
+              value={targetId ?? ""}
+              onChange={(event) => setTargetId(event.target.value || null)}
+            >
+              <option value="" disabled>
+                Selecione um resultado salvo
               </option>
-            ))}
-          </select>
+              {history.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entryOptionLabel(entry)}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
       <div aria-live="polite" className="mt-4">
         {baseEntry === null || targetEntry === null ? (
-          <p className="text-[13px] text-aligna-muted">Selecione dois resultados salvos.</p>
+          <p className="rounded-lg bg-aligna-paper px-3 py-2.5 text-[13px] text-aligna-muted">
+            Selecione os dois resultados que você quer comparar.
+          </p>
         ) : sameEntrySelected ? (
-          <p className="text-[13px] text-aligna-muted">Selecione dois resultados diferentes.</p>
+          <p className="rounded-lg bg-aligna-paper px-3 py-2.5 text-[13px] text-aligna-muted">
+            Selecione dois resultados diferentes.
+          </p>
         ) : comparison === null ? (
-          <p className="text-[13px] text-aligna-danger">
+          <p className="rounded-lg bg-aligna-dangerSoft px-3 py-2.5 text-[13px] text-aligna-danger">
             Não foi possível montar a comparação agora. Escolha os resultados novamente.
           </p>
         ) : (
@@ -195,6 +253,60 @@ function handleExportComparisonCsv(
   downloadCsvFile(filename, csv);
 }
 
+function StatCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-aligna-line bg-aligna-paper px-3 py-2.5">
+      <dt className="text-[11.5px] text-aligna-muted">{label}</dt>
+      <dd className="mt-0.5 break-words text-[14px] font-semibold text-aligna-ink">{value}</dd>
+    </div>
+  );
+}
+
+function CountBadge({
+  tone,
+  icon: Icon,
+  label,
+  count,
+}: {
+  tone: DiffTone;
+  icon: LucideIcon;
+  label: string;
+  count: number;
+}) {
+  const t = TONE_STYLES[tone];
+  return (
+    <li
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12.5px] font-medium ${t.badgeBg} ${t.badgeText}`}
+    >
+      <Icon size={13} aria-hidden="true" />
+      <span>
+        {label}: {count}
+      </span>
+    </li>
+  );
+}
+
+function SectionHeader({ title, count }: { title: string; count: number }) {
+  return (
+    <div className="mb-1.5 flex items-center gap-2">
+      <h4 className="text-[13px] font-semibold text-aligna-ink">{title}</h4>
+      <span className="rounded-full bg-aligna-paper px-2 py-0.5 text-[11px] font-medium text-aligna-muted">
+        {count}
+      </span>
+    </div>
+  );
+}
+
+function DiffRow({ tone, icon: Icon, children }: { tone: DiffTone; icon: LucideIcon; children: React.ReactNode }) {
+  const t = TONE_STYLES[tone];
+  return (
+    <li className={`flex items-start gap-2 rounded-lg border px-3 py-2 text-[13px] ${t.rowBorder} ${t.rowBg}`}>
+      <Icon size={14} aria-hidden="true" className={`mt-0.5 shrink-0 ${t.icon}`} />
+      <span className="min-w-0 break-words text-aligna-ink">{children}</span>
+    </li>
+  );
+}
+
 function ComparisonSummary({
   comparison,
   baseEntry,
@@ -207,125 +319,161 @@ function ComparisonSummary({
   const { totals, counts, added, removed, kept } = comparison;
   const valueChanged = kept.filter((entry) => entry.valueChanged);
   const statusChanged = kept.filter((entry) => entry.statusChanged);
+  const hasDifferences = counts.added > 0 || counts.removed > 0 || counts.changedValue > 0 || counts.changedStatus > 0;
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <h3 className="text-[13.5px] font-semibold">Resumo</h3>
-          <button
-            type="button"
-            className={`btn-ghost inline-flex items-center gap-1.5 ${FOCUS_RING}`}
-            onClick={() => handleExportComparisonCsv(comparison, baseEntry, targetEntry)}
-          >
-            <Download size={16} aria-hidden="true" />
-            Exportar comparação CSV
-          </button>
-        </div>
-        <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-4">
-          <div>
-            <dt className="text-aligna-muted">Valor inicial</dt>
-            <dd className="font-medium">{formatAmount(totals.baseValue)}</dd>
-          </div>
-          <div>
-            <dt className="text-aligna-muted">Valor final</dt>
-            <dd className="font-medium">{formatAmount(totals.targetValue)}</dd>
-          </div>
-          <div>
-            <dt className="text-aligna-muted">Variação absoluta</dt>
-            <dd className="font-medium">{formatAmount(totals.absoluteChange)}</dd>
-          </div>
-          <div>
-            <dt className="text-aligna-muted">Variação percentual</dt>
-            <dd className="font-medium">
-              {totals.percentageChange === null ? "—" : `${totals.percentageChange.toFixed(1)}%`}
-            </dd>
-          </div>
+        <h3 className="mb-2 text-[13.5px] font-semibold text-aligna-ink">Resumo</h3>
+        <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatCard label="Valor inicial" value={formatAmount(totals.baseValue)} />
+          <StatCard label="Valor final" value={formatAmount(totals.targetValue)} />
+          <StatCard label="Variação absoluta" value={formatAmount(totals.absoluteChange)} />
+          <StatCard
+            label="Variação percentual"
+            value={totals.percentageChange === null ? "—" : `${totals.percentageChange.toFixed(1)}%`}
+          />
         </dl>
+
+        <ul className="mt-3 flex flex-wrap gap-2">
+          <CountBadge tone="added" icon={Plus} label="Adicionados" count={counts.added} />
+          <CountBadge tone="removed" icon={Minus} label="Removidos" count={counts.removed} />
+          <CountBadge tone="neutral" icon={Equal} label="Mantidos" count={counts.kept} />
+          <CountBadge tone="value" icon={ArrowUpDown} label="Alteraram valor" count={counts.changedValue} />
+          <CountBadge tone="status" icon={RefreshCw} label="Alteraram status" count={counts.changedStatus} />
+        </ul>
+
+        {!hasDifferences && (
+          <p className="mt-3 rounded-lg bg-aligna-paper px-3 py-2.5 text-[13px] text-aligna-muted">
+            Nenhuma diferença relevante entre esses dois resultados — os ativos e valores são os mesmos.
+          </p>
+        )}
       </div>
 
-      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-aligna-muted">
-        <li>Adicionados: {counts.added}</li>
-        <li>Removidos: {counts.removed}</li>
-        <li>Mantidos: {counts.kept}</li>
-        <li>Alteraram valor: {counts.changedValue}</li>
-        <li>Alteraram status: {counts.changedStatus}</li>
-      </ul>
+      <div className="flex flex-col gap-5 border-t border-aligna-line pt-5">
+        <h3 className="text-[13.5px] font-semibold text-aligna-ink">Diferenças</h3>
 
-      <ComparisonList
-        title="Adicionados"
-        items={added}
-        render={(entry) => `${describeItem(entry.item)} — ${formatAmount(entry.value, entry.item.currency)}`}
-      />
-      <ComparisonList
-        title="Removidos"
-        items={removed}
-        render={(entry) => `${describeItem(entry.item)} — ${formatAmount(entry.value, entry.item.currency)}`}
-      />
-      <ComparisonChangeList
-        title="Alteraram valor"
-        items={valueChanged}
-        render={(entry) =>
-          `${describeItem(entry.base)} — de ${formatAmount(entry.baseValue, entry.base.currency)} para ${formatAmount(entry.targetValue, entry.target.currency)} — ${entry.absoluteChange >= 0 ? "+" : ""}${formatAmount(entry.absoluteChange, entry.target.currency)}`
-        }
-      />
-      <ComparisonChangeList
-        title="Alteraram status"
-        items={statusChanged}
-        render={(entry) =>
-          `${describeItem(entry.base)} — de ${SNAPSHOT_STATUS_LABEL[entry.baseStatus]} para ${SNAPSHOT_STATUS_LABEL[entry.targetStatus]}`
-        }
-      />
+        <ComparisonList
+          tone="added"
+          icon={Plus}
+          title="Adicionados"
+          items={added}
+          emptyMessage="Nenhum ativo adicionado."
+          render={(entry) => `${describeItem(entry.item)} — ${formatAmount(entry.value, entry.item.currency)}`}
+        />
+        <ComparisonList
+          tone="removed"
+          icon={Minus}
+          title="Removidos"
+          items={removed}
+          emptyMessage="Nenhum ativo removido."
+          render={(entry) => `${describeItem(entry.item)} — ${formatAmount(entry.value, entry.item.currency)}`}
+        />
+        <ComparisonChangeList
+          tone="value"
+          icon={ArrowUpDown}
+          title="Alteraram valor"
+          items={valueChanged}
+          emptyMessage="Nenhuma alteração de valor encontrada."
+          render={(entry) =>
+            `${describeItem(entry.base)} — de ${formatAmount(entry.baseValue, entry.base.currency)} para ${formatAmount(entry.targetValue, entry.target.currency)} — ${entry.absoluteChange >= 0 ? "+" : ""}${formatAmount(entry.absoluteChange, entry.target.currency)}`
+          }
+        />
+        <ComparisonChangeList
+          tone="status"
+          icon={RefreshCw}
+          title="Alteraram status"
+          items={statusChanged}
+          emptyMessage="Nenhuma alteração de status encontrada."
+          render={(entry) =>
+            `${describeItem(entry.base)} — de ${SNAPSHOT_STATUS_LABEL[entry.baseStatus]} para ${SNAPSHOT_STATUS_LABEL[entry.targetStatus]}`
+          }
+        />
+      </div>
+
+      <div className="flex flex-col gap-2 border-t border-aligna-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-[13px] font-medium text-aligna-ink">Exportar esta comparação</p>
+          <p id="csv-compare-export-help" className="text-[12px] text-aligna-muted">
+            CSV com resumo, adicionados, removidos e alterações de valor ou status.
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-describedby="csv-compare-export-help"
+          className={`btn-ghost inline-flex shrink-0 items-center gap-1.5 self-start ${FOCUS_RING}`}
+          onClick={() => handleExportComparisonCsv(comparison, baseEntry, targetEntry)}
+        >
+          <Download size={16} aria-hidden="true" />
+          Exportar comparação CSV
+        </button>
+      </div>
     </div>
   );
 }
 
 function ComparisonList({
+  tone,
+  icon,
   title,
   items,
+  emptyMessage,
   render,
 }: {
+  tone: DiffTone;
+  icon: LucideIcon;
   title: string;
   items: ComparedSnapshotItem[];
+  emptyMessage: string;
   render: (entry: ComparedSnapshotItem) => string;
 }) {
-  if (items.length === 0) {
-    return null;
-  }
-
   return (
     <div>
-      <h4 className="mb-1 text-[13px] font-semibold">{title}</h4>
-      <ul className="list-disc pl-5 text-[13px] text-aligna-ink">
-        {items.map((entry) => (
-          <li key={entry.key}>{render(entry)}</li>
-        ))}
-      </ul>
+      <SectionHeader title={title} count={items.length} />
+      {items.length === 0 ? (
+        <p className="text-[13px] text-aligna-muted">{emptyMessage}</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((entry) => (
+            <DiffRow key={entry.key} tone={tone} icon={icon}>
+              {render(entry)}
+            </DiffRow>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
 
 function ComparisonChangeList({
+  tone,
+  icon,
   title,
   items,
+  emptyMessage,
   render,
 }: {
+  tone: DiffTone;
+  icon: LucideIcon;
   title: string;
   items: ComparedSnapshotItemChange[];
+  emptyMessage: string;
   render: (entry: ComparedSnapshotItemChange) => string;
 }) {
-  if (items.length === 0) {
-    return null;
-  }
-
   return (
     <div>
-      <h4 className="mb-1 text-[13px] font-semibold">{title}</h4>
-      <ul className="list-disc pl-5 text-[13px] text-aligna-ink">
-        {items.map((entry) => (
-          <li key={entry.key}>{render(entry)}</li>
-        ))}
-      </ul>
+      <SectionHeader title={title} count={items.length} />
+      {items.length === 0 ? (
+        <p className="text-[13px] text-aligna-muted">{emptyMessage}</p>
+      ) : (
+        <ul className="flex flex-col gap-1.5">
+          {items.map((entry) => (
+            <DiffRow key={entry.key} tone={tone} icon={icon}>
+              {render(entry)}
+            </DiffRow>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

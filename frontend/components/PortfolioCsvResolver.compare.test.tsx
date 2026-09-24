@@ -475,6 +475,135 @@ describe("accessibility", () => {
     expect(within(section).getByLabelText("Base").tagName).toBe("SELECT");
     expect(within(section).getByLabelText("Alvo").tagName).toBe("SELECT");
   });
+
+  it("33. heading hierarchy is coherent: h3 for Resumo/Diferenças, h4 per difference section", async () => {
+    setup();
+
+    const section = await compareSection();
+
+    await waitFor(() => expect(within(section).getByRole("heading", { level: 3, name: "Resumo" })).toBeInTheDocument());
+    expect(within(section).getByRole("heading", { level: 3, name: "Diferenças" })).toBeInTheDocument();
+    expect(within(section).getByRole("heading", { level: 4, name: "Adicionados" })).toBeInTheDocument();
+    expect(within(section).getByRole("heading", { level: 4, name: "Removidos" })).toBeInTheDocument();
+    expect(within(section).getByRole("heading", { level: 4, name: "Alteraram valor" })).toBeInTheDocument();
+    expect(within(section).getByRole("heading", { level: 4, name: "Alteraram status" })).toBeInTheDocument();
+  });
+});
+
+describe("TASK-055: empty states and visual polish", () => {
+  it("35. shows empty-state messages for Adicionados/Removidos/Alteraram status when the only difference is a value change", async () => {
+    const baseItem = {
+      lineNumber: 2,
+      rawName: "PETR4",
+      ticker: "PETR4",
+      amount: 1000,
+      currency: "BRL",
+      status: "verified" as const,
+      pendingFields: [],
+      sources: ["B3"],
+      verifiedAsset: { code: "b3:PETR4", type: "stock", currency: "BRL" },
+    };
+    const targetItem = { ...baseItem, amount: 1500 };
+    const entryA = {
+      id: "dddddddd-dddd-dddd-dddd-dddddddddddd",
+      createdAt: "2026-09-10T09:00:00+00:00",
+      updatedAt: "2026-09-10T09:00:00+00:00",
+      items: [baseItem],
+    };
+    const entryB = {
+      id: "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+      createdAt: "2026-09-11T09:00:00+00:00",
+      updatedAt: "2026-09-11T09:00:00+00:00",
+      items: [targetItem],
+    };
+
+    setup({ list: () => json([entryB, entryA]) });
+
+    const section = await compareSection();
+
+    await waitFor(() => expect(section).toHaveTextContent("Adicionados: 0"));
+    expect(section).toHaveTextContent("Removidos: 0");
+    expect(section).toHaveTextContent("Nenhum ativo adicionado.");
+    expect(section).toHaveTextContent("Nenhum ativo removido.");
+    expect(section).toHaveTextContent("Nenhuma alteração de status encontrada.");
+    // The one real difference (value change) still shows normally.
+    expect(section).toHaveTextContent(/R\$ 1\.000,00.*R\$ 1\.500,00/s);
+  });
+
+  it("36. shows a friendly banner when two compared snapshots have no relevant differences at all", async () => {
+    const item = {
+      lineNumber: 2,
+      rawName: "PETR4",
+      ticker: "PETR4",
+      amount: 1000,
+      currency: "BRL",
+      status: "verified" as const,
+      pendingFields: [],
+      sources: ["B3"],
+      verifiedAsset: { code: "b3:PETR4", type: "stock", currency: "BRL" },
+    };
+    const entryA = {
+      id: "ffffffff-ffff-ffff-ffff-ffffffffffff",
+      createdAt: "2026-09-10T09:00:00+00:00",
+      updatedAt: "2026-09-10T09:00:00+00:00",
+      items: [item],
+    };
+    const entryB = {
+      id: "11111111-1111-1111-1111-111111111111",
+      createdAt: "2026-09-11T09:00:00+00:00",
+      updatedAt: "2026-09-11T09:00:00+00:00",
+      items: [item],
+    };
+
+    setup({ list: () => json([entryB, entryA]) });
+
+    const section = await compareSection();
+
+    await waitFor(() =>
+      expect(section).toHaveTextContent("Nenhuma diferença relevante entre esses dois resultados"),
+    );
+  });
+
+  it("37. a very long asset name is shown in full in a difference row, not truncated away", async () => {
+    const longName = "Fundo de Investimento Imobiliário Muito Longo Para Testar Quebra de Linha Corretamente";
+    const otherItem = {
+      lineNumber: 2,
+      rawName: "VALE3",
+      amount: 100,
+      currency: "BRL",
+      status: "verified" as const,
+      pendingFields: [],
+      sources: ["B3"],
+    };
+    const entryA = {
+      id: "22222222-2222-2222-2222-222222222222",
+      createdAt: "2026-09-10T09:00:00+00:00",
+      updatedAt: "2026-09-10T09:00:00+00:00",
+      items: [otherItem],
+    };
+    const entryB = {
+      id: "33333333-3333-3333-3333-333333333333",
+      createdAt: "2026-09-11T09:00:00+00:00",
+      updatedAt: "2026-09-11T09:00:00+00:00",
+      items: [
+        {
+          lineNumber: 2,
+          rawName: longName,
+          amount: 500,
+          currency: "BRL",
+          status: "verified" as const,
+          pendingFields: [],
+          sources: ["B3"],
+        },
+      ],
+    };
+
+    setup({ list: () => json([entryB, entryA]) });
+
+    const section = await compareSection();
+
+    await waitFor(() => expect(section).toHaveTextContent(longName));
+  });
 });
 
 /**
