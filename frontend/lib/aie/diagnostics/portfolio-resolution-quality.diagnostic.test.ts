@@ -990,4 +990,41 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       expect(privateFixedIncomeFixtureIds.length).toBeGreaterThanOrEqual(24);
     });
   });
+
+  describe("TASK-059B -- decisão de não implementar provider de renda fixa privada", () => {
+    /**
+     * Documentado em detalhe em
+     * docs/tasks/task-059b-private-fixed-income-provider.md: a pesquisa de
+     * fontes públicas obrigatória (4 buscas) não encontrou nenhum produto
+     * real de CDB/LCI/LCA com nome estável e específico o suficiente para
+     * um catálogo seguro -- ao contrário de Tesouro Direto (TASK-058B), que
+     * tem nomes fixos publicados pelo Tesouro Nacional. Nenhum provider foi
+     * criado; TODOS os 35+3 casos de renda fixa privada da TASK-059A
+     * continuam exatamente como estavam. Este teste é um guard de
+     * regressão: se algum dia um `PrivateFixedIncomeProvider` for
+     * registrado sem atualizar este describe, ele falha aqui em vez de
+     * passar silenciosamente sem documentação correspondente.
+     */
+    it("nenhum caso de renda fixa privada verifica -- decisão documentada, não uma lacuna esquecida", async () => {
+      const rows = await runAllFixtures();
+
+      const allPrivateFixedIncomeIds = [
+        ...DIAGNOSTIC_FIXTURES.filter((fixture) =>
+          ["cdb", "lci", "lca", "private-fixed-income-ambiguous", "private-fixed-income-negative"].includes(
+            fixture.category,
+          ),
+        ).map((fixture) => fixture.id),
+        "CDB-GENERICO",
+        "LCI-GENERICO",
+        "LCA-GENERICO",
+      ];
+
+      for (const id of allPrivateFixedIncomeIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+  });
 });
