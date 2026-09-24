@@ -140,6 +140,7 @@ const ASSET_TYPES: Record<
   coe: true,
   crypto: true,
   international: true,
+  treasury: true,
   unknown: true,
 };
 

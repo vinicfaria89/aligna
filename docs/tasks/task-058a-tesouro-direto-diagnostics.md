@@ -225,3 +225,36 @@ design (ambiguidade de qual título).
    `resolved_expected`; todos os outros dezesseis (ambíguos, variações não
    cobertas pela normalização, negativos) devem continuar
    `needs_more_evidence_expected`, nunca `wrong_type`/`wrong_code`.
+
+## Apêndice — decisão final da TASK-058B
+
+A TASK-058B implementou exatamente a recomendação acima, sem desvios:
+
+- `"treasury"` foi adicionado a `CandidateAssetType`
+  (`lib/aie/contracts/candidate-asset.ts`), junto com `"TESOURO"` em
+  `EvidenceSource` (`lib/aie/contracts/evidence.ts`) e `ResolutionSource`
+  (`lib/aie/planner/resolution-plan.ts`) — necessários para o provider ter
+  um `id`/fonte de evidência válidos, seguindo exatamente o padrão de
+  `"B3"`.
+- `TesouroDiretoProvider` (`lib/aie/providers/tesouro-direto/`) cobre
+  apenas os 8 títulos com vencimento propostos, emitindo evidência
+  `identity`+`issuer` a `primary` a partir de `source: "TESOURO"` — mesmo
+  modelo de confiança do `B3ListedAssetProvider`, `VerificationPolicy`
+  intocada.
+- Normalização (trim + espaços colapsados + minúsculas + espaço antes do
+  "+") e o guard de termos excludentes ("fundo", "etf", "carteira", "cdb",
+  "lci", "lca", "renda fixa") vivem em UMA função só
+  (`findTesouroDiretoEntry`, `./infer-asset-type.ts`), reaproveitada tanto
+  pelo provider quanto pela inferência de `assetType` no
+  `AssetResolutionEngine` — o guard nunca pode divergir entre os dois.
+- O alias explícito `"Tesouro Selic 2029 (LFT)"` foi implementado como
+  proposto (lista `aliases` por entrada do catálogo, nunca stripping
+  genérico de sufixo entre parênteses).
+- Resultado do diagnóstico atualizado: dos 24 casos de Tesouro, 13 passam a
+  `resolved_expected` (os 8 catalogados + 5 variações de escrita que a
+  normalização já cobre "de graça", incluindo o alias LFT) — mais do que os
+  8 originalmente previstos, porque a normalização proposta no item 3 desta
+  recomendação já era suficiente para cobrir as 5 variações de escrita
+  mapeadas na TASK-058A sem nenhum trabalho extra. Os 11 restantes
+  (ambíguos sem vencimento + negativos) continuam `needs_more_evidence_expected`,
+  `wrong_type`/`wrong_code`/`unexpected_error` em zero para todos os 24.

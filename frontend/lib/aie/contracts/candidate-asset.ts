@@ -12,6 +12,12 @@ export type CandidateAssetType =
   | "coe"
   | "crypto"
   | "international"
+  // TASK-058B: Tesouro Direto (título público), added on top of the
+  // TASK-058A diagnostic's finding that no existing value fit it. Only ever
+  // set for the narrow, explicit catalog covered by
+  // lib/aie/providers/tesouro-direto/catalog.ts -- see that file and
+  // docs/tasks/task-058a-tesouro-direto-diagnostics.md for the criteria.
+  | "treasury"
   | "unknown";
 
 export interface CandidateAssetSource {

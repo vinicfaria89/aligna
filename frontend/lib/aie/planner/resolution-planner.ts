@@ -111,6 +111,16 @@ import type {
       "USER",
     ],
   
+    // TASK-058B: TesouroDiretoProvider (lib/aie/providers/tesouro-direto)
+    // covers a narrow, explicit local catalog -- same rationale as "B3" for
+    // "international" above: without "TESOURO" here, the plan would never
+    // even try the provider for a "treasury" candidate.
+    treasury: [
+      "REGISTRY",
+      "TESOURO",
+      "USER",
+    ],
+
     unknown: [
       "REGISTRY",
       "USER",

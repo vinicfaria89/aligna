@@ -29,6 +29,10 @@ import {
   findListedB3CatalogEntry,
 } from "../providers/b3-listed-assets/infer-asset-type";
 
+import {
+  findTesouroDiretoCatalogEntry,
+} from "../providers/tesouro-direto/infer-asset-type";
+
 export interface AssetResolutionInput {
   candidateAsset: CandidateAsset;
 
@@ -62,6 +66,15 @@ export interface AssetResolutionInput {
  * plan, the provider query, the final `VerifiedAsset.assetType`) reads from
  * this single enriched candidate, so inference and the search plan/result
  * can never disagree with each other.
+ *
+ * TASK-058B: chains a second, independent lookup against the Tesouro Direto
+ * catalog (../providers/tesouro-direto/infer-asset-type.ts) when the B3
+ * catalog found nothing -- same "only on exact catalog membership, never
+ * overwrite an explicit assetType" guarantee, just a second local catalog.
+ * The two catalogs' name spaces never collide (tickers vs. "Tesouro ..."
+ * names), so trying B3 first is safe and costs nothing extra for the common
+ * case. Unlike the B3 branch, this never fills `hints.ticker` -- a Tesouro
+ * Direto title has no ticker to fill.
  */
 function withInferredAssetType(
   candidate: CandidateAsset,
@@ -70,20 +83,32 @@ function withInferredAssetType(
     return candidate;
   }
 
-  const entry = findListedB3CatalogEntry(candidate);
+  const b3Entry = findListedB3CatalogEntry(candidate);
 
-  if (!entry) {
-    return candidate;
+  if (b3Entry) {
+    return {
+      ...candidate,
+      hints: {
+        ...candidate.hints,
+        assetType: b3Entry.assetType,
+        ticker: candidate.hints.ticker ?? b3Entry.ticker,
+      },
+    };
   }
 
-  return {
-    ...candidate,
-    hints: {
-      ...candidate.hints,
-      assetType: entry.assetType,
-      ticker: candidate.hints.ticker ?? entry.ticker,
-    },
-  };
+  const treasuryEntry = findTesouroDiretoCatalogEntry(candidate);
+
+  if (treasuryEntry) {
+    return {
+      ...candidate,
+      hints: {
+        ...candidate.hints,
+        assetType: treasuryEntry.assetType,
+      },
+    };
+  }
+
+  return candidate;
 }
 
 function buildProviderQuery(

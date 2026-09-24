@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createAie } from "../application/create-aie";
 import { ingestPortfolioCandidate } from "../ingestion/portfolio-candidate-ingestion";
 import { B3ListedAssetProvider } from "../providers/b3-listed-assets/b3-listed-asset-provider";
+import { TesouroDiretoProvider } from "../providers/tesouro-direto/tesouro-direto-provider";
 
 import type { DiagnosticFixture } from "./portfolio-resolution-quality.fixtures";
 import { DIAGNOSTIC_FIXTURES } from "./portfolio-resolution-quality.fixtures";
@@ -59,6 +60,7 @@ interface DiagnosticRow {
   tickerPreserved: string;
   baseline: PassOutcome;
   afterB3Provider: PassOutcome;
+  afterTesouroProvider: PassOutcome;
 }
 
 function buildBaselineEngine() {
@@ -67,6 +69,16 @@ function buildBaselineEngine() {
 
 function buildB3Engine() {
   return createAie({ providers: [new B3ListedAssetProvider()] });
+}
+
+// TASK-058B: today's REAL production wiring
+// (lib/aie/application/create-aie-from-env.ts) -- B3ListedAssetProvider AND
+// TesouroDiretoProvider both registered. Kept as its OWN pass, separate from
+// "afterB3Provider" above, so every existing assertion about that pass (B3
+// coverage, CDB/LCI/LCA/Tesouro-without-vencimento staying pending, etc.)
+// stays literally unchanged and still means exactly what it always meant.
+function buildFullEngine() {
+  return createAie({ providers: [new B3ListedAssetProvider(), new TesouroDiretoProvider()] });
 }
 
 /**
@@ -98,6 +110,7 @@ function classify(
 async function runAllFixtures(): Promise<DiagnosticRow[]> {
   const baselineEngine = buildBaselineEngine();
   const b3Engine = buildB3Engine();
+  const fullEngine = buildFullEngine();
 
   const rows: DiagnosticRow[] = [];
 
@@ -106,9 +119,11 @@ async function runAllFixtures(): Promise<DiagnosticRow[]> {
 
     let baselineError: string | undefined;
     let b3Error: string | undefined;
+    let fullError: string | undefined;
 
     let baselineResult;
     let b3Result;
+    let fullResult;
 
     try {
       baselineResult = await baselineEngine.resolve({
@@ -126,6 +141,15 @@ async function runAllFixtures(): Promise<DiagnosticRow[]> {
       });
     } catch (error) {
       b3Error = error instanceof Error ? error.message : String(error);
+    }
+
+    try {
+      fullResult = await fullEngine.resolve({
+        candidateAsset: candidate,
+        now: "2026-09-23T12:00:00.000Z",
+      });
+    } catch (error) {
+      fullError = error instanceof Error ? error.message : String(error);
     }
 
     const toOutcome = (
@@ -171,6 +195,7 @@ async function runAllFixtures(): Promise<DiagnosticRow[]> {
             : `PERDIDO (esperado ${fixture.input.ticker.trim().toUpperCase()}, obteve ${candidate.hints.ticker ?? "undefined"})`,
       baseline: toOutcome(baselineResult, baselineError),
       afterB3Provider: toOutcome(b3Result, b3Error),
+      afterTesouroProvider: toOutcome(fullResult, fullError),
     });
   }
 
@@ -189,13 +214,16 @@ function printReport(rows: DiagnosticRow[]): void {
     "afterB3.status": row.afterB3Provider.status,
     "afterB3.unresolvedFields": row.afterB3Provider.unresolvedFields.join("+"),
     "afterB3.diagnosis": row.afterB3Provider.diagnosis,
+    "afterTesouro.status": row.afterTesouroProvider.status,
+    "afterTesouro.unresolvedFields": row.afterTesouroProvider.unresolvedFields.join("+"),
+    "afterTesouro.diagnosis": row.afterTesouroProvider.diagnosis,
   }));
 
-  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A/TASK-051B)
+  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A/TASK-051B/TASK-058B)
   console.table(table);
 
   const total = rows.length;
-  const count = (pass: "baseline" | "afterB3Provider", diagnosis: Diagnosis) =>
+  const count = (pass: "baseline" | "afterB3Provider" | "afterTesouroProvider", diagnosis: Diagnosis) =>
     rows.filter((row) => row[pass].diagnosis === diagnosis).length;
 
   const withTicker = rows.filter((row) => row.tickerPreserved !== "(sem ticker)").length;
@@ -205,9 +233,15 @@ function printReport(rows: DiagnosticRow[]): void {
     (row) => row.baseline.diagnosis !== "resolved_expected" && row.afterB3Provider.diagnosis === "resolved_expected",
   );
 
+  const newlyResolvedByTesouro = rows.filter(
+    (row) =>
+      row.afterB3Provider.diagnosis !== "resolved_expected" &&
+      row.afterTesouroProvider.diagnosis === "resolved_expected",
+  );
+
   const summary = [
     "",
-    "=== TASK-051A/TASK-051B -- resumo do diagnóstico de qualidade de resolução AIE ===",
+    "=== TASK-051A/TASK-051B/TASK-058B -- resumo do diagnóstico de qualidade de resolução AIE ===",
     `Total de casos: ${total}`,
     "",
     "-- Baseline (TASK-051A, sem nenhum provider primary para estes casos) --",
@@ -218,7 +252,7 @@ function printReport(rows: DiagnosticRow[]): void {
     `  wrong_code: ${count("baseline", "wrong_code")}`,
     `  unexpected_error: ${count("baseline", "unexpected_error")}`,
     "",
-    "-- Depois de B3ListedAssetProvider (TASK-051B, produção real hoje) --",
+    "-- Depois de B3ListedAssetProvider (TASK-051B) --",
     `  resolved_expected: ${count("afterB3Provider", "resolved_expected")}`,
     `  needs_more_evidence_expected: ${count("afterB3Provider", "needs_more_evidence_expected")}`,
     `  unexpected_needs_more_evidence: ${count("afterB3Provider", "unexpected_needs_more_evidence")}`,
@@ -228,13 +262,27 @@ function printReport(rows: DiagnosticRow[]): void {
     `  casos que passaram a 'resolved_expected' nesta task: ${newlyResolved.length}` +
       ` (${newlyResolved.map((row) => row.id).join(", ")})`,
     "",
+    "-- Depois de B3ListedAssetProvider + TesouroDiretoProvider (TASK-058B, produção real hoje) --",
+    `  resolved_expected: ${count("afterTesouroProvider", "resolved_expected")}`,
+    `  needs_more_evidence_expected: ${count("afterTesouroProvider", "needs_more_evidence_expected")}`,
+    `  unexpected_needs_more_evidence: ${count("afterTesouroProvider", "unexpected_needs_more_evidence")}`,
+    `  wrong_type: ${count("afterTesouroProvider", "wrong_type")}`,
+    `  wrong_code: ${count("afterTesouroProvider", "wrong_code")}`,
+    `  unexpected_error: ${count("afterTesouroProvider", "unexpected_error")}`,
+    `  casos que passaram a 'resolved_expected' nesta task: ${newlyResolvedByTesouro.length}` +
+      ` (${newlyResolvedByTesouro.map((row) => row.id).join(", ")})`,
+    "",
     "-- Padrões de falha principais (restantes) --",
     "  1. CDB/LCI/LCA genéricos e 'Investimento em Renda Fixa' continuam sem",
     "     'verified': não têm ticker/código oficial -- fora do escopo de um",
     "     catálogo por ticker como o B3ListedAssetProvider (TASK-051B).",
-    "  2. 'Tesouro Selic'/'Tesouro IPCA+' continuam sem categoria correspondente",
-    "     em CandidateAssetType (lib/aie/contracts/candidate-asset.ts) -- fora de",
-    "     escopo desta task por decisão explícita.",
+    "  2. Tesouro Direto SEM vencimento no nome ('Tesouro Selic', 'Tesouro",
+    "     IPCA+', 'Tesouro Prefixado', 'Tesouro Direto', 'Título Público')",
+    "     continua sem categoria verificável, por decisão explícita da",
+    "     TASK-058A/TASK-058B: nome de família, não de título específico.",
+    "     Tesouro COM vencimento catalogado (8 títulos, TASK-058B) já",
+    "     resolve -- ver TesouroDiretoProvider",
+    "     (lib/aie/providers/tesouro-direto).",
     "  3. Um ticker desconhecido (fora do catálogo) continua em",
     "     'needs-more-evidence', nunca em falso positivo -- ver",
     "     'does not resolve an unlisted ticker as verified' em",
@@ -244,8 +292,9 @@ function printReport(rows: DiagnosticRow[]): void {
       " ticker chegam normalizados sem perda).",
     "",
     "-- Candidatos prioritários para a próxima task --",
-    "  a. Cobertura de Tesouro Direto: exige categoria própria em",
-    "     CandidateAssetType e plano de busca (fora do escopo da TASK-051B).",
+    "  a. Expandir o catálogo de TesouroDiretoProvider para mais títulos com",
+    "     vencimento, como decisão de produto explícita -- nunca crescimento",
+    "     silencioso (mesma regra do catálogo B3).",
     "  b. Renda fixa genérica (CDB/LCI/LCA) sem código oficial: exige uma fonte",
     "     de evidência diferente de um catálogo por ticker (ex.: por emissor).",
     "  c. Ampliar o catálogo de B3ListedAssetProvider para mais tickers, como",
@@ -253,9 +302,13 @@ function printReport(rows: DiagnosticRow[]): void {
     "",
   ].join("\n");
 
-  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A/TASK-051B)
+  // eslint-disable-next-line no-console -- intentional diagnostic report (TASK-051A/TASK-051B/TASK-058B)
   console.log(summary);
 }
+
+const treasuryFixtureIds = DIAGNOSTIC_FIXTURES.filter((fixture) => fixture.category === "treasury").map(
+  (fixture) => fixture.id,
+);
 
 describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
   it("o resolver não lança exceção para nenhum caso da bateria de diagnóstico", async () => {
@@ -264,6 +317,7 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
     for (const row of rows) {
       expect(row.baseline.diagnosis, `${row.id} (baseline)`).not.toBe("unexpected_error");
       expect(row.afterB3Provider.diagnosis, `${row.id} (afterB3Provider)`).not.toBe("unexpected_error");
+      expect(row.afterTesouroProvider.diagnosis, `${row.id} (afterTesouroProvider)`).not.toBe("unexpected_error");
     }
   });
 
@@ -447,15 +501,17 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
      * docs/tasks/task-058a-tesouro-direto-diagnostics.md. Esta task NÃO deve
      * aumentar o número de Tesouros verificados em produção: todo caso
      * `category === "treasury"` (com vencimento, sem vencimento, variação de
-     * escrita ou negativo) tem que continuar `needs-more-evidence`, nas duas
-     * passagens (baseline e afterB3Provider) -- o resolver real de hoje não
-     * tem nenhum provider que possa verificar Tesouro Direto, e esta task não
-     * adiciona um.
+     * escrita ou negativo) tem que continuar `needs-more-evidence` no
+     * `baseline` e no `afterB3Provider` (o pass que representava a produção
+     * real NA ÉPOCA da TASK-058A -- sem nenhum provider que verificasse
+     * Tesouro). Isso continua verdadeiro e intocado por esta task.
+     *
+     * TASK-058B (describe abaixo) adiciona um TERCEIRO pass,
+     * `afterTesouroProvider`, que representa a produção real de HOJE
+     * (B3ListedAssetProvider + TesouroDiretoProvider) -- é só nesse pass
+     * que os 8 títulos catalogados (e as variações de escrita que
+     * normalizam para eles) passam a `resolved_expected`.
      */
-    const treasuryFixtureIds = DIAGNOSTIC_FIXTURES.filter((fixture) => fixture.category === "treasury").map(
-      (fixture) => fixture.id,
-    );
-
     it("a bateria de Tesouro tem entre 15 e 25 fixtures novas além das duas originais da TASK-051A", async () => {
       // TESOURO-SELIC e TESOURO-IPCA já existiam antes da TASK-058A.
       const newFixtures = treasuryFixtureIds.length - 2;
@@ -574,6 +630,143 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
 
       expect(treasuryRows.length).toBe(treasuryFixtureIds.length);
       expect(treasuryRows.every((row) => row.category === "treasury")).toBe(true);
+    });
+  });
+
+  describe("TASK-058B -- TesouroDiretoProvider: catalogados COM vencimento passam a resolved_expected", () => {
+    // Os 8 títulos catalogados (docs/tasks/task-058a-tesouro-direto-diagnostics.md).
+    const cataloguedWithMaturity = [
+      "TESOURO-SELIC-2029",
+      "TESOURO-SELIC-2031",
+      "TESOURO-IPCA-2035",
+      "TESOURO-IPCA-2045",
+      "TESOURO-IPCA-JS-2040",
+      "TESOURO-PREFIXADO-2027",
+      "TESOURO-PREFIXADO-2031",
+      "TESOURO-PREFIXADO-JS-2035",
+    ];
+
+    // As 5 variações de escrita normalizam para um dos 8 títulos acima (ou
+    // para o alias "(LFT)" do TESOURO-SELIC-2029) -- a normalização é a
+    // MESMA função que o provider usa para o nome canônico, então elas
+    // passam a resolver também, não por acidente.
+    const writingVariationsNowResolved = [
+      "TESOURO-VARIACAO-MINUSCULO",
+      "TESOURO-VARIACAO-CAIXA-ALTA-ESPACOS",
+      "TESOURO-VARIACAO-ESPACO-NO-SINAL",
+      "TESOURO-VARIACAO-JUROS-MINUSCULO",
+      "TESOURO-VARIACAO-SUFIXO-LFT",
+    ];
+
+    it("os 8 títulos catalogados com vencimento passam a resolved_expected (afterTesouroProvider)", async () => {
+      const rows = await runAllFixtures();
+
+      for (const id of cataloguedWithMaturity) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).toBe("verified");
+        expect(row?.afterTesouroProvider.diagnosis, id).toBe("resolved_expected");
+        expect(row?.afterTesouroProvider.verifiedAssetType, id).toBe("treasury");
+      }
+    });
+
+    it("as 5 variações de escrita suportadas também passam a resolved_expected (mesma normalização do provider)", async () => {
+      const rows = await runAllFixtures();
+
+      for (const id of writingVariationsNowResolved) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).toBe("verified");
+        expect(row?.afterTesouroProvider.diagnosis, id).toBe("resolved_expected");
+      }
+    });
+
+    it("casos sem vencimento continuam pendentes mesmo com o novo provider registrado", async () => {
+      const rows = await runAllFixtures();
+
+      const withoutMaturity = [
+        "TESOURO-SELIC",
+        "TESOURO-IPCA",
+        "TESOURO-PREFIXADO",
+        "TESOURO-DIRETO-GENERICO",
+        "TITULO-PUBLICO-GENERICO",
+      ];
+
+      for (const id of withoutMaturity) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos negativos (Fundo/ETF/Carteira/CDB/LCI/LCA/Renda Fixa) continuam pendentes mesmo com o novo provider registrado", async () => {
+      const rows = await runAllFixtures();
+
+      const negatives = [
+        "TESOURO-NEGATIVO-FUNDO",
+        "TESOURO-NEGATIVO-ETF",
+        "TESOURO-NEGATIVO-CARTEIRA",
+        "TESOURO-NEGATIVO-CDB",
+        "TESOURO-NEGATIVO-LCI",
+        "TESOURO-NEGATIVO-RENDA-FIXA",
+      ];
+
+      for (const id of negatives) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("um ano de vencimento não catalogado (uncatalogued) continua pendente, nunca falso positivo", async () => {
+      const rows = await runAllFixtures();
+      // TESOURO-SELIC/TESOURO-IPCA (TASK-051A, sem vencimento) já cobertos
+      // acima; aqui a garantia é sobre o restante da bateria: nenhum outro
+      // caso de Tesouro, além dos 13 explicitamente listados, resolve.
+      const resolvedIds = new Set([...cataloguedWithMaturity, ...writingVariationsNowResolved]);
+
+      for (const id of treasuryFixtureIds) {
+        if (resolvedIds.has(id)) {
+          continue;
+        }
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("nenhum caso de Tesouro produz wrong_type, wrong_code ou unexpected_error no pass afterTesouroProvider", async () => {
+      const rows = await runAllFixtures();
+      const forbidden = new Set(["wrong_type", "wrong_code", "unexpected_error"]);
+
+      for (const id of treasuryFixtureIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(
+          forbidden.has(row!.afterTesouroProvider.diagnosis),
+          `${id} (afterTesouroProvider): ${row!.afterTesouroProvider.diagnosis}`,
+        ).toBe(false);
+      }
+    });
+
+    it("cobertura B3 não regrediu com o novo provider registrado", async () => {
+      const rows = await runAllFixtures();
+
+      const b3CoveredIds = ["PETR4", "VALE3", "ITUB4", "HGLG11", "KNRI11", "BOVA11", "IVVB11", "AAPL34"];
+
+      for (const id of b3CoveredIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).toBe("verified");
+        expect(row?.afterTesouroProvider.diagnosis, id).toBe("resolved_expected");
+      }
     });
   });
 });

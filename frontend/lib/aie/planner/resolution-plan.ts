@@ -9,6 +9,8 @@ import type {
     | "CVM"
     | "B3"
     | "BACEN"
+    // TASK-058B: TesouroDiretoProvider's id (lib/aie/providers/tesouro-direto).
+    | "TESOURO"
     | "USER";
   
   export interface ResolutionStep {

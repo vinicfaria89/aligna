@@ -7,6 +7,10 @@ import {
 } from "../providers/b3-listed-assets/b3-listed-asset-provider";
 
 import {
+  TesouroDiretoProvider,
+} from "../providers/tesouro-direto/tesouro-direto-provider";
+
+import {
   createAnbimaDebentureProviderFromEnv,
 } from "./anbima-runtime";
 
@@ -34,6 +38,11 @@ export interface CreateAieFromEnvOptions
  * local, static catalog (lib/aie/providers/b3-listed-assets/catalog.ts) --
  * no credentials, no network, no environment dependency.
  *
+ * `TesouroDiretoProvider` (TASK-058B) is always registered for the same
+ * reason: a small, local, static catalog
+ * (lib/aie/providers/tesouro-direto/catalog.ts), no credentials, no
+ * network, no environment dependency.
+ *
  * The caller (application boundary) supplies the environment object; nothing
  * under lib/aie reads the process environment directly.
  */
@@ -52,6 +61,7 @@ export function createAieFromEnv(
       ...(options.providers ?? []),
       ...(anbima ? [anbima] : []),
       new B3ListedAssetProvider(),
+      new TesouroDiretoProvider(),
     ],
   });
 }

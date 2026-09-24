@@ -7,6 +7,10 @@ export type EvidenceSource =
   | "ISSUER"
   | "DOCUMENT"
   | "REGISTRY"
+  // TASK-058B: TesouroDiretoProvider's local catalog
+  // (lib/aie/providers/tesouro-direto/catalog.ts) -- same trust model as
+  // "B3" above (a curated local catalog, not a live feed).
+  | "TESOURO"
   | "USER";
 
 export type EvidenceStrength =
