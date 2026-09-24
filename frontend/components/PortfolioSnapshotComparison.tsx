@@ -10,6 +10,10 @@ import {
   type ComparedSnapshotItemChange,
 } from "@/lib/portfolio-snapshot-comparison";
 import {
+  groupPortfolioSnapshotComparisonByAssetType,
+  type PortfolioSnapshotComparisonAssetTypeGroup,
+} from "@/lib/portfolio-snapshot-comparison-by-asset-type";
+import {
   buildPortfolioSnapshotComparisonCsv,
   comparisonExportFileName,
 } from "@/lib/portfolio-snapshot-comparison-export";
@@ -30,12 +34,20 @@ import { formatAmount, savedAtText } from "./PortfolioCsvResolver";
  * Selecting a comparison here never changes what "Abrir" displays elsewhere
  * on the page -- entirely independent state.
  *
- * TASK-055: visual/UX polish only -- four clearly separated blocks
- * (seleção → resumo → diferenças → exportar), each difference category
- * dual-coded with an icon AND a color (never color alone), and an explicit
- * empty state per category instead of hiding the section. None of this
- * changes what gets compared, exported or how identity/status are computed
- * -- `comparePortfolioSnapshots` and the CSV export helper are untouched.
+ * TASK-055: visual/UX polish only -- five clearly separated blocks
+ * (seleção → resumo → por tipo de ativo → diferenças → exportar), each
+ * difference category dual-coded with an icon AND a color (never color
+ * alone), and an explicit empty state per category instead of hiding the
+ * section. None of this changes what gets compared, exported or how
+ * identity/status are computed -- `comparePortfolioSnapshots` and the CSV
+ * export helper are untouched.
+ *
+ * TASK-056B: the "Por tipo de ativo" block consumes
+ * `groupPortfolioSnapshotComparisonByAssetType` (TASK-056A, pure) exactly as
+ * it returns it -- this component never re-groups, re-sorts or re-labels an
+ * asset type itself. It's read-only display: no group's totals/counts are
+ * ever recomputed here, and the CSV export is untouched (still built from
+ * `comparison`, never from the grouped view).
  */
 
 const SNAPSHOT_STATUS_LABEL: Record<SnapshotStatus, string> = {
@@ -89,6 +101,13 @@ const TONE_STYLES: Record<
     icon: "text-aligna-muted",
   },
 };
+
+/** `null` (base value of 0) reads as "—", matching the rest of the
+ * comparison's own convention (e.g. the Resumo card above) -- never
+ * `Infinity`/`NaN`, never a raw `null`. */
+function percentageChangeText(value: number | null): string {
+  return value === null ? "—" : `${value.toFixed(1)}%`;
+}
 
 function describeItem(item: SnapshotItem): string {
   return item.verifiedAsset?.code || item.ticker || item.code || item.rawName;
@@ -320,6 +339,12 @@ function ComparisonSummary({
   const valueChanged = kept.filter((entry) => entry.valueChanged);
   const statusChanged = kept.filter((entry) => entry.statusChanged);
   const hasDifferences = counts.added > 0 || counts.removed > 0 || counts.changedValue > 0 || counts.changedStatus > 0;
+  // TASK-056B: the grouped view is derived HERE, at render time, from the
+  // SAME `comparison` the rest of this component already has -- never a
+  // second call to `comparePortfolioSnapshots`, never a parallel grouping
+  // rule. `groupPortfolioSnapshotComparisonByAssetType` is pure and cheap
+  // (no network/DOM), so recomputing it on every render is fine.
+  const byAssetType = groupPortfolioSnapshotComparisonByAssetType(comparison);
 
   return (
     <div className="flex flex-col gap-6">
@@ -329,10 +354,7 @@ function ComparisonSummary({
           <StatCard label="Valor inicial" value={formatAmount(totals.baseValue)} />
           <StatCard label="Valor final" value={formatAmount(totals.targetValue)} />
           <StatCard label="Variação absoluta" value={formatAmount(totals.absoluteChange)} />
-          <StatCard
-            label="Variação percentual"
-            value={totals.percentageChange === null ? "—" : `${totals.percentageChange.toFixed(1)}%`}
-          />
+          <StatCard label="Variação percentual" value={percentageChangeText(totals.percentageChange)} />
         </dl>
 
         <ul className="mt-3 flex flex-wrap gap-2">
@@ -347,6 +369,24 @@ function ComparisonSummary({
           <p className="mt-3 rounded-lg bg-aligna-paper px-3 py-2.5 text-[13px] text-aligna-muted">
             Nenhuma diferença relevante entre esses dois resultados — os ativos e valores são os mesmos.
           </p>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 border-t border-aligna-line pt-5">
+        <div>
+          <h3 className="text-[13.5px] font-semibold text-aligna-ink">Por tipo de ativo</h3>
+          <p className="mt-0.5 text-[12px] text-aligna-muted">
+            Veja como cada classe da carteira mudou entre os dois resultados.
+          </p>
+        </div>
+        {byAssetType.groups.length === 0 ? (
+          <p className="text-[13px] text-aligna-muted">Nenhum tipo de ativo identificado para esta comparação.</p>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {byAssetType.groups.map((group) => (
+              <AssetTypeGroupCard key={group.assetType} group={group} />
+            ))}
+          </ul>
         )}
       </div>
 
@@ -409,6 +449,55 @@ function ComparisonSummary({
         </button>
       </div>
     </div>
+  );
+}
+
+/** One card in the "Por tipo de ativo" grid -- purely presentational over a
+ * `PortfolioSnapshotComparisonAssetTypeGroup` (TASK-056A), never recomputing
+ * any of its totals/counts. The variation's sign is spelled out as a literal
+ * "+"/"-" character (same convention as the "Alteraram valor" list above),
+ * never left to color alone. */
+function AssetTypeGroupCard({ group }: { group: PortfolioSnapshotComparisonAssetTypeGroup }) {
+  const { totals, counts } = group;
+  const sign = totals.absoluteChange >= 0 ? "+" : "";
+  const changeTone =
+    totals.absoluteChange > 0
+      ? "text-aligna-deep"
+      : totals.absoluteChange < 0
+        ? "text-aligna-danger"
+        : "text-aligna-muted";
+
+  return (
+    <li className="min-w-0 rounded-lg border border-aligna-line bg-white p-3">
+      <h4 className="break-words text-[13px] font-semibold text-aligna-ink">{group.label}</h4>
+
+      <dl className="mt-2 grid grid-cols-2 gap-2 text-[12px]">
+        <div className="min-w-0">
+          <dt className="text-aligna-muted">Valor inicial</dt>
+          <dd className="break-words font-medium text-aligna-ink">{formatAmount(totals.baseValue)}</dd>
+        </div>
+        <div className="min-w-0">
+          <dt className="text-aligna-muted">Valor final</dt>
+          <dd className="break-words font-medium text-aligna-ink">{formatAmount(totals.targetValue)}</dd>
+        </div>
+      </dl>
+
+      <p className="mt-2 break-words text-[12px] text-aligna-muted">
+        Variação:{" "}
+        <span className={`font-medium ${changeTone}`}>
+          {sign}
+          {formatAmount(totals.absoluteChange)} ({percentageChangeText(totals.percentageChange)})
+        </span>
+      </p>
+
+      <ul className="mt-2 flex flex-wrap gap-1.5">
+        <CountBadge tone="added" icon={Plus} label="Adicionados" count={counts.added} />
+        <CountBadge tone="removed" icon={Minus} label="Removidos" count={counts.removed} />
+        <CountBadge tone="neutral" icon={Equal} label="Mantidos" count={counts.kept} />
+        <CountBadge tone="value" icon={ArrowUpDown} label="Alteraram valor" count={counts.changedValue} />
+        <CountBadge tone="status" icon={RefreshCw} label="Alteraram status" count={counts.changedStatus} />
+      </ul>
+    </li>
   );
 }
 

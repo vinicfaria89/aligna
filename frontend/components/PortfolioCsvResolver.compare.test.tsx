@@ -803,3 +803,283 @@ describe("Exportar comparação CSV", () => {
     dl.restore();
   });
 });
+
+/**
+ * TASK-056B: "Por tipo de ativo" section, consuming
+ * `groupPortfolioSnapshotComparisonByAssetType` (TASK-056A, pure) as-is. The
+ * default fixture (ENTRY_MIDDLE base / ENTRY_NEWEST target) already carries
+ * three distinct real asset types across its three items -- no need for a
+ * separate fixture for most of these: PETR4 is `stock` (kept, value AND
+ * status changed), HGLG11 is `fii` (added -- so its group's baseValue is 0,
+ * covering the null-percentage case for free), BOVA11 is `etf` (removed).
+ */
+function assetTypeSection(section: HTMLElement) {
+  const heading = within(section).getByRole("heading", { level: 3, name: "Por tipo de ativo" });
+  // The heading's parent block is the section's own container (see
+  // PortfolioSnapshotComparison.tsx: a `<div>` wrapping the heading+intro
+  // text and the groups list/empty-state) -- scoping queries to it lets
+  // tests assert what does NOT appear (e.g. an empty group) without false
+  // positives from the rest of the comparison card.
+  return heading.closest("div")!.parentElement as HTMLElement;
+}
+
+describe("TASK-056B: comparação por tipo de ativo", () => {
+  it("38. shows the 'Por tipo de ativo' section with its intro text in a valid comparison", async () => {
+    setup();
+
+    const section = await compareSection();
+
+    await waitFor(() =>
+      expect(within(section).getByRole("heading", { level: 3, name: "Por tipo de ativo" })).toBeInTheDocument(),
+    );
+    expect(section).toHaveTextContent("Veja como cada classe da carteira mudou entre os dois resultados.");
+  });
+
+  it("39. does not show the asset-type section when there is no valid comparison", async () => {
+    const rig = setup();
+
+    const section = await compareSection();
+    const base = within(section).getByLabelText("Base") as HTMLSelectElement;
+    const target = within(section).getByLabelText("Alvo") as HTMLSelectElement;
+
+    await waitFor(() => expect(target.value).toBe(ENTRY_NEWEST.id));
+    await rig.user.selectOptions(base, ENTRY_NEWEST.id);
+
+    expect(within(section).queryByRole("heading", { level: 3, name: "Por tipo de ativo" })).toBeNull();
+  });
+
+  it("40. renders the Ações, FIIs and ETFs groups with their labels", async () => {
+    setup();
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    expect(group).toHaveTextContent("Ações");
+    expect(group).toHaveTextContent("FIIs");
+    expect(group).toHaveTextContent("ETFs");
+  });
+
+  it("41. shows valor inicial, valor final, variação absoluta e percentual for a group (Ações)", async () => {
+    setup();
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    // PETR4 (stock): base 1000, target 1500.
+    expect(group).toHaveTextContent("Valor inicial");
+    expect(group).toHaveTextContent("1.000");
+    expect(group).toHaveTextContent("Valor final");
+    expect(group).toHaveTextContent("1.500");
+    expect(group).toHaveTextContent("+500");
+    expect(group).toHaveTextContent("50.0%");
+  });
+
+  it("42. shows added/removed/kept/changedValue/changedStatus counts per group", async () => {
+    setup();
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    // Ações (stock): PETR4 kept, value AND status changed.
+    expect(group).toHaveTextContent("Mantidos: 1");
+    expect(group).toHaveTextContent("Alteraram valor: 1");
+    expect(group).toHaveTextContent("Alteraram status: 1");
+    // FIIs: HGLG11 added.
+    expect(group).toHaveTextContent("Adicionados: 1");
+    // ETFs: BOVA11 removed.
+    expect(group).toHaveTextContent("Removidos: 1");
+  });
+
+  it("43. does not render a group with no items at all", async () => {
+    setup();
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    expect(group).not.toHaveTextContent("Debêntures");
+    expect(group).not.toHaveTextContent("Criptoativos");
+    expect(group).not.toHaveTextContent("CDBs");
+  });
+
+  it("44. an unknown/custom asset type is not discarded and shows a stable, humanized label", async () => {
+    const base = {
+      id: "44444444-4444-4444-4444-444444444444",
+      createdAt: "2026-09-10T09:00:00+00:00",
+      updatedAt: "2026-09-10T09:00:00+00:00",
+      items: [
+        {
+          lineNumber: 2,
+          rawName: "VALE3",
+          assetType: "stock",
+          amount: 100,
+          currency: "BRL",
+          status: "verified" as const,
+          pendingFields: [],
+          sources: ["B3"],
+        },
+      ],
+    };
+    const target = {
+      id: "55555555-5555-5555-5555-555555555555",
+      createdAt: "2026-09-11T09:00:00+00:00",
+      updatedAt: "2026-09-11T09:00:00+00:00",
+      items: [
+        {
+          lineNumber: 2,
+          rawName: "SEM TIPO LTDA",
+          amount: 250,
+          currency: "BRL",
+          status: "verified" as const,
+          pendingFields: [],
+          sources: [],
+          // No assetType, no verifiedAsset -- must group as "unknown".
+        },
+      ],
+    };
+
+    setup({ list: () => json([target, base]) });
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    expect(group).toHaveTextContent("Sem tipo definido");
+  });
+
+  it("45. a group with baseValue 0 shows a friendly percentage ('—'), never Infinity/NaN", async () => {
+    setup();
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    // FIIs: only HGLG11 added -- baseValue is 0 for that group.
+    expect(group).not.toHaveTextContent("Infinity");
+    expect(group).not.toHaveTextContent("NaN");
+    expect(group.textContent).toContain("—");
+  });
+
+  it("46. changing the base/target selection updates the asset-type groups", async () => {
+    const rig = setup();
+
+    const section = await compareSection();
+    const base = within(section).getByLabelText("Base") as HTMLSelectElement;
+
+    await waitFor(async () => {
+      const group = assetTypeSection(section);
+      expect(group).toHaveTextContent("ETFs");
+    });
+
+    // OLDEST only has VALE3 (stock); NEWEST only has PETR4 (stock) + HGLG11
+    // (fii) -- switching base to OLDEST means no snapshot in the comparison
+    // has an `etf` item anymore, so that group must disappear.
+    await rig.user.selectOptions(base, ENTRY_OLDEST.id);
+
+    await waitFor(() => {
+      const group = assetTypeSection(section);
+      expect(group).not.toHaveTextContent("ETFs");
+    });
+  });
+
+  it("47. deleting the selected snapshot clears/recomputes the asset-type section without crashing", async () => {
+    const rig = setup({ delById: () => new Response(null, { status: 204 }) });
+
+    const section = await compareSection();
+    const target = within(section).getByLabelText("Alvo") as HTMLSelectElement;
+
+    await waitFor(() => expect(target.value).toBe(ENTRY_NEWEST.id));
+
+    const historySection = await screen.findByRole("region", {
+      name: "Histórico de resultados salvos",
+    });
+
+    await rig.user.click(
+      within(historySection).getByRole("button", {
+        name: new RegExp(`apagar resultado salvo de ${expectedAt(ENTRY_NEWEST.createdAt)}`, "i"),
+      }),
+    );
+    await rig.user.click(within(historySection).getByRole("button", { name: "Sim, apagar" }));
+
+    // Only MIDDLE and OLDEST remain (still >= 2 entries): the section must
+    // recompute without throwing, whatever the new default pairing is.
+    await waitFor(() => {
+      const refreshedSection = screen.getByRole("region", { name: "Comparar resultados salvos" });
+      expect(refreshedSection).toBeInTheDocument();
+    });
+  });
+
+  it("48. exporting the comparison CSV still works and does not gain asset-type columns/content", async () => {
+    const rig = setup();
+    const dl = spyOnDownload();
+
+    const section = await compareSection();
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+
+    await rig.user.click(exportButton(section)!);
+
+    expect(dl.clickSpy).toHaveBeenCalledTimes(1);
+    const csvText = await dl.lastCsvText();
+
+    expect(csvText.split("\r\n")[0]).toBe(
+      "row_type,section,key,name,code,status_before,status_after,value_before,value_after,absolute_change,percentage_change,value_changed,status_changed",
+    );
+    expect(csvText).not.toContain("Por tipo de ativo");
+    expect(csvText).not.toContain("assetType");
+
+    dl.restore();
+  });
+
+  it("49. heading hierarchy stays coherent with the new section: h3 'Por tipo de ativo' alongside 'Resumo' and 'Diferenças'", async () => {
+    setup();
+
+    const section = await compareSection();
+
+    await waitFor(() => expect(within(section).getByRole("heading", { level: 3, name: "Resumo" })).toBeInTheDocument());
+    expect(within(section).getByRole("heading", { level: 3, name: "Por tipo de ativo" })).toBeInTheDocument();
+    expect(within(section).getByRole("heading", { level: 3, name: "Diferenças" })).toBeInTheDocument();
+  });
+
+  it("50. a long/unusual asset-type label is shown in full inside its group card, not truncated", async () => {
+    const longTypeLabel = "tipo-muito-longo-para-testar-quebra-de-linha-no-card-do-grupo";
+    const base = {
+      id: "66666666-6666-6666-6666-666666666666",
+      createdAt: "2026-09-10T09:00:00+00:00",
+      updatedAt: "2026-09-10T09:00:00+00:00",
+      items: [
+        {
+          lineNumber: 2,
+          rawName: "VALE3",
+          assetType: "stock",
+          amount: 100,
+          currency: "BRL",
+          status: "verified" as const,
+          pendingFields: [],
+          sources: ["B3"],
+        },
+      ],
+    };
+    const target = {
+      id: "77777777-7777-7777-7777-777777777777",
+      createdAt: "2026-09-11T09:00:00+00:00",
+      updatedAt: "2026-09-11T09:00:00+00:00",
+      items: [
+        {
+          lineNumber: 2,
+          rawName: "ATIVO ESTRANHO",
+          assetType: longTypeLabel,
+          amount: 100,
+          currency: "BRL",
+          status: "verified" as const,
+          pendingFields: [],
+          sources: [],
+        },
+      ],
+    };
+
+    setup({ list: () => json([target, base]) });
+
+    const section = await compareSection();
+    const group = await waitFor(() => assetTypeSection(section));
+
+    // Humanized: hyphens become spaces, first letter of each word capitalized.
+    expect(group.textContent).toMatch(/Tipo Muito Longo Para Testar Quebra De Linha No Card Do Grupo/);
+  });
+});
