@@ -1,5 +1,6 @@
 "use client";
 
+import { Download } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import {
@@ -7,7 +8,13 @@ import {
   type ComparedSnapshotItem,
   type ComparedSnapshotItemChange,
 } from "@/lib/portfolio-snapshot-comparison";
+import {
+  buildPortfolioSnapshotComparisonCsv,
+  comparisonExportFileName,
+} from "@/lib/portfolio-snapshot-comparison-export";
 import type { SnapshotHistoryEntry, SnapshotItem, SnapshotStatus } from "@/lib/portfolio-snapshot-mapping";
+import { downloadCsvFile } from "@/lib/portfolio-snapshot-export";
+import { FOCUS_RING } from "@/lib/ui/focus-ring";
 
 import { formatAmount, savedAtText } from "./PortfolioCsvResolver";
 
@@ -167,17 +174,35 @@ export function PortfolioSnapshotComparison({ history }: PortfolioSnapshotCompar
             Não foi possível montar a comparação agora. Escolha os resultados novamente.
           </p>
         ) : (
-          <ComparisonSummary comparison={comparison} />
+          <ComparisonSummary comparison={comparison} baseEntry={baseEntry} targetEntry={targetEntry} />
         )}
       </div>
     </section>
   );
 }
 
+/** "Exportar comparação CSV": builds the CSV from the comparison ALREADY
+ * computed (never recalculates anything, never touches the network) and
+ * triggers a local download -- the same `downloadCsvFile` the individual
+ * saved-result export already uses (lib/portfolio-snapshot-export.ts). */
+function handleExportComparisonCsv(
+  comparison: ReturnType<typeof comparePortfolioSnapshots>,
+  baseEntry: SnapshotHistoryEntry,
+  targetEntry: SnapshotHistoryEntry,
+) {
+  const csv = buildPortfolioSnapshotComparisonCsv(comparison);
+  const filename = comparisonExportFileName(baseEntry.id, targetEntry.id);
+  downloadCsvFile(filename, csv);
+}
+
 function ComparisonSummary({
   comparison,
+  baseEntry,
+  targetEntry,
 }: {
   comparison: ReturnType<typeof comparePortfolioSnapshots>;
+  baseEntry: SnapshotHistoryEntry;
+  targetEntry: SnapshotHistoryEntry;
 }) {
   const { totals, counts, added, removed, kept } = comparison;
   const valueChanged = kept.filter((entry) => entry.valueChanged);
@@ -186,7 +211,17 @@ function ComparisonSummary({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h3 className="mb-2 text-[13.5px] font-semibold">Resumo</h3>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h3 className="text-[13.5px] font-semibold">Resumo</h3>
+          <button
+            type="button"
+            className={`btn-ghost inline-flex items-center gap-1.5 ${FOCUS_RING}`}
+            onClick={() => handleExportComparisonCsv(comparison, baseEntry, targetEntry)}
+          >
+            <Download size={16} aria-hidden="true" />
+            Exportar comparação CSV
+          </button>
+        </div>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px] sm:grid-cols-4">
           <div>
             <dt className="text-aligna-muted">Valor inicial</dt>

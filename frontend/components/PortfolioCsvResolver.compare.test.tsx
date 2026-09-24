@@ -476,3 +476,201 @@ describe("accessibility", () => {
     expect(within(section).getByLabelText("Alvo").tagName).toBe("SELECT");
   });
 });
+
+/**
+ * TASK-053C: "Exportar comparação CSV" button. Captures the Blob passed to
+ * `URL.createObjectURL` (jsdom's Blob supports `.text()`) rather than mocking
+ * `downloadCsvFile` itself -- this exercises the REAL CSV built by
+ * `buildPortfolioSnapshotComparisonCsv` from the component's own state, the
+ * same way test 17 above exercises the real per-entry export with a real
+ * anchor click.
+ */
+function spyOnDownload() {
+  const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  const blobs: Blob[] = [];
+  const anchors: HTMLAnchorElement[] = [];
+  const createObjectURLSpy = vi
+    .spyOn(URL, "createObjectURL")
+    .mockImplementation((obj: Blob | MediaSource) => {
+      blobs.push(obj as Blob);
+      return `blob:mock-${blobs.length}`;
+    });
+  const revokeObjectURLSpy = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+  const originalCreateElement = document.createElement.bind(document);
+  const createElementSpy = vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+    const el = originalCreateElement(tag);
+    if (tag === "a") {
+      anchors.push(el as HTMLAnchorElement);
+    }
+    return el;
+  });
+
+  return {
+    clickSpy,
+    createObjectURLSpy,
+    revokeObjectURLSpy,
+    createElementSpy,
+    blobs,
+    anchors,
+    lastAnchor: () => anchors[anchors.length - 1],
+    lastCsvText: async () => blobs[blobs.length - 1].text(),
+    restore: () => {
+      clickSpy.mockRestore();
+      createObjectURLSpy.mockRestore();
+      revokeObjectURLSpy.mockRestore();
+      createElementSpy.mockRestore();
+    },
+  };
+}
+
+function exportButton(section: HTMLElement) {
+  return within(section).queryByRole("button", { name: "Exportar comparação CSV" });
+}
+
+describe("Exportar comparação CSV", () => {
+  it("22. hidden when there are fewer than 2 saved snapshots", async () => {
+    setup({ list: () => json([ENTRY_NEWEST]) });
+
+    const section = await compareSection();
+
+    expect(exportButton(section)).toBeNull();
+  });
+
+  it("23. hidden when the same snapshot is selected as base and target", async () => {
+    const rig = setup();
+
+    const section = await compareSection();
+    const base = within(section).getByLabelText("Base") as HTMLSelectElement;
+    const target = within(section).getByLabelText("Alvo") as HTMLSelectElement;
+
+    await waitFor(() => expect(target.value).toBe(ENTRY_NEWEST.id));
+
+    await rig.user.selectOptions(base, ENTRY_NEWEST.id);
+
+    expect(section).toHaveTextContent("Selecione dois resultados diferentes.");
+    expect(exportButton(section)).toBeNull();
+  });
+
+  it("24. appears once a valid comparison is shown", async () => {
+    setup();
+
+    const section = await compareSection();
+
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+  });
+
+  it("25. clicking it triggers a CSV download via the shared downloadCsvFile anchor-click mechanism", async () => {
+    const rig = setup();
+    const dl = spyOnDownload();
+
+    const section = await compareSection();
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+
+    await rig.user.click(exportButton(section)!);
+
+    expect(dl.clickSpy).toHaveBeenCalledTimes(1);
+    expect(dl.lastAnchor().download).toMatch(
+      /^comparacao-carteira-\d{4}-\d{2}-\d{2}-\d{2}-\d{2}__base-[0-9a-f]{8}__alvo-[0-9a-f]{8}\.csv$/,
+    );
+
+    dl.restore();
+  });
+
+  it("26. exported CSV filename embeds the short base/target snapshot ids", async () => {
+    const rig = setup();
+    const dl = spyOnDownload();
+
+    const section = await compareSection();
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+
+    await rig.user.click(exportButton(section)!);
+
+    expect(dl.lastAnchor().download).toContain(`base-${ENTRY_MIDDLE.id.slice(0, 8)}`);
+    expect(dl.lastAnchor().download).toContain(`alvo-${ENTRY_NEWEST.id.slice(0, 8)}`);
+
+    dl.restore();
+  });
+
+  it("27. exported CSV content matches the comparison currently on screen", async () => {
+    const rig = setup();
+    const dl = spyOnDownload();
+
+    const section = await compareSection();
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+
+    await rig.user.click(exportButton(section)!);
+
+    const csvText = await dl.lastCsvText();
+    // Base (MIDDLE): PETR4 1000 + BOVA11 2000 = 3000. Target (NEWEST): PETR4 1500 + HGLG11 3000 = 4500.
+    expect(csvText).toContain("summary,total");
+    expect(csvText).toContain("3000");
+    expect(csvText).toContain("4500");
+    expect(csvText).toContain("HGLG11"); // added
+    expect(csvText).toContain("BOVA11"); // removed
+    expect(csvText).toContain("PETR4"); // kept
+
+    dl.restore();
+  });
+
+  it("28. changing base/target changes the exported CSV content", async () => {
+    const rig = setup();
+    const dl = spyOnDownload();
+
+    const section = await compareSection();
+    const base = within(section).getByLabelText("Base") as HTMLSelectElement;
+
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+    await rig.user.click(exportButton(section)!);
+    const firstCsv = await dl.lastCsvText();
+
+    await rig.user.selectOptions(base, ENTRY_OLDEST.id);
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+    await rig.user.click(exportButton(section)!);
+    const secondCsv = await dl.lastCsvText();
+
+    expect(secondCsv).not.toBe(firstCsv);
+    expect(secondCsv).toContain("VALE3");
+
+    dl.restore();
+  });
+
+  it("29/30/31. clicking export calls no extra snapshot fetch, no AIE fetch, no save/delete", async () => {
+    const rig = setup();
+    const dl = spyOnDownload();
+
+    const section = await compareSection();
+    await waitFor(() => expect(exportButton(section)).not.toBeNull());
+    await waitFor(() => expect(rig.snapshotFetch).toHaveBeenCalled());
+
+    const callsBeforeExport = rig.snapshotFetch.mock.calls.length;
+
+    await rig.user.click(exportButton(section)!);
+
+    expect(rig.snapshotFetch.mock.calls.length).toBe(callsBeforeExport);
+    expect(rig.aieFetch).not.toHaveBeenCalled();
+
+    dl.restore();
+  });
+
+  it("32. does not regress the individual saved-result CSV export button", async () => {
+    const rig = setup();
+
+    await compareSection();
+    const historySection = await screen.findByRole("region", {
+      name: "Histórico de resultados salvos",
+    });
+
+    const dl = spyOnDownload();
+
+    await rig.user.click(
+      within(historySection).getByRole("button", {
+        name: new RegExp(`exportar csv de ${expectedAt(ENTRY_NEWEST.createdAt)}`, "i"),
+      }),
+    );
+
+    expect(dl.clickSpy).toHaveBeenCalledTimes(1);
+    expect(dl.lastAnchor().download).toMatch(/^resultado-carteira-\d{4}-\d{2}-\d{2}\.csv$/);
+
+    dl.restore();
+  });
+});
