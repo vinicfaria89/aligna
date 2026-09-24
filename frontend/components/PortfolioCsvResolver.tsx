@@ -57,6 +57,7 @@ import {
 import { FOCUS_RING } from "@/lib/ui/focus-ring";
 import { acquireAccessToken, clearSession } from "@/lib/session";
 
+import { PortfolioResolutionQualityPanel } from "./PortfolioResolutionQualityPanel";
 import { PortfolioSnapshotComparison } from "./PortfolioSnapshotComparison";
 
 /**
@@ -1038,6 +1039,8 @@ export default function PortfolioCsvResolver({
 
           <ResultsTable caption="Resultado salvo de cada ativo" rows={savedRows} />
 
+          <PortfolioResolutionQualityPanel items={saved.items} titleId="csv-quality-title-saved" />
+
           <div className="mt-4">
             {confirmingDelete ? (
               <div
@@ -1551,6 +1554,10 @@ export default function PortfolioCsvResolver({
 
           {items.length > 0 && (
             <ResultsTable caption="Resultado da resolução de cada ativo" rows={resultRows} />
+          )}
+
+          {exportableItems.length > 0 && (
+            <PortfolioResolutionQualityPanel items={exportableItems} titleId="csv-quality-title-result" />
           )}
         </section>
       )}    </div>
