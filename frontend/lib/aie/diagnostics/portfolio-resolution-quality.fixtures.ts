@@ -212,11 +212,19 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
   },
 
   // --- Tesouro Direto ------------------------------------------------------------------------
-  // Achado do diagnóstico: CandidateAssetType não tem NENHUM valor para
-  // titulo publico/Tesouro Direto (stock/etf/fii/fund/debenture/cri/cra/
+  // Achado do diagnóstico (TASK-051A): CandidateAssetType não tem NENHUM valor
+  // para titulo publico/Tesouro Direto (stock/etf/fii/fund/debenture/cri/cra/
   // cdb/lci/lca/coe/crypto/international/unknown) -- por isso não há
   // `expectedAssetType` aqui: não é um caso "a resposta certa é X e o
   // sistema erra", é "o sistema não tem onde representar X ainda".
+  //
+  // TASK-058A expande esta seção (diagnóstico e modelagem apenas -- ver
+  // docs/tasks/task-058a-tesouro-direto-diagnostics.md): nenhuma fixture
+  // abaixo tem `expectedAssetType`, de propósito, incluindo as de vencimento
+  // explícito -- esta task não decide que "com vencimento = verificável",
+  // só documenta o comportamento atual e levanta os casos para a TASK-058B
+  // decidir com calma. Todas continuam, e devem continuar,
+  // `needs-more-evidence` neste diagnóstico.
   {
     id: "TESOURO-SELIC",
     category: "treasury",
@@ -253,6 +261,340 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
       legalName: "Tesouro IPCA+",
       aliases: ["Tesouro IPCA+"],
       identifiers: [],
+    },
+  },
+
+  // --- TASK-058A: com vencimento explícito no nome (candidatos possíveis a
+  // identidade específica numa futura TASK-058B -- ver critérios propostos no
+  // documento de modelagem; aqui, só documentando que continuam pendentes).
+  {
+    id: "TESOURO-SELIC-2029",
+    category: "treasury",
+    description: "Tesouro Selic com ano de vencimento no nome",
+    input: {
+      id: "diag:tesouro-selic-2029",
+      rawName: "Tesouro Selic 2029",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-selic-2029",
+      kind: "instrument",
+      legalName: "Tesouro Selic 2029",
+      aliases: ["Tesouro Selic 2029"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-SELIC-2031",
+    category: "treasury",
+    description: "Tesouro Selic com ano de vencimento diferente",
+    input: {
+      id: "diag:tesouro-selic-2031",
+      rawName: "Tesouro Selic 2031",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-selic-2031",
+      kind: "instrument",
+      legalName: "Tesouro Selic 2031",
+      aliases: ["Tesouro Selic 2031"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-IPCA-2035",
+    category: "treasury",
+    description: "Tesouro IPCA+ com ano de vencimento no nome",
+    input: {
+      id: "diag:tesouro-ipca-2035",
+      rawName: "Tesouro IPCA+ 2035",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-ipca-2035",
+      kind: "instrument",
+      legalName: "Tesouro IPCA+ 2035",
+      aliases: ["Tesouro IPCA+ 2035"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-IPCA-2045",
+    category: "treasury",
+    description: "Tesouro IPCA+ com ano de vencimento diferente",
+    input: {
+      id: "diag:tesouro-ipca-2045",
+      rawName: "Tesouro IPCA+ 2045",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-ipca-2045",
+      kind: "instrument",
+      legalName: "Tesouro IPCA+ 2045",
+      aliases: ["Tesouro IPCA+ 2045"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-IPCA-JS-2040",
+    category: "treasury",
+    description: "Tesouro IPCA+ com Juros Semestrais, com vencimento -- modalidade adicional no nome",
+    input: {
+      id: "diag:tesouro-ipca-js-2040",
+      rawName: "Tesouro IPCA+ com Juros Semestrais 2040",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-ipca-js-2040",
+      kind: "instrument",
+      legalName: "Tesouro IPCA+ com Juros Semestrais 2040",
+      aliases: ["Tesouro IPCA+ com Juros Semestrais 2040"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-PREFIXADO-2027",
+    category: "treasury",
+    description: "Tesouro Prefixado com ano de vencimento no nome",
+    input: {
+      id: "diag:tesouro-prefixado-2027",
+      rawName: "Tesouro Prefixado 2027",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-prefixado-2027",
+      kind: "instrument",
+      legalName: "Tesouro Prefixado 2027",
+      aliases: ["Tesouro Prefixado 2027"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-PREFIXADO-2031",
+    category: "treasury",
+    description: "Tesouro Prefixado com ano de vencimento diferente",
+    input: {
+      id: "diag:tesouro-prefixado-2031",
+      rawName: "Tesouro Prefixado 2031",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-prefixado-2031",
+      kind: "instrument",
+      legalName: "Tesouro Prefixado 2031",
+      aliases: ["Tesouro Prefixado 2031"],
+      identifiers: [],
+    },
+  },
+  {
+    id: "TESOURO-PREFIXADO-JS-2035",
+    category: "treasury",
+    description: "Tesouro Prefixado com Juros Semestrais, com vencimento",
+    input: {
+      id: "diag:tesouro-prefixado-js-2035",
+      rawName: "Tesouro Prefixado com Juros Semestrais 2035",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+    registryEntity: {
+      id: "instrument.tesouro-prefixado-js-2035",
+      kind: "instrument",
+      legalName: "Tesouro Prefixado com Juros Semestrais 2035",
+      aliases: ["Tesouro Prefixado com Juros Semestrais 2035"],
+      identifiers: [],
+    },
+  },
+
+  // --- TASK-058A: sem vencimento -- nome de família/tipo, não de um título
+  // específico. Proposta do documento de modelagem: sem vencimento, nunca
+  // verificar (identidade insuficiente por natureza, não por falta de fonte).
+  {
+    id: "TESOURO-PREFIXADO",
+    category: "treasury",
+    description: "Tesouro Prefixado sem vencimento -- nome de família, não de título específico",
+    input: {
+      id: "diag:tesouro-prefixado",
+      rawName: "Tesouro Prefixado",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "TESOURO-DIRETO-GENERICO",
+    category: "treasury",
+    description: "\"Tesouro Direto\" genérico -- nome do programa, não de um título",
+    input: {
+      id: "diag:tesouro-direto-generico",
+      rawName: "Tesouro Direto",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "TITULO-PUBLICO-GENERICO",
+    category: "treasury",
+    description: "\"Título Público\" genérico -- nem tipo nem indexador identificados",
+    input: {
+      id: "diag:titulo-publico-generico",
+      rawName: "Título Público",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+
+  // --- TASK-058A: variações de escrita -- mesma intenção do usuário, texto
+  // diferente (caixa, acentos, espaçamento no "+", sufixo entre parênteses).
+  // Sem `registryEntity` de propósito: são o MESMO título das fixtures acima
+  // (ex.: "Tesouro Selic 2029"), não uma entidade nova -- duplicar o alias
+  // colidiria com a fixture canônica (mesma convenção das fixtures
+  // "ambíguas" que reusam ticker já registrado, ver AMBIGUO-TICKER-ESPACOS).
+  {
+    id: "TESOURO-VARIACAO-MINUSCULO",
+    category: "treasury",
+    description: "Tesouro Selic 2029 todo em minúsculas",
+    input: {
+      id: "diag:tesouro-variacao-minusculo",
+      rawName: "tesouro selic 2029",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "TESOURO-VARIACAO-CAIXA-ALTA-ESPACOS",
+    category: "treasury",
+    description: "Tesouro IPCA+ 2035 em caixa alta, com espaços extras nas pontas",
+    input: {
+      id: "diag:tesouro-variacao-caixa-alta-espacos",
+      rawName: " TESOURO IPCA+ 2035 ",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "TESOURO-VARIACAO-ESPACO-NO-SINAL",
+    category: "treasury",
+    description: "\"IPCA +\" com espaço antes do sinal de mais, em vez de \"IPCA+\"",
+    input: {
+      id: "diag:tesouro-variacao-espaco-no-sinal",
+      rawName: "Tesouro IPCA + 2035",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "TESOURO-VARIACAO-JUROS-MINUSCULO",
+    category: "treasury",
+    description: "\"com juros semestrais\" em minúsculas, em vez de Title Case",
+    input: {
+      id: "diag:tesouro-variacao-juros-minusculo",
+      rawName: "Tesouro IPCA+ com juros semestrais 2040",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "TESOURO-VARIACAO-SUFIXO-LFT",
+    category: "treasury",
+    description: "Sufixo entre parênteses com a sigla do título (LFT), como algumas corretoras exportam",
+    input: {
+      id: "diag:tesouro-variacao-sufixo-lft",
+      rawName: "Tesouro Selic 2029 (LFT)",
+      issuerName: "Tesouro Nacional",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+
+  // --- TASK-058A: casos negativos -- contêm "Tesouro" no nome mas NÃO são um
+  // título do Tesouro Direto (fundo/ETF/carteira/produto bancário com nome
+  // comercial parecido). Risco de falso positivo mapeado no documento de
+  // modelagem: nenhum destes pode nunca resolver como verificado por conter
+  // a palavra "Tesouro".
+  {
+    id: "TESOURO-NEGATIVO-FUNDO",
+    category: "treasury",
+    description: "Fundo com \"Tesouro\" no nome comercial -- não é um título direto",
+    input: {
+      id: "diag:tesouro-negativo-fundo",
+      rawName: "Fundo Tesouro Selic",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "TESOURO-NEGATIVO-ETF",
+    category: "treasury",
+    description: "ETF com \"Tesouro\" no nome comercial",
+    input: {
+      id: "diag:tesouro-negativo-etf",
+      rawName: "ETF Tesouro Selic",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "TESOURO-NEGATIVO-CARTEIRA",
+    category: "treasury",
+    description: "\"Carteira Tesouro\" -- nome de produto/estratégia, não de um título",
+    input: {
+      id: "diag:tesouro-negativo-carteira",
+      rawName: "Carteira Tesouro",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "TESOURO-NEGATIVO-CDB",
+    category: "treasury",
+    description: "CDB com \"Tesouro\" no nome comercial do banco/produto",
+    input: {
+      id: "diag:tesouro-negativo-cdb",
+      rawName: "CDB Tesouro Selic",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "TESOURO-NEGATIVO-LCI",
+    category: "treasury",
+    description: "LCI com \"Tesouro\" no nome comercial",
+    input: {
+      id: "diag:tesouro-negativo-lci",
+      rawName: "LCI Tesouro IPCA",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "TESOURO-NEGATIVO-RENDA-FIXA",
+    category: "treasury",
+    description: "\"Renda Fixa Tesouro\" -- categoria genérica de carteira, não um título",
+    input: {
+      id: "diag:tesouro-negativo-renda-fixa",
+      rawName: "Renda Fixa Tesouro",
+      currency: "BRL",
+      amount: 5000,
     },
   },
 

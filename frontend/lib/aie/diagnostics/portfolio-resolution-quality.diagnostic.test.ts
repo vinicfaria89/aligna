@@ -440,4 +440,140 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
     expect(row).toBeDefined();
     expect(row?.afterB3Provider.status).not.toBe("verified");
   });
+
+  describe("TASK-058A -- diagnóstico e modelagem de Tesouro Direto", () => {
+    /**
+     * Diagnóstico apenas -- ver
+     * docs/tasks/task-058a-tesouro-direto-diagnostics.md. Esta task NÃO deve
+     * aumentar o número de Tesouros verificados em produção: todo caso
+     * `category === "treasury"` (com vencimento, sem vencimento, variação de
+     * escrita ou negativo) tem que continuar `needs-more-evidence`, nas duas
+     * passagens (baseline e afterB3Provider) -- o resolver real de hoje não
+     * tem nenhum provider que possa verificar Tesouro Direto, e esta task não
+     * adiciona um.
+     */
+    const treasuryFixtureIds = DIAGNOSTIC_FIXTURES.filter((fixture) => fixture.category === "treasury").map(
+      (fixture) => fixture.id,
+    );
+
+    it("a bateria de Tesouro tem entre 15 e 25 fixtures novas além das duas originais da TASK-051A", async () => {
+      // TESOURO-SELIC e TESOURO-IPCA já existiam antes da TASK-058A.
+      const newFixtures = treasuryFixtureIds.length - 2;
+
+      expect(newFixtures).toBeGreaterThanOrEqual(15);
+      expect(newFixtures).toBeLessThanOrEqual(25);
+    });
+
+    it("nenhum caso de Tesouro (com ou sem vencimento, variação de escrita ou negativo) resolve como verificado, em nenhuma das duas passagens", async () => {
+      const rows = await runAllFixtures();
+
+      for (const id of treasuryFixtureIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.baseline.status, `${id} (baseline)`).not.toBe("verified");
+        expect(row?.afterB3Provider.status, `${id} (afterB3Provider)`).not.toBe("verified");
+      }
+    });
+
+    it("nenhum caso de Tesouro produz wrong_type, wrong_code ou unexpected_error", async () => {
+      const rows = await runAllFixtures();
+      const forbidden = new Set(["wrong_type", "wrong_code", "unexpected_error"]);
+
+      for (const id of treasuryFixtureIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(forbidden.has(row!.baseline.diagnosis), `${id} (baseline): ${row!.baseline.diagnosis}`).toBe(false);
+        expect(
+          forbidden.has(row!.afterB3Provider.diagnosis),
+          `${id} (afterB3Provider): ${row!.afterB3Provider.diagnosis}`,
+        ).toBe(false);
+      }
+    });
+
+    it("casos com vencimento explícito no nome continuam pendentes nesta task (não é evidência suficiente hoje)", async () => {
+      const rows = await runAllFixtures();
+
+      const withMaturityInName = [
+        "TESOURO-SELIC-2029",
+        "TESOURO-SELIC-2031",
+        "TESOURO-IPCA-2035",
+        "TESOURO-IPCA-2045",
+        "TESOURO-IPCA-JS-2040",
+        "TESOURO-PREFIXADO-2027",
+        "TESOURO-PREFIXADO-2031",
+        "TESOURO-PREFIXADO-JS-2035",
+      ];
+
+      for (const id of withMaturityInName) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterB3Provider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos sem vencimento (nome de família/programa, não de título específico) continuam pendentes", async () => {
+      const rows = await runAllFixtures();
+
+      const withoutMaturity = ["TESOURO-SELIC", "TESOURO-IPCA", "TESOURO-PREFIXADO", "TESOURO-DIRETO-GENERICO", "TITULO-PUBLICO-GENERICO"];
+
+      for (const id of withoutMaturity) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterB3Provider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("variações de escrita (caixa, acentos, espaço no '+', sufixo) não causam erro nem falso positivo", async () => {
+      const rows = await runAllFixtures();
+
+      const writingVariations = [
+        "TESOURO-VARIACAO-MINUSCULO",
+        "TESOURO-VARIACAO-CAIXA-ALTA-ESPACOS",
+        "TESOURO-VARIACAO-ESPACO-NO-SINAL",
+        "TESOURO-VARIACAO-JUROS-MINUSCULO",
+        "TESOURO-VARIACAO-SUFIXO-LFT",
+      ];
+
+      for (const id of writingVariations) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterB3Provider.diagnosis, id).not.toBe("unexpected_error");
+        expect(row?.afterB3Provider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos negativos (Fundo/ETF/Carteira/CDB/LCI com 'Tesouro' no nome) nunca resolvem como Tesouro verificado", async () => {
+      const rows = await runAllFixtures();
+
+      const negatives = [
+        "TESOURO-NEGATIVO-FUNDO",
+        "TESOURO-NEGATIVO-ETF",
+        "TESOURO-NEGATIVO-CARTEIRA",
+        "TESOURO-NEGATIVO-CDB",
+        "TESOURO-NEGATIVO-LCI",
+        "TESOURO-NEGATIVO-RENDA-FIXA",
+      ];
+
+      for (const id of negatives) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterB3Provider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("o relatório diagnóstico identifica os casos de Tesouro pela categoria 'treasury'", async () => {
+      const rows = await runAllFixtures();
+
+      const treasuryRows = rows.filter((row) => row.category === "treasury");
+
+      expect(treasuryRows.length).toBe(treasuryFixtureIds.length);
+      expect(treasuryRows.every((row) => row.category === "treasury")).toBe(true);
+    });
+  });
 });
