@@ -769,4 +769,225 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       }
     });
   });
+
+  describe("TASK-059A -- diagnóstico e modelagem de renda fixa privada (CDB/LCI/LCA)", () => {
+    /**
+     * Diagnóstico apenas -- ver
+     * docs/tasks/task-059a-private-fixed-income-diagnostics.md. Esta task
+     * NÃO deve aumentar o número de CDBs/LCIs/LCAs verificados em produção:
+     * todo caso `category` de renda fixa privada (cdb/lci/lca, ambíguos ou
+     * negativos) tem que continuar `needs-more-evidence` em TODAS as
+     * passagens (baseline, afterB3Provider, afterTesouroProvider) -- nenhum
+     * provider registrado nesta bateria pode verificar renda fixa privada, e
+     * esta task não adiciona um.
+     */
+    const privateFixedIncomeCategories = new Set([
+      "cdb",
+      "lci",
+      "lca",
+      "private-fixed-income-ambiguous",
+      "private-fixed-income-negative",
+    ]);
+    const privateFixedIncomeFixtureIds = DIAGNOSTIC_FIXTURES.filter((fixture) =>
+      privateFixedIncomeCategories.has(fixture.category),
+    ).map((fixture) => fixture.id);
+
+    it("a bateria de renda fixa privada tem entre 24 e 36 fixtures novas", async () => {
+      expect(privateFixedIncomeFixtureIds.length).toBeGreaterThanOrEqual(24);
+      expect(privateFixedIncomeFixtureIds.length).toBeLessThanOrEqual(36);
+    });
+
+    it("adiciona fixtures específicas de CDB, LCI e LCA", async () => {
+      const byCategory = (category: string) =>
+        DIAGNOSTIC_FIXTURES.filter((fixture) => fixture.category === category).length;
+
+      expect(byCategory("cdb")).toBeGreaterThan(0);
+      expect(byCategory("lci")).toBeGreaterThan(0);
+      expect(byCategory("lca")).toBeGreaterThan(0);
+    });
+
+    it("nenhum caso de renda fixa privada resolve como verificado, em nenhuma das três passagens", async () => {
+      const rows = await runAllFixtures();
+
+      for (const id of privateFixedIncomeFixtureIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.baseline.status, `${id} (baseline)`).not.toBe("verified");
+        expect(row?.afterB3Provider.status, `${id} (afterB3Provider)`).not.toBe("verified");
+        expect(row?.afterTesouroProvider.status, `${id} (afterTesouroProvider)`).not.toBe("verified");
+      }
+    });
+
+    it("nenhum caso de renda fixa privada produz wrong_type, wrong_code ou unexpected_error", async () => {
+      const rows = await runAllFixtures();
+      const forbidden = new Set(["wrong_type", "wrong_code", "unexpected_error"]);
+
+      for (const id of privateFixedIncomeFixtureIds) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        for (const pass of ["baseline", "afterB3Provider", "afterTesouroProvider"] as const) {
+          expect(forbidden.has(row![pass].diagnosis), `${id} (${pass}): ${row![pass].diagnosis}`).toBe(false);
+        }
+      }
+    });
+
+    it("casos com emissor, indexador e/ou vencimento continuam pendentes nesta task", async () => {
+      const rows = await runAllFixtures();
+
+      const withDetails = [
+        "CDB-EMISSOR-INDEXADOR",
+        "CDB-EMISSOR-VENCIMENTO",
+        "CDB-COMPLETO",
+        "LCI-INDEXADOR",
+        "LCI-COMPLETO",
+        "LCI-INDEXADOR-CDI-VENCIMENTO",
+        "LCA-INDEXADOR",
+        "LCA-COMPLETO",
+        "LCA-INDEXADOR-IPCA-VENCIMENTO",
+      ];
+
+      for (const id of withDetails) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos sem emissor continuam pendentes", async () => {
+      const rows = await runAllFixtures();
+
+      const withoutIssuer = ["CDB-SEM-EMISSOR", "LCI-SEM-EMISSOR", "LCA-SEM-EMISSOR"];
+
+      for (const id of withoutIssuer) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos sem vencimento continuam pendentes", async () => {
+      const rows = await runAllFixtures();
+
+      const withoutMaturity = ["CDB-EMISSOR-INDEXADOR", "CDB-NOME-COMERCIAL-LIQUIDEZ", "LCI-INDEXADOR", "LCA-INDEXADOR"];
+
+      for (const id of withoutMaturity) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("variações de escrita (minúsculas, caixa alta com espaços) não causam erro nem falso positivo", async () => {
+      const rows = await runAllFixtures();
+
+      const writingVariations = [
+        "CDB-VARIACAO-ESCRITA",
+        "LCI-VARIACAO-ESCRITA",
+        "LCI-VARIACAO-CAIXA-ESPACOS",
+        "LCA-VARIACAO-ESCRITA",
+        "LCA-VARIACAO-CAIXA-ESPACOS",
+      ];
+
+      for (const id of writingVariations) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.diagnosis, id).not.toBe("unexpected_error");
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos negativos (Fundo/Carteira/ETF/Debênture/COE/Tesouro com CDB, LCI ou LCA no nome) nunca resolvem como renda fixa privada verificada", async () => {
+      const rows = await runAllFixtures();
+
+      const negatives = DIAGNOSTIC_FIXTURES.filter(
+        (fixture) => fixture.category === "private-fixed-income-negative",
+      ).map((fixture) => fixture.id);
+
+      expect(negatives.length).toBeGreaterThan(0);
+
+      for (const id of negatives) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("casos ambíguos (sem tipo explícito ou sem emissor+indexador+vencimento suficientes) continuam pendentes", async () => {
+      const rows = await runAllFixtures();
+
+      const ambiguous = DIAGNOSTIC_FIXTURES.filter(
+        (fixture) => fixture.category === "private-fixed-income-ambiguous",
+      ).map((fixture) => fixture.id);
+
+      expect(ambiguous.length).toBeGreaterThan(0);
+
+      for (const id of ambiguous) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("o relatório diagnóstico separa os casos de renda fixa privada por categoria (cdb/lci/lca/ambíguos/negativos)", async () => {
+      const rows = await runAllFixtures();
+
+      const byCategory = (category: string) => rows.filter((row) => row.category === category);
+
+      expect(byCategory("cdb").length).toBeGreaterThan(0);
+      expect(byCategory("lci").length).toBeGreaterThan(0);
+      expect(byCategory("lca").length).toBeGreaterThan(0);
+      expect(byCategory("private-fixed-income-ambiguous").length).toBeGreaterThan(0);
+      expect(byCategory("private-fixed-income-negative").length).toBeGreaterThan(0);
+    });
+
+    it("B3 e Tesouro não regridem com as novas fixtures de renda fixa privada adicionadas", async () => {
+      const rows = await runAllFixtures();
+
+      const b3CoveredIds = ["PETR4", "VALE3", "ITUB4", "HGLG11", "KNRI11", "BOVA11", "IVVB11", "AAPL34"];
+      const treasuryCoveredIds = [
+        "TESOURO-SELIC-2029",
+        "TESOURO-SELIC-2031",
+        "TESOURO-IPCA-2035",
+        "TESOURO-IPCA-2045",
+        "TESOURO-IPCA-JS-2040",
+        "TESOURO-PREFIXADO-2027",
+        "TESOURO-PREFIXADO-2031",
+        "TESOURO-PREFIXADO-JS-2035",
+      ];
+
+      for (const id of [...b3CoveredIds, ...treasuryCoveredIds]) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).toBe("verified");
+        expect(row?.afterTesouroProvider.diagnosis, id).toBe("resolved_expected");
+      }
+    });
+
+    it("já existentes CDB-GENERICO/LCI-GENERICO/LCA-GENERICO (TASK-051A) continuam pendentes, sem regressão", async () => {
+      const rows = await runAllFixtures();
+
+      for (const id of ["CDB-GENERICO", "LCI-GENERICO", "LCA-GENERICO"]) {
+        const row = rows.find((candidate) => candidate.id === id);
+
+        expect(row, id).toBeDefined();
+        expect(row?.afterTesouroProvider.status, id).not.toBe("verified");
+      }
+    });
+
+    it("a contagem total de fixtures reflete as novas fixtures de renda fixa privada", async () => {
+      const rows = await runAllFixtures();
+
+      expect(rows.length).toBe(DIAGNOSTIC_FIXTURES.length);
+      expect(privateFixedIncomeFixtureIds.length).toBeGreaterThanOrEqual(24);
+    });
+  });
 });

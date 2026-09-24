@@ -25,7 +25,17 @@ export type DiagnosticCategory =
   | "treasury"
   | "ambiguous"
   | "b3-no-assettype"
-  | "b3-expanded";
+  | "b3-expanded"
+  // TASK-059A: renda fixa privada (CDB/LCI/LCA) -- ver
+  // docs/tasks/task-059a-private-fixed-income-diagnostics.md. Categorias
+  // próprias (em vez de reaproveitar "fixed-income-generic") para que o
+  // relatório diagnóstico separe cada tipo, os ambíguos e os negativos
+  // (risco de falso positivo) de forma legível.
+  | "cdb"
+  | "lci"
+  | "lca"
+  | "private-fixed-income-ambiguous"
+  | "private-fixed-income-negative";
 
 export interface DiagnosticFixture {
   /** Stable id for the report table. Never the raw free-text name. */
@@ -593,6 +603,477 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
     input: {
       id: "diag:tesouro-negativo-renda-fixa",
       rawName: "Renda Fixa Tesouro",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+
+  // --- TASK-059A: renda fixa privada (CDB/LCI/LCA) ------------------------------------------
+  // Diagnóstico e modelagem apenas -- ver
+  // docs/tasks/task-059a-private-fixed-income-diagnostics.md. Nenhuma
+  // fixture abaixo deve resolver como "verified": `cdb`/`lci`/`lca` já
+  // existem em CandidateAssetType (ao contrário de Tesouro na TASK-058A),
+  // mas nenhum provider primary cobre nenhum deles ainda -- `expectedAssetType`
+  // é definido nas fixtures de CDB/LCI/LCA (o tipo que um humano atribuiria
+  // corretamente) só para documentar a expectativa futura; não implica que a
+  // task verifique nada agora.
+  {
+    id: "CDB-EMISSOR-INDEXADOR",
+    category: "cdb",
+    description: "CDB com emissor e indexador, sem vencimento",
+    input: {
+      id: "diag:cdb-emissor-indexador",
+      rawName: "CDB Banco Teste 110% CDI",
+      assetType: "cdb",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+  {
+    id: "CDB-EMISSOR-VENCIMENTO",
+    category: "cdb",
+    description: "CDB com emissor e vencimento, sem indexador explícito no nome",
+    input: {
+      id: "diag:cdb-emissor-vencimento",
+      rawName: "CDB Banco Teste CDI 2027",
+      assetType: "cdb",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+  {
+    id: "CDB-COMPLETO",
+    category: "cdb",
+    description: "CDB com emissor, indexador e vencimento -- o caso mais completo do diagnóstico",
+    input: {
+      id: "diag:cdb-completo",
+      rawName: "CDB Banco Teste 110% CDI 2027",
+      assetType: "cdb",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+  {
+    id: "CDB-NOME-COMERCIAL-LIQUIDEZ",
+    category: "cdb",
+    description: "CDB com nome comercial (\"Liquidez Diária\"), emissor presente",
+    input: {
+      id: "diag:cdb-nome-comercial-liquidez",
+      rawName: "CDB Liquidez Diária Banco Teste",
+      assetType: "cdb",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+  {
+    id: "CDB-SEM-EMISSOR",
+    category: "cdb",
+    description: "CDB com indexador, mas SEM emissor -- identidade incompleta",
+    input: {
+      id: "diag:cdb-sem-emissor",
+      rawName: "CDB 110% CDI",
+      assetType: "cdb",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+  {
+    id: "CDB-NOME-COMERCIAL-POS",
+    category: "cdb",
+    description: "CDB com nome comercial (\"Pós\"), emissor presente, sem indexador/vencimento explícitos",
+    input: {
+      id: "diag:cdb-nome-comercial-pos",
+      rawName: "CDB Pós Banco Teste",
+      assetType: "cdb",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+  {
+    id: "CDB-VARIACAO-ESCRITA",
+    category: "cdb",
+    description: "Mesmo caso completo, todo em minúsculas -- variação de escrita",
+    input: {
+      id: "diag:cdb-variacao-escrita",
+      rawName: "cdb banco teste 110% cdi 2027",
+      assetType: "cdb",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "cdb",
+  },
+
+  {
+    id: "LCI-INDEXADOR",
+    category: "lci",
+    description: "LCI com emissor e indexador, sem vencimento",
+    input: {
+      id: "diag:lci-indexador",
+      rawName: "LCI Banco Teste IPCA+",
+      assetType: "lci",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+  {
+    id: "LCI-COMPLETO",
+    category: "lci",
+    description: "LCI com emissor, indexador e vencimento",
+    input: {
+      id: "diag:lci-completo",
+      rawName: "LCI Banco Teste IPCA+ 2028",
+      assetType: "lci",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+  {
+    id: "LCI-INDEXADOR-CDI-VENCIMENTO",
+    category: "lci",
+    description: "LCI com emissor, indexador CDI e vencimento (indexador diferente do caso IPCA+)",
+    input: {
+      id: "diag:lci-indexador-cdi-vencimento",
+      rawName: "LCI Banco Teste CDI 2028",
+      assetType: "lci",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+  {
+    id: "LCI-NOME-COMERCIAL",
+    category: "lci",
+    description: "LCI com nome comercial (\"90 dias\"), emissor presente",
+    input: {
+      id: "diag:lci-nome-comercial",
+      rawName: "LCI 90 dias Banco Teste",
+      assetType: "lci",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+  {
+    id: "LCI-SEM-EMISSOR",
+    category: "lci",
+    description: "LCI com indexador, mas SEM emissor -- identidade incompleta",
+    input: {
+      id: "diag:lci-sem-emissor",
+      rawName: "LCI IPCA+",
+      assetType: "lci",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+  {
+    id: "LCI-VARIACAO-ESCRITA",
+    category: "lci",
+    description: "Mesmo caso completo, todo em minúsculas -- variação de escrita",
+    input: {
+      id: "diag:lci-variacao-escrita",
+      rawName: "lci banco teste ipca+ 2028",
+      assetType: "lci",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+  {
+    id: "LCI-VARIACAO-CAIXA-ESPACOS",
+    category: "lci",
+    description: "Mesmo caso completo, caixa alta com espaços extras nas pontas",
+    input: {
+      id: "diag:lci-variacao-caixa-espacos",
+      rawName: " LCI BANCO TESTE IPCA+ 2028 ",
+      assetType: "lci",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lci",
+  },
+
+  {
+    id: "LCA-INDEXADOR",
+    category: "lca",
+    description: "LCA com emissor e indexador, sem vencimento",
+    input: {
+      id: "diag:lca-indexador",
+      rawName: "LCA Banco Teste CDI",
+      assetType: "lca",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+  {
+    id: "LCA-COMPLETO",
+    category: "lca",
+    description: "LCA com emissor, indexador e vencimento",
+    input: {
+      id: "diag:lca-completo",
+      rawName: "LCA Banco Teste CDI 2029",
+      assetType: "lca",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+  {
+    id: "LCA-INDEXADOR-IPCA-VENCIMENTO",
+    category: "lca",
+    description: "LCA com emissor, indexador IPCA+ e vencimento (indexador diferente do caso CDI)",
+    input: {
+      id: "diag:lca-indexador-ipca-vencimento",
+      rawName: "LCA Banco Teste IPCA+ 2029",
+      assetType: "lca",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+  {
+    id: "LCA-NOME-COMERCIAL",
+    category: "lca",
+    description: "LCA com nome comercial (\"Agro\"), emissor presente",
+    input: {
+      id: "diag:lca-nome-comercial",
+      rawName: "LCA Agro Banco Teste",
+      assetType: "lca",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+  {
+    id: "LCA-SEM-EMISSOR",
+    category: "lca",
+    description: "LCA com indexador, mas SEM emissor -- identidade incompleta",
+    input: {
+      id: "diag:lca-sem-emissor",
+      rawName: "LCA CDI",
+      assetType: "lca",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+  {
+    id: "LCA-VARIACAO-ESCRITA",
+    category: "lca",
+    description: "Mesmo caso completo, todo em minúsculas -- variação de escrita",
+    input: {
+      id: "diag:lca-variacao-escrita",
+      rawName: "lca banco teste cdi 2029",
+      assetType: "lca",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+  {
+    id: "LCA-VARIACAO-CAIXA-ESPACOS",
+    category: "lca",
+    description: "Mesmo caso completo, caixa alta com espaços extras nas pontas",
+    input: {
+      id: "diag:lca-variacao-caixa-espacos",
+      rawName: " LCA BANCO TESTE CDI 2029 ",
+      assetType: "lca",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 10000,
+    },
+    expectedAssetType: "lca",
+  },
+
+  // --- TASK-059A: casos ambíguos -- não é claro qual dos três tipos (ou se
+  // é renda fixa privada mesmo), sem registryEntity/expectedAssetType de
+  // propósito.
+  {
+    id: "RFPRIV-AMBIGUO-RENDA-FIXA",
+    category: "private-fixed-income-ambiguous",
+    description: "\"Renda Fixa\" genérica com emissor -- não diz se é CDB, LCI ou LCA",
+    input: {
+      id: "diag:rfpriv-ambiguo-renda-fixa",
+      rawName: "Renda Fixa Banco Teste",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "RFPRIV-AMBIGUO-PRODUTO-CDI",
+    category: "private-fixed-income-ambiguous",
+    description: "\"Produto\" genérico com indexador -- sem tipo explícito",
+    input: {
+      id: "diag:rfpriv-ambiguo-produto-cdi",
+      rawName: "Produto Banco Teste CDI",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "RFPRIV-AMBIGUO-INVESTIMENTO",
+    category: "private-fixed-income-ambiguous",
+    description: "\"Investimento\" genérico com indexador e vencimento, sem emissor nem tipo",
+    input: {
+      id: "diag:rfpriv-ambiguo-investimento",
+      rawName: "Investimento CDI 2027",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "RFPRIV-AMBIGUO-TITULO-PRIVADO",
+    category: "private-fixed-income-ambiguous",
+    description: "\"Título Privado\" genérico com emissor -- sem tipo explícito",
+    input: {
+      id: "diag:rfpriv-ambiguo-titulo-privado",
+      rawName: "Título Privado Banco Teste",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+  {
+    id: "RFPRIV-AMBIGUO-SEM-TIPO",
+    category: "private-fixed-income-ambiguous",
+    description: "Emissor + indexador, mas nenhuma palavra indicando o tipo do produto",
+    input: {
+      id: "diag:rfpriv-ambiguo-sem-tipo",
+      rawName: "Banco Teste 110% CDI",
+      issuerName: "Banco Teste",
+      currency: "BRL",
+      amount: 8000,
+    },
+  },
+
+  // --- TASK-059A: casos negativos -- contêm "CDB"/"LCI"/"LCA" (ou um
+  // indexador típico de renda fixa privada) no nome, mas NÃO são um CDB/LCI/
+  // LCA (fundo/ETF/carteira/debênture/COE/Tesouro com nome parecido). Risco
+  // de falso positivo mapeado no documento de modelagem: nenhum destes pode
+  // nunca resolver como CDB/LCI/LCA verificado.
+  {
+    id: "RFPRIV-NEGATIVO-FUNDO-CDB",
+    category: "private-fixed-income-negative",
+    description: "Fundo com \"CDB\" no nome comercial -- não é um CDB direto",
+    input: {
+      id: "diag:rfpriv-negativo-fundo-cdb",
+      rawName: "Fundo CDB",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-FUNDO-LCI",
+    category: "private-fixed-income-negative",
+    description: "Fundo com \"LCI\" no nome comercial",
+    input: {
+      id: "diag:rfpriv-negativo-fundo-lci",
+      rawName: "Fundo LCI",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-FUNDO-LCA",
+    category: "private-fixed-income-negative",
+    description: "Fundo com \"LCA\" no nome comercial",
+    input: {
+      id: "diag:rfpriv-negativo-fundo-lca",
+      rawName: "Fundo LCA",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-CARTEIRA-CDB",
+    category: "private-fixed-income-negative",
+    description: "\"Carteira CDB\" -- nome de produto/estratégia, não um título",
+    input: {
+      id: "diag:rfpriv-negativo-carteira-cdb",
+      rawName: "Carteira CDB",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-CARTEIRA-LCI",
+    category: "private-fixed-income-negative",
+    description: "\"Carteira LCI\" -- nome de produto/estratégia, não um título",
+    input: {
+      id: "diag:rfpriv-negativo-carteira-lci",
+      rawName: "Carteira LCI",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-ETF-RENDA-FIXA",
+    category: "private-fixed-income-negative",
+    description: "ETF de renda fixa -- não é um título de renda fixa privada direto",
+    input: {
+      id: "diag:rfpriv-negativo-etf-renda-fixa",
+      rawName: "ETF de Renda Fixa",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-DEBENTURE-CDI",
+    category: "private-fixed-income-negative",
+    description: "Debênture indexada a CDI -- outro tipo de ativo inteiramente, não CDB/LCI/LCA",
+    input: {
+      id: "diag:rfpriv-negativo-debenture-cdi",
+      rawName: "Debênture CDI Banco Teste",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-COE-CDI",
+    category: "private-fixed-income-negative",
+    description: "COE indexado a CDI -- outro tipo de ativo inteiramente",
+    input: {
+      id: "diag:rfpriv-negativo-coe-cdi",
+      rawName: "COE Banco Teste CDI",
+      currency: "BRL",
+      amount: 5000,
+    },
+  },
+  {
+    id: "RFPRIV-NEGATIVO-TESOURO-CDB",
+    category: "private-fixed-income-negative",
+    description: "\"Tesouro CDB\" -- nome contraditório/comercial, não é nem Tesouro nem CDB de verdade",
+    input: {
+      id: "diag:rfpriv-negativo-tesouro-cdb",
+      rawName: "Tesouro CDB",
       currency: "BRL",
       amount: 5000,
     },
