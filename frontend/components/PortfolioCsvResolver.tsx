@@ -48,7 +48,12 @@ import {
   toSnapshotItems,
   type SavedSnapshot,
   type SnapshotHistoryEntry,
+  type SnapshotStatus,
 } from "@/lib/portfolio-snapshot-mapping";
+import {
+  explainResolutionItem,
+  type ResolutionExplanation,
+} from "@/lib/portfolio-resolution-explanations";
 import {
   downloadCsvFile,
   resultExportFileName,
@@ -57,6 +62,7 @@ import {
 import { FOCUS_RING } from "@/lib/ui/focus-ring";
 import { acquireAccessToken, clearSession } from "@/lib/session";
 
+import { PortfolioResolutionExplanation } from "./PortfolioResolutionExplanation";
 import { PortfolioResolutionQualityPanel } from "./PortfolioResolutionQualityPanel";
 import { PortfolioSnapshotComparison } from "./PortfolioSnapshotComparison";
 
@@ -314,6 +320,37 @@ function ItemDetails({ item }: { item: ResolvedItemView }) {
   );
 }
 
+/**
+ * Reshapes a `ResolvedItemView` (the fresh-resolution shape) into the
+ * minimal `SnapshotItem` fields `explainResolutionItem` reads --
+ * `status`/`assetType`/`verifiedAsset`. No explanation logic lives here:
+ * this only carries data across the shape boundary, the same way
+ * `toDisplayRows` (portfolio-snapshot-mapping.ts) already does in the
+ * opposite direction for a saved snapshot's rows.
+ */
+function explanationForResolvedItem(item: ResolvedItemView): ResolutionExplanation {
+  const status: SnapshotStatus =
+    item.kind === "item-error" ? "item-error" : (item.status ?? "needs-more-evidence");
+
+  return explainResolutionItem({
+    lineNumber: item.index + 2,
+    rawName: "",
+    status,
+    pendingFields: item.unresolvedFields,
+    sources: item.sources,
+    ...(item.verifiedAsset
+      ? {
+          assetType: item.verifiedAsset.assetType,
+          verifiedAsset: {
+            code: item.verifiedAsset.canonicalAssetId,
+            type: item.verifiedAsset.assetType,
+            currency: item.verifiedAsset.currency,
+          },
+        }
+      : {}),
+  });
+}
+
 interface ResultRowView {
   key: string;
 
@@ -331,6 +368,8 @@ interface ResultRowView {
   currency?: string;
 
   item: ResolvedItemView;
+
+  explanation: ResolutionExplanation;
 }
 
 /**
@@ -400,7 +439,7 @@ function ResultsTable({ caption, rows }: { caption: string; rows: ResultRowView[
         </tr>
       </thead>
       <tbody className="block md:table-row-group">
-        {rows.map(({ key, line, name, assetType, code, amount, currency, item }) => (
+        {rows.map(({ key, line, name, assetType, code, amount, currency, item, explanation }) => (
           <tr
             role="row"
             key={key}
@@ -427,6 +466,7 @@ function ResultsTable({ caption, rows }: { caption: string; rows: ResultRowView[
             </td>
             <td role="cell" className="block py-0.5 md:table-cell md:py-2">
               <ItemDetails item={item} />
+              <PortfolioResolutionExplanation explanation={explanation} />
             </td>
           </tr>
         ))}
@@ -968,6 +1008,7 @@ export default function PortfolioCsvResolver({
       line: row?.row ?? item.index + 2,
       name: row?.rawName ?? "—",
       item,
+      explanation: explanationForResolvedItem(item),
     };
   });
 
@@ -979,7 +1020,12 @@ export default function PortfolioCsvResolver({
 
   const savableCount = exportableItems.length;
 
-  const savedRows = saved ? toDisplayRows(saved) : null;
+  const savedRows: ResultRowView[] | null = saved
+    ? toDisplayRows(saved).map((row, index) => ({
+        ...row,
+        explanation: explainResolutionItem(saved.items[index]),
+      }))
+    : null;
 
   const savedAt = saved ? savedAtText(saved.updatedAt) : null;
 
