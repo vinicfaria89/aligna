@@ -30,10 +30,11 @@ const ISSUER_ENTITY_ID = "issuer.tesouro-nacional";
 const ISSUER_NAME = "Tesouro Nacional";
 
 /**
- * TASK-058B: local, explicit, deliberately narrow catalog -- covers ONLY
+ * TASK-058B: local, explicit, deliberately narrow catalog -- started with
  * the eight "com vencimento" cases the TASK-058A diagnostic
  * (docs/tasks/task-058a-tesouro-direto-diagnostics.md) recommended as
- * candidates for a first, conservative implementation. Nothing without an
+ * candidates for a first, conservative implementation, and grown since
+ * (TASK-063A) with more real titles under the same rule. Nothing without an
  * explicit maturity year belongs here -- "Tesouro Selic" alone is never
  * added, on purpose: a name without a vencimento does not identify a
  * SPECIFIC title, no matter how confident the source, per that document's
@@ -118,5 +119,117 @@ export const TESOURO_DIRETO_CATALOG: readonly TesouroDiretoEntry[] = [
     issuerEntityId: ISSUER_ENTITY_ID,
     issuerName: ISSUER_NAME,
     maturityYear: 2035,
+  },
+
+  // TASK-063A: controlled catalog expansion -- same conservative rule as
+  // above (explicit maturity year required, no synthetic/abbreviated
+  // entries), just more real titles.
+  {
+    canonicalName: "tesouro selic 2027",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:selic:2027",
+    legalName: "Tesouro Selic 2027",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2027,
+  },
+  {
+    canonicalName: "tesouro selic 2028",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:selic:2028",
+    legalName: "Tesouro Selic 2028",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2028,
+  },
+  {
+    canonicalName: "tesouro selic 2033",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:selic:2033",
+    legalName: "Tesouro Selic 2033",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2033,
+  },
+  {
+    canonicalName: "tesouro prefixado 2028",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:prefixado:2028",
+    legalName: "Tesouro Prefixado 2028",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2028,
+  },
+  {
+    canonicalName: "tesouro prefixado 2029",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:prefixado:2029",
+    legalName: "Tesouro Prefixado 2029",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2029,
+  },
+  {
+    canonicalName: "tesouro prefixado 2032",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:prefixado:2032",
+    legalName: "Tesouro Prefixado 2032",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2032,
+  },
+  {
+    canonicalName: "tesouro prefixado com juros semestrais 2033",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:prefixado-js:2033",
+    legalName: "Tesouro Prefixado com Juros Semestrais 2033",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2033,
+  },
+  {
+    canonicalName: "tesouro ipca+ 2029",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:ipca:2029",
+    legalName: "Tesouro IPCA+ 2029",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2029,
+  },
+  {
+    canonicalName: "tesouro ipca+ 2030",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:ipca:2030",
+    legalName: "Tesouro IPCA+ 2030",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2030,
+  },
+  {
+    canonicalName: "tesouro ipca+ 2040",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:ipca:2040",
+    legalName: "Tesouro IPCA+ 2040",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2040,
+  },
+  {
+    canonicalName: "tesouro ipca+ com juros semestrais 2032",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:ipca-js:2032",
+    legalName: "Tesouro IPCA+ com Juros Semestrais 2032",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2032,
+  },
+  {
+    canonicalName: "tesouro ipca+ com juros semestrais 2050",
+    assetType: "treasury",
+    canonicalAssetId: "tesouro:ipca-js:2050",
+    legalName: "Tesouro IPCA+ com Juros Semestrais 2050",
+    issuerEntityId: ISSUER_ENTITY_ID,
+    issuerName: ISSUER_NAME,
+    maturityYear: 2050,
   },
 ];

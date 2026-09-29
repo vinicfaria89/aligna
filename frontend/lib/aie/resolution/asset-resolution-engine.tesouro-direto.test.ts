@@ -197,10 +197,11 @@ describe("AssetResolutionEngine + TesouroDiretoProvider (TASK-058B)", () => {
   });
 
   it("never infers 'treasury' for an uncatalogued maturity year", async () => {
+    // TASK-063A: 2033 joined the catalog -- 2026 stays genuinely uncatalogued.
     const result = await engine.resolve({
       candidateAsset: candidate({
         id: "asset-ano-nao-catalogado",
-        rawName: "Tesouro Selic 2033",
+        rawName: "Tesouro Selic 2026",
         hints: { currency: "BRL", amount: 8000 },
       }),
       now: NOW,

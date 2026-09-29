@@ -512,12 +512,14 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
      * que os 8 títulos catalogados (e as variações de escrita que
      * normalizam para eles) passam a `resolved_expected`.
      */
-    it("a bateria de Tesouro tem entre 15 e 25 fixtures novas além das duas originais da TASK-051A", async () => {
-      // TESOURO-SELIC e TESOURO-IPCA já existiam antes da TASK-058A.
+    it("a bateria de Tesouro tem entre 15 e 40 fixtures novas além das duas originais da TASK-051A", async () => {
+      // TESOURO-SELIC e TESOURO-IPCA já existiam antes da TASK-058A. O teto
+      // subiu de 25 para 40 na TASK-063A (12 fixtures novas de catálogo
+      // expandido, além das ~22 já existentes da TASK-058A).
       const newFixtures = treasuryFixtureIds.length - 2;
 
       expect(newFixtures).toBeGreaterThanOrEqual(15);
-      expect(newFixtures).toBeLessThanOrEqual(25);
+      expect(newFixtures).toBeLessThanOrEqual(40);
     });
 
     it("nenhum caso de Tesouro (com ou sem vencimento, variação de escrita ou negativo) resolve como verificado, em nenhuma das duas passagens", async () => {
@@ -634,7 +636,8 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
   });
 
   describe("TASK-058B -- TesouroDiretoProvider: catalogados COM vencimento passam a resolved_expected", () => {
-    // Os 8 títulos catalogados (docs/tasks/task-058a-tesouro-direto-diagnostics.md).
+    // Os 8 títulos originais (docs/tasks/task-058a-tesouro-direto-diagnostics.md)
+    // mais os 12 acrescentados pela TASK-063A (catálogo expandido) -- 20 no total.
     const cataloguedWithMaturity = [
       "TESOURO-SELIC-2029",
       "TESOURO-SELIC-2031",
@@ -644,6 +647,18 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       "TESOURO-PREFIXADO-2027",
       "TESOURO-PREFIXADO-2031",
       "TESOURO-PREFIXADO-JS-2035",
+      "TESOURO-SELIC-2027",
+      "TESOURO-SELIC-2028",
+      "TESOURO-SELIC-2033",
+      "TESOURO-PREFIXADO-2028",
+      "TESOURO-PREFIXADO-2029",
+      "TESOURO-PREFIXADO-2032",
+      "TESOURO-PREFIXADO-JS-2033",
+      "TESOURO-IPCA-2029",
+      "TESOURO-IPCA-2030",
+      "TESOURO-IPCA-2040",
+      "TESOURO-IPCA-JS-2032",
+      "TESOURO-IPCA-JS-2050",
     ];
 
     // As 5 variações de escrita normalizam para um dos 8 títulos acima (ou
@@ -658,7 +673,7 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
       "TESOURO-VARIACAO-SUFIXO-LFT",
     ];
 
-    it("os 8 títulos catalogados com vencimento passam a resolved_expected (afterTesouroProvider)", async () => {
+    it("os 20 títulos catalogados com vencimento passam a resolved_expected (afterTesouroProvider)", async () => {
       const rows = await runAllFixtures();
 
       for (const id of cataloguedWithMaturity) {

@@ -21,6 +21,19 @@ describe("TesouroDiretoProvider", () => {
     "Tesouro Prefixado 2027",
     "Tesouro Prefixado 2031",
     "Tesouro Prefixado com Juros Semestrais 2035",
+    // TASK-063A: catalog expansion, same exact-match coverage.
+    "Tesouro Selic 2027",
+    "Tesouro Selic 2028",
+    "Tesouro Selic 2033",
+    "Tesouro Prefixado 2028",
+    "Tesouro Prefixado 2029",
+    "Tesouro Prefixado 2032",
+    "Tesouro Prefixado com Juros Semestrais 2033",
+    "Tesouro IPCA+ 2029",
+    "Tesouro IPCA+ 2030",
+    "Tesouro IPCA+ 2040",
+    "Tesouro IPCA+ com Juros Semestrais 2032",
+    "Tesouro IPCA+ com Juros Semestrais 2050",
   ])("finds the catalogued title %s by exact name", async (rawName) => {
     const result = await createProvider().search({ assetId: "asset-1", rawName });
 
@@ -114,10 +127,17 @@ describe("TesouroDiretoProvider", () => {
     expect(result.evidence).toEqual([]);
   });
 
-  it("does not match an uncatalogued maturity year", async () => {
-    const result = await createProvider().search({ assetId: "asset-1", rawName: "Tesouro Selic 2033" });
+  // TASK-063A: negative cases for maturity years just outside the expanded
+  // catalog -- must remain pending, not silently verified.
+  it.each([
+    ["Tesouro Selic 2026"],
+    ["Tesouro Prefixado 2036"],
+    ["Tesouro IPCA+ 2060"],
+  ])("does not match the uncatalogued maturity year in '%s'", async (rawName) => {
+    const result = await createProvider().search({ assetId: "asset-1", rawName });
 
     expect(result.found).toBe(false);
+    expect(result.evidence).toEqual([]);
   });
 
   // --- 27: explicit conflicting assetType ---------------------------------------------------------
