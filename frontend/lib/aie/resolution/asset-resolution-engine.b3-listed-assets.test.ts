@@ -109,6 +109,52 @@ describe("AssetResolutionEngine + B3ListedAssetProvider (TASK-051B)", () => {
     expect(result.verifiedAsset).toBeNull();
   });
 
+  // TASK-064B: ticker normalization -- case and surrounding whitespace only.
+  // No name-based matching (out of scope, see the task's own report): every
+  // form below is still the SAME ticker string, just written differently.
+  it.each([
+    ["petr4", "b3:PETR4", "stock"],
+    ["PeTr4", "b3:PETR4", "stock"],
+    ["  PETR4  ", "b3:PETR4", "stock"],
+    ["hglg11", "b3:HGLG11", "fii"],
+    ["HgLg11", "b3:HGLG11", "fii"],
+    ["ivvb11", "b3:IVVB11", "etf"],
+    ["aapl34", "b3:AAPL34", "international"],
+  ] as const)(
+    "TASK-064B: resolves the equivalent spelling '%s' as verified, same code/type/source",
+    async (rawName, expectedCanonicalId, expectedAssetType) => {
+      const result = await engine.resolve({
+        candidateAsset: candidate({
+          id: `asset-064b-${rawName}`,
+          rawName,
+          hints: { currency: "BRL", amount: 1000 },
+        }),
+        now: NOW,
+      });
+
+      expect(result.status).toBe("verified");
+      expect(result.verifiedAsset?.assetType).toBe(expectedAssetType);
+      expect(result.verifiedAsset?.canonicalAssetId).toBe(expectedCanonicalId);
+    },
+  );
+
+  it.each(["PETR-4", "PETR 4", "PETRA4", "HGLG", "IVVB", "AAPL"])(
+    "TASK-064B: '%s' is not an equivalent spelling and stays pending (no approximation accepted)",
+    async (rawName) => {
+      const result = await engine.resolve({
+        candidateAsset: candidate({
+          id: `asset-064b-negativo-${rawName}`,
+          rawName,
+          hints: { currency: "BRL", amount: 1000 },
+        }),
+        now: NOW,
+      });
+
+      expect(result.status).toBe("needs-more-evidence");
+      expect(result.verifiedAsset).toBeNull();
+    },
+  );
+
   it.each([
     ["PETR4", "stock"],
     ["VALE3", "stock"],

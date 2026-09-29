@@ -164,6 +164,43 @@ describe("B3ListedAssetProvider", () => {
     expect(spaced.found).toBe(true);
   });
 
+  // TASK-064B: equivalent spellings of an already-catalogued ticker (case,
+  // leading/trailing whitespace) resolve to the SAME code, type and source
+  // -- no name-based matching, no approximation, catalog unchanged.
+  describe("TASK-064B: equivalent spellings of an already-catalogued ticker", () => {
+    it.each([
+      ["petr4", "b3:PETR4"],
+      ["PeTr4", "b3:PETR4"],
+      ["  PETR4  ", "b3:PETR4"],
+      ["hglg11", "b3:HGLG11"],
+      ["HgLg11", "b3:HGLG11"],
+      ["  hglg11  ", "b3:HGLG11"],
+      ["ivvb11", "b3:IVVB11"],
+      ["aapl34", "b3:AAPL34"],
+    ])("'%s' resolves to %s (same code, source B3)", async (ticker, expectedId) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found, ticker).toBe(true);
+
+      const identity = result.evidence.find((item) => item.field === "identity");
+      const issuer = result.evidence.find((item) => item.field === "issuer");
+
+      expect(identity?.value, ticker).toBe(expectedId);
+      expect(identity?.source, ticker).toBe("B3");
+      expect(issuer?.source, ticker).toBe("B3");
+    });
+
+    it.each(["PETR-4", "PETR 4", "PETRA4", "HGLG", "IVVB", "AAPL"])(
+      "'%s' still does not resolve (no approximation, no prefix/suffix accepted)",
+      async (ticker) => {
+        const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+        expect(result.found, ticker).toBe(false);
+        expect(result.evidence, ticker).toEqual([]);
+      },
+    );
+  });
+
   it("does not match a partial/prefix ticker (PETR never matches PETR4)", async () => {
     const result = await createProvider().search({ assetId: "asset-1", ticker: "PETR" });
 
