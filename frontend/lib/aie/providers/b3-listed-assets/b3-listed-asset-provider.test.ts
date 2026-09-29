@@ -93,6 +93,67 @@ describe("B3ListedAssetProvider", () => {
     expect(result.found).toBe(true);
   });
 
+  // TASK-064A: second catalog expansion wave (61 tickers total). Representative
+  // sample per category -- HGLG11/IVVB11/AAPL34 were requested again but were
+  // already catalogued, so they are not duplicated (covered by the tests above).
+  it.each([
+    "ALOS3",
+    "ARZZ3",
+    "ASAI3",
+    "CSAN3",
+    "CYRE3",
+    "EGIE3",
+    "EZTC3",
+    "FLRY3",
+    "HAPV3",
+    "KLBN11",
+    "MRFG3",
+    "POMO4",
+    "SLCE3",
+    "TAEE11",
+    "TIMS3",
+    "UGPA3",
+  ])("TASK-064A: finds the stock %s by exact ticker", async (ticker) => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+    expect(result.found).toBe(true);
+    expect(result.evidence.map((item) => item.field).sort()).toEqual(["identity", "issuer"]);
+  });
+
+  it.each(["RBRR11", "BRCO11", "VGIR11", "TRXF11", "PVBI11"])(
+    "TASK-064A: finds the FII %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["BOVV11", "XFIX11"])("TASK-064A: finds the ETF %s by exact ticker", async (ticker) => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+    expect(result.found).toBe(true);
+  });
+
+  it.each(["META34", "NVDC34", "MELI34"])(
+    "TASK-064A: finds the BDR %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["PETR5", "HGLG12", "META35"])(
+    "TASK-064A: does not match the uncatalogued ticker '%s' (no false positive)",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(false);
+      expect(result.evidence).toEqual([]);
+    },
+  );
+
   it("normalizes lowercase and surrounding whitespace before matching", async () => {
     const provider = createProvider();
 

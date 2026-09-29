@@ -32,6 +32,13 @@ export interface B3ListedAssetEntry {
  * confidently known was left out rather than filled in approximately (see
  * the TASK-052 report for the exact list considered and excluded).
  *
+ * TASK-064A: second expansion wave, same rule. Of the 29 tickers requested,
+ * 3 (HGLG11, IVVB11, AAPL34) were already catalogued from the original 8 --
+ * deliberately NOT duplicated (this catalog is a `ticker -> entry` map in
+ * ./infer-asset-type.ts; a duplicate key would either be silently harmless
+ * or, worse, silently mask a data mismatch), so only 26 genuinely new
+ * entries were added.
+ *
  * Every entry is public, low-churn data (which company/manager a ticker
  * refers to on the B3) -- never a quote, a price or anything needing live
  * updates. Growing this catalog is a deliberate product decision each time,
@@ -325,5 +332,224 @@ export const B3_LISTED_ASSETS: readonly B3ListedAssetEntry[] = [
     legalName: "Netflix, Inc. (BDR)",
     issuerEntityId: "company.netflix",
     issuerName: "Netflix, Inc.",
+  },
+
+  // --- TASK-064A: ações (segunda onda) -----------------------------------------------------
+  {
+    ticker: "ALOS3",
+    assetType: "stock",
+    canonicalAssetId: "b3:ALOS3",
+    legalName: "Allos S.A.",
+    issuerEntityId: "company.allos",
+    issuerName: "Allos S.A.",
+  },
+  {
+    ticker: "ARZZ3",
+    assetType: "stock",
+    canonicalAssetId: "b3:ARZZ3",
+    legalName: "Arezzo Indústria e Comércio S.A.",
+    issuerEntityId: "company.arezzo",
+    issuerName: "Arezzo Indústria e Comércio S.A.",
+  },
+  {
+    ticker: "ASAI3",
+    assetType: "stock",
+    canonicalAssetId: "b3:ASAI3",
+    legalName: "Sendas Distribuidora S.A.",
+    issuerEntityId: "company.assai",
+    issuerName: "Sendas Distribuidora S.A.",
+  },
+  {
+    ticker: "CSAN3",
+    assetType: "stock",
+    canonicalAssetId: "b3:CSAN3",
+    legalName: "Cosan S.A.",
+    issuerEntityId: "company.cosan",
+    issuerName: "Cosan S.A.",
+  },
+  {
+    ticker: "CYRE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:CYRE3",
+    legalName: "Cyrela Brazil Realty S.A. Empreendimentos e Participações",
+    issuerEntityId: "company.cyrela",
+    issuerName: "Cyrela Brazil Realty S.A. Empreendimentos e Participações",
+  },
+  {
+    ticker: "EGIE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:EGIE3",
+    legalName: "Engie Brasil Energia S.A.",
+    issuerEntityId: "company.engie-brasil",
+    issuerName: "Engie Brasil Energia S.A.",
+  },
+  {
+    ticker: "EZTC3",
+    assetType: "stock",
+    canonicalAssetId: "b3:EZTC3",
+    legalName: "EZTEC Empreendimentos e Participações S.A.",
+    issuerEntityId: "company.eztec",
+    issuerName: "EZTEC Empreendimentos e Participações S.A.",
+  },
+  {
+    ticker: "FLRY3",
+    assetType: "stock",
+    canonicalAssetId: "b3:FLRY3",
+    legalName: "Fleury S.A.",
+    issuerEntityId: "company.fleury",
+    issuerName: "Fleury S.A.",
+  },
+  {
+    ticker: "HAPV3",
+    assetType: "stock",
+    canonicalAssetId: "b3:HAPV3",
+    legalName: "Hapvida Participações e Investimentos S.A.",
+    issuerEntityId: "company.hapvida",
+    issuerName: "Hapvida Participações e Investimentos S.A.",
+  },
+  {
+    ticker: "KLBN11",
+    assetType: "stock",
+    canonicalAssetId: "b3:KLBN11",
+    legalName: "Klabin S.A.",
+    issuerEntityId: "company.klabin",
+    issuerName: "Klabin S.A.",
+  },
+  {
+    ticker: "MRFG3",
+    assetType: "stock",
+    canonicalAssetId: "b3:MRFG3",
+    legalName: "Marfrig Global Foods S.A.",
+    issuerEntityId: "company.marfrig",
+    issuerName: "Marfrig Global Foods S.A.",
+  },
+  {
+    ticker: "POMO4",
+    assetType: "stock",
+    canonicalAssetId: "b3:POMO4",
+    legalName: "Marcopolo S.A.",
+    issuerEntityId: "company.marcopolo",
+    issuerName: "Marcopolo S.A.",
+  },
+  {
+    ticker: "SLCE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:SLCE3",
+    legalName: "SLC Agrícola S.A.",
+    issuerEntityId: "company.slc-agricola",
+    issuerName: "SLC Agrícola S.A.",
+  },
+  {
+    ticker: "TAEE11",
+    assetType: "stock",
+    canonicalAssetId: "b3:TAEE11",
+    legalName: "Transmissora Aliança de Energia Elétrica S.A.",
+    issuerEntityId: "company.taesa",
+    issuerName: "Transmissora Aliança de Energia Elétrica S.A.",
+  },
+  {
+    ticker: "TIMS3",
+    assetType: "stock",
+    canonicalAssetId: "b3:TIMS3",
+    legalName: "TIM S.A.",
+    issuerEntityId: "company.tim",
+    issuerName: "TIM S.A.",
+  },
+  {
+    ticker: "UGPA3",
+    assetType: "stock",
+    canonicalAssetId: "b3:UGPA3",
+    legalName: "Ultrapar Participações S.A.",
+    issuerEntityId: "company.ultrapar",
+    issuerName: "Ultrapar Participações S.A.",
+  },
+
+  // --- TASK-064A: FIIs (segunda onda) ------------------------------------------------------
+  // HGLG11 já está catalogado desde a base original -- não duplicado aqui.
+  {
+    ticker: "RBRR11",
+    assetType: "fii",
+    canonicalAssetId: "b3:RBRR11",
+    legalName: "RBR Rendimento High Grade Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.rbr-rendimento-high-grade",
+    issuerName: "RBR Asset Management",
+  },
+  {
+    ticker: "BRCO11",
+    assetType: "fii",
+    canonicalAssetId: "b3:BRCO11",
+    legalName: "Bresco Logística Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.bresco-logistica",
+    issuerName: "Bresco",
+  },
+  {
+    ticker: "VGIR11",
+    assetType: "fii",
+    canonicalAssetId: "b3:VGIR11",
+    legalName: "Valora RE III Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.valora-re-iii",
+    issuerName: "Valora Investimentos",
+  },
+  {
+    ticker: "TRXF11",
+    assetType: "fii",
+    canonicalAssetId: "b3:TRXF11",
+    legalName: "TRX Real Estate Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.trx-real-estate",
+    issuerName: "TRX Investimentos",
+  },
+  {
+    ticker: "PVBI11",
+    assetType: "fii",
+    canonicalAssetId: "b3:PVBI11",
+    legalName: "VBI Prime Properties Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.vbi-prime-properties",
+    issuerName: "VBI Real Estate",
+  },
+
+  // --- TASK-064A: ETFs (segunda onda) ------------------------------------------------------
+  // IVVB11 já está catalogado desde a base original -- não duplicado aqui.
+  {
+    ticker: "BOVV11",
+    assetType: "etf",
+    canonicalAssetId: "b3:BOVV11",
+    legalName: "It Now IBOVESPA Fundo de Índice",
+    issuerEntityId: "fund.it-now-ibovespa",
+    issuerName: "Itaú Asset Management",
+  },
+  {
+    ticker: "XFIX11",
+    assetType: "etf",
+    canonicalAssetId: "b3:XFIX11",
+    legalName: "Trend IFIX Fundo de Índice",
+    issuerEntityId: "fund.trend-ifix",
+    issuerName: "Trend DTVM",
+  },
+
+  // --- TASK-064A: BDRs / internacional (segunda onda) --------------------------------------
+  // AAPL34 já está catalogado desde a base original -- não duplicado aqui.
+  {
+    ticker: "META34",
+    assetType: "international",
+    canonicalAssetId: "b3:META34",
+    legalName: "Meta Platforms, Inc. (BDR)",
+    issuerEntityId: "company.meta-platforms",
+    issuerName: "Meta Platforms, Inc.",
+  },
+  {
+    ticker: "NVDC34",
+    assetType: "international",
+    canonicalAssetId: "b3:NVDC34",
+    legalName: "NVIDIA Corporation (BDR)",
+    issuerEntityId: "company.nvidia",
+    issuerName: "NVIDIA Corporation",
+  },
+  {
+    ticker: "MELI34",
+    assetType: "international",
+    canonicalAssetId: "b3:MELI34",
+    legalName: "MercadoLibre, Inc. (BDR)",
+    issuerEntityId: "company.mercadolibre",
+    issuerName: "MercadoLibre, Inc.",
   },
 ];
