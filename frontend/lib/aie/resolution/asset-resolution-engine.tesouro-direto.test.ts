@@ -49,6 +49,27 @@ describe("AssetResolutionEngine + TesouroDiretoProvider (TASK-058B)", () => {
     expect(result.verifiedAsset?.issuerEntityId).toBe("issuer.tesouro-nacional");
   });
 
+  // TASK-063B: equivalent spellings of an already-catalogued title also
+  // resolve end-to-end through the real engine, not just the provider unit.
+  it.each([
+    "Tesouro IPCA + 2035",
+    "Tesouro IPCA+2035",
+    "  Tesouro   Selic   2029  ",
+    "TESOURO PREFIXADO 2031",
+  ])("resolves the equivalent spelling '%s' as verified, same as the canonical form", async (rawName) => {
+    const result = await engine.resolve({
+      candidateAsset: candidate({
+        id: `asset-normalizacao-${rawName}`,
+        rawName,
+        hints: { currency: "BRL", amount: 8000 },
+      }),
+      now: NOW,
+    });
+
+    expect(result.status).toBe("verified");
+    expect(result.verifiedAsset?.assetType).toBe("treasury");
+  });
+
   it("resolves an explicit assetType = 'treasury' the same way", async () => {
     const result = await engine.resolve({
       candidateAsset: candidate({

@@ -12,19 +12,26 @@ const EXCLUDED_TERMS = ["fundo", "etf", "carteira", "cdb", "lci", "lca", "renda 
 
 /**
  * trim + collapse internal whitespace to a single space + lowercase +
- * remove any whitespace immediately before a "+" (so "IPCA + 2035" and
- * "IPCA+ 2035" normalize identically). Deliberately conservative: no accent
- * stripping, no punctuation removal beyond the "+"-spacing rule, no generic
- * parenthetical stripping -- a "(LFT)"-style suffix is only ever tolerated
- * via an entry's explicit `aliases` (./catalog.ts), never a generic rule
- * that could silently swallow meaningful text elsewhere.
+ * normalize spacing around a "+": no whitespace before it, exactly one
+ * space after it. TASK-063A's canonical names always write the sign as
+ * "+ " (e.g. "tesouro ipca+ 2035"), so "IPCA + 2035", "IPCA+2035", and
+ * "IPCA +2035" all fold to that SAME string -- these are equivalent ways
+ * of writing one identical title, never a different one (TASK-063B).
+ * Deliberately conservative: no accent stripping, no punctuation removal
+ * beyond the "+"-spacing rule, no generic parenthetical stripping -- a
+ * "(LFT)"-style suffix is only ever tolerated via an entry's explicit
+ * `aliases` (./catalog.ts), never a generic rule that could silently
+ * swallow meaningful text elsewhere. This never widens WHICH titles match
+ * (still an exact, catalog-only lookup after normalizing) -- only HOW MANY
+ * equivalent spellings of an already-catalogued title reach that lookup.
  */
 function normalizeTreasuryName(value: string): string {
   return value
     .trim()
     .replace(/\s+/g, " ")
     .toLowerCase()
-    .replace(/\s+\+/g, "+");
+    .replace(/\s+\+/g, "+")
+    .replace(/\+(?=\S)/g, "+ ");
 }
 
 function containsExcludedTerm(normalized: string): boolean {
@@ -51,7 +58,7 @@ const CATALOG_BY_NAME: ReadonlyMap<string, TesouroDiretoEntry> = new Map(
  *
  *   1. The normalized text must equal a catalog entry's canonical name OR
  *      one of its explicitly whitelisted aliases -- "Tesouro Selic" (no
- *      year) and "Tesouro Selic 2033" (a real-looking year, but
+ *      year) and "Tesouro Selic 2026" (a real-looking year, but
  *      uncatalogued) both return `undefined`, same as an unlisted B3
  *      ticker in `../b3-listed-assets/infer-asset-type.ts`.
  *   2. The normalized text must not contain an excluded term ("fundo",

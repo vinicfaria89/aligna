@@ -140,6 +140,65 @@ describe("TesouroDiretoProvider", () => {
     expect(result.evidence).toEqual([]);
   });
 
+  // --- TASK-063B: normalization -- every equivalent spelling below must
+  // resolve to the SAME already-catalogued title, with the SAME canonical
+  // code, source TESOURO, and assetType treasury (nothing new decided,
+  // only more tolerant matching of an existing entry). ------------------
+  describe("TASK-063B: equivalent spellings of an already-catalogued title", () => {
+    it.each([
+      // Caixa
+      ["tesouro selic 2028", "tesouro:selic:2028"],
+      ["TESOURO SELIC 2028", "tesouro:selic:2028"],
+      ["Tesouro SeLiC 2028", "tesouro:selic:2028"],
+      // Espaços extras
+      ["Tesouro   Selic   2028", "tesouro:selic:2028"],
+      ["Tesouro Selic    2028", "tesouro:selic:2028"],
+      ["Tesouro Selic 2028", "tesouro:selic:2028"],
+      // IPCA+: com/sem espaço antes e depois do sinal
+      ["Tesouro IPCA+ 2030", "tesouro:ipca:2030"],
+      ["Tesouro IPCA + 2030", "tesouro:ipca:2030"],
+      ["Tesouro IPCA +2030", "tesouro:ipca:2030"],
+      ["Tesouro IPCA+2030", "tesouro:ipca:2030"],
+      // "com juros semestrais" em qualquer caixa
+      ["Tesouro IPCA+ com juros semestrais 2050", "tesouro:ipca-js:2050"],
+      ["Tesouro IPCA+ COM JUROS SEMESTRAIS 2050", "tesouro:ipca-js:2050"],
+      ["Tesouro IPCA+ Com Juros Semestrais 2050", "tesouro:ipca-js:2050"],
+      // Espaço antes do ano
+      ["Tesouro Prefixado    2029", "tesouro:prefixado:2029"],
+      ["Tesouro Prefixado 2029", "tesouro:prefixado:2029"],
+    ])("'%s' resolves to %s (same code, source TESOURO, assetType treasury)", async (rawName, expectedId) => {
+      const result = await createProvider().search({ assetId: "asset-1", rawName });
+
+      expect(result.found, rawName).toBe(true);
+
+      const identity = result.evidence.find((item) => item.field === "identity");
+      const issuer = result.evidence.find((item) => item.field === "issuer");
+
+      expect(identity?.value, rawName).toBe(expectedId);
+      expect(identity?.source, rawName).toBe("TESOURO");
+      expect(issuer?.source, rawName).toBe("TESOURO");
+      expect(result.candidates?.[0]?.metadata?.assetType, rawName).toBe("treasury");
+    });
+
+    it.each([
+      ["Tesouro Selic"],
+      ["Tesouro Prefixado"],
+      ["Tesouro IPCA+"],
+      ["Tesouro 2030"],
+      ["Tesouro Selic 2036"],
+      ["Tesouro IPCA+ 2060"],
+      ["Tesouro Prefixado com Juros"],
+      ["TD Selic"],
+      ["LFT 2028"],
+      ["NTN-B"],
+    ])("'%s' still does not resolve (no new abbreviation/approximation accepted)", async (rawName) => {
+      const result = await createProvider().search({ assetId: "asset-1", rawName });
+
+      expect(result.found, rawName).toBe(false);
+      expect(result.evidence, rawName).toEqual([]);
+    });
+  });
+
   // --- 27: explicit conflicting assetType ---------------------------------------------------------
   it("27. does not verify when an explicit assetType conflicts with 'treasury'", async () => {
     const result = await createProvider().search({
