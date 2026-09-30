@@ -584,6 +584,39 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
     }
   });
 
+  it("TASK-068A: amostra da quarta onda do catálogo B3 expandido resolve a partir de rawName sozinho", async () => {
+    const rows = await runAllFixtures();
+
+    const expanded4CoveredIds = [
+      "EXPANDIDO4-ENGI11",
+      "EXPANDIDO4-VBBR3",
+      "EXPANDIDO4-HGBS11",
+      "EXPANDIDO4-KNIP11",
+      "EXPANDIDO4-SPXI11",
+      "EXPANDIDO4-ACWI11",
+      "EXPANDIDO4-AMZN34",
+    ];
+
+    for (const id of expanded4CoveredIds) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
+
+  it("TASK-068A: tickers plausíveis mas não catalogados (BBAS4, META35) continuam pendentes, nunca falso positivo", async () => {
+    const rows = await runAllFixtures();
+
+    for (const id of ["EXPANDIDO4-NEGATIVO-BBAS4", "EXPANDIDO4-NEGATIVO-META35"]) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).not.toBe("verified");
+    }
+  });
+
   describe("TASK-058A -- diagnóstico e modelagem de Tesouro Direto", () => {
     /**
      * Diagnóstico apenas -- ver

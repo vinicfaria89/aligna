@@ -226,6 +226,62 @@ describe("B3ListedAssetProvider", () => {
     },
   );
 
+  // TASK-068A: fourth catalog expansion wave (111 tickers total). Of the 38
+  // requested, 20 were already catalogued (see catalog.ts's module comment)
+  // -- not duplicated, so only the 18 genuinely new tickers are tested here.
+  it.each([
+    "ENGI11",
+    "COGN3",
+    "SANB11",
+    "BBSE3",
+    "CPFE3",
+    "MRVE3",
+    "LOGG3",
+    "VBBR3",
+    "ALUP11",
+  ])("TASK-068A: finds the stock %s by exact ticker", async (ticker) => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+    expect(result.found).toBe(true);
+    expect(result.evidence.map((item) => item.field).sort()).toEqual(["identity", "issuer"]);
+  });
+
+  it.each(["HGBS11", "KNIP11", "KNHY11", "IRDM11", "CPTS11"])(
+    "TASK-068A: finds the FII %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["SPXI11", "NASD11", "ACWI11"])(
+    "TASK-068A: finds the ETF %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it("TASK-068A: finds the BDR AMZN34 by exact ticker (distinct from the already-catalogued AMZO34)", async () => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker: "AMZN34" });
+
+    expect(result.found).toBe(true);
+    const identity = result.evidence.find((item) => item.field === "identity");
+    expect(identity?.value).toBe("b3:AMZN34");
+  });
+
+  it.each(["BBAS4", "SMAL12", "META35", "TRXF12"])(
+    "TASK-068A: does not match the uncatalogued ticker '%s' (no false positive)",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(false);
+      expect(result.evidence).toEqual([]);
+    },
+  );
+
   it("normalizes lowercase and surrounding whitespace before matching", async () => {
     const provider = createProvider();
 

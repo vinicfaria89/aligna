@@ -45,6 +45,14 @@ export interface B3ListedAssetEntry {
  * 4 more stocks (JBSS3, PRIO3, SUZB3, NTCO3) requested afterward to round
  * the wave out to 93 (89 -> 93).
  *
+ * TASK-068A: fourth expansion wave, same rule. Of the 38 tickers requested,
+ * 20 were already catalogued (EGIE3, BBAS3, TAEE11, CYRE3, EZTC3, ALOS3,
+ * SLCE3, VISC11, XPML11, BTLG11, PVBI11, TRXF11, DIVO11, SMAL11, GOLD11,
+ * META34, NFLX34, TSLA34, MSFT34, NVDC34) -- not duplicated, for the same
+ * reason; 18 genuinely new entries were added (93 -> 111). AMZN34 is a
+ * distinct ticker from the already-catalogued AMZO34 for the same real
+ * company -- kept, since this catalog is keyed by ticker, not by issuer.
+ *
  * Every entry is public, low-churn data (which company/manager a ticker
  * refers to on the B3) -- never a quote, a price or anything needing live
  * updates. Growing this catalog is a deliberate product decision each time,
@@ -824,5 +832,160 @@ export const B3_LISTED_ASSETS: readonly B3ListedAssetEntry[] = [
     legalName: "Natura &Co Holding S.A.",
     issuerEntityId: "company.natura-co",
     issuerName: "Natura &Co Holding S.A.",
+  },
+
+  // --- TASK-068A: ações (quarta onda) ------------------------------------------------------
+  {
+    ticker: "ENGI11",
+    assetType: "stock",
+    canonicalAssetId: "b3:ENGI11",
+    legalName: "Energisa S.A.",
+    issuerEntityId: "company.energisa",
+    issuerName: "Energisa S.A.",
+  },
+  {
+    ticker: "COGN3",
+    assetType: "stock",
+    canonicalAssetId: "b3:COGN3",
+    legalName: "Cogna Educação S.A.",
+    issuerEntityId: "company.cogna",
+    issuerName: "Cogna Educação S.A.",
+  },
+  {
+    ticker: "SANB11",
+    assetType: "stock",
+    canonicalAssetId: "b3:SANB11",
+    legalName: "Banco Santander (Brasil) S.A.",
+    issuerEntityId: "company.santander-brasil",
+    issuerName: "Banco Santander (Brasil) S.A.",
+  },
+  {
+    ticker: "BBSE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:BBSE3",
+    legalName: "BB Seguridade Participações S.A.",
+    issuerEntityId: "company.bb-seguridade",
+    issuerName: "BB Seguridade Participações S.A.",
+  },
+  {
+    ticker: "CPFE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:CPFE3",
+    legalName: "CPFL Energia S.A.",
+    issuerEntityId: "company.cpfl-energia",
+    issuerName: "CPFL Energia S.A.",
+  },
+  {
+    ticker: "MRVE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:MRVE3",
+    legalName: "MRV Engenharia e Participações S.A.",
+    issuerEntityId: "company.mrv",
+    issuerName: "MRV Engenharia e Participações S.A.",
+  },
+  {
+    ticker: "LOGG3",
+    assetType: "stock",
+    canonicalAssetId: "b3:LOGG3",
+    legalName: "Log Commercial Properties e Participações S.A.",
+    issuerEntityId: "company.log-cp",
+    issuerName: "Log Commercial Properties e Participações S.A.",
+  },
+  {
+    ticker: "VBBR3",
+    assetType: "stock",
+    canonicalAssetId: "b3:VBBR3",
+    legalName: "Vibra Energia S.A.",
+    issuerEntityId: "company.vibra-energia",
+    issuerName: "Vibra Energia S.A.",
+  },
+  {
+    ticker: "ALUP11",
+    assetType: "stock",
+    canonicalAssetId: "b3:ALUP11",
+    legalName: "Alupar Investimento S.A.",
+    issuerEntityId: "company.alupar",
+    issuerName: "Alupar Investimento S.A.",
+  },
+
+  // --- TASK-068A: FIIs (quarta onda) -------------------------------------------------------
+  {
+    ticker: "HGBS11",
+    assetType: "fii",
+    canonicalAssetId: "b3:HGBS11",
+    legalName: "CSHG Brasil Shopping Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.cshg-brasil-shopping",
+    issuerName: "CSHG (Credit Suisse Hedging-Griffo)",
+  },
+  {
+    ticker: "KNIP11",
+    assetType: "fii",
+    canonicalAssetId: "b3:KNIP11",
+    legalName: "Kinea Índices de Preços Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.kinea-indices-de-precos",
+    issuerName: "Kinea Investimentos",
+  },
+  {
+    ticker: "KNHY11",
+    assetType: "fii",
+    canonicalAssetId: "b3:KNHY11",
+    legalName: "Kinea High Yield CRI Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.kinea-high-yield-cri",
+    issuerName: "Kinea Investimentos",
+  },
+  {
+    ticker: "IRDM11",
+    assetType: "fii",
+    canonicalAssetId: "b3:IRDM11",
+    legalName: "Iridium Recebíveis Imobiliários Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.iridium-recebiveis-imobiliarios",
+    issuerName: "Iridium Gestão de Recursos",
+  },
+  {
+    ticker: "CPTS11",
+    assetType: "fii",
+    canonicalAssetId: "b3:CPTS11",
+    legalName: "Capitânia Securities II Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.capitania-securities-ii",
+    issuerName: "Capitânia Investimentos",
+  },
+
+  // --- TASK-068A: ETFs (quarta onda) -------------------------------------------------------
+  {
+    ticker: "SPXI11",
+    assetType: "etf",
+    canonicalAssetId: "b3:SPXI11",
+    legalName: "Trend S&P 500 Fundo de Índice",
+    issuerEntityId: "fund.trend-sp500",
+    issuerName: "Trend DTVM",
+  },
+  {
+    ticker: "NASD11",
+    assetType: "etf",
+    canonicalAssetId: "b3:NASD11",
+    legalName: "Trend Nasdaq Fundo de Índice",
+    issuerEntityId: "fund.trend-nasdaq",
+    issuerName: "Trend DTVM",
+  },
+  {
+    ticker: "ACWI11",
+    assetType: "etf",
+    canonicalAssetId: "b3:ACWI11",
+    legalName: "Trend ACWI Fundo de Índice",
+    issuerEntityId: "fund.trend-acwi",
+    issuerName: "Trend DTVM",
+  },
+
+  // --- TASK-068A: BDRs / internacional (quarta onda) ---------------------------------------
+  // AMZN34 is a distinct ticker from AMZO34 (already catalogued) for the
+  // same real company -- not a duplicate entry, since this catalog is keyed
+  // by ticker, not by issuer.
+  {
+    ticker: "AMZN34",
+    assetType: "international",
+    canonicalAssetId: "b3:AMZN34",
+    legalName: "Amazon.com, Inc. (BDR)",
+    issuerEntityId: "company.amazon",
+    issuerName: "Amazon.com, Inc.",
   },
 ];

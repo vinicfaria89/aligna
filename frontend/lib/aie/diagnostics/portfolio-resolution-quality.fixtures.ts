@@ -1782,4 +1782,68 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
     input: { id: "diag:expandido3b-suzb3", rawName: "SUZB3", currency: "BRL", amount: 1000 },
     expectedAssetType: "stock",
   },
+
+  // --- TASK-068A: quarta onda de expansão do catálogo B3 -- mesmo formato acima,
+  // amostra representativa por categoria (não todos os 18 novos).
+  {
+    id: "EXPANDIDO4-ENGI11",
+    category: "b3-expanded",
+    description: "ENGI11 (ação nova do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-engi11", rawName: "ENGI11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO4-VBBR3",
+    category: "b3-expanded",
+    description: "VBBR3 (ação nova do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-vbbr3", rawName: "VBBR3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO4-HGBS11",
+    category: "b3-expanded",
+    description: "HGBS11 (FII novo do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-hgbs11", rawName: "HGBS11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "EXPANDIDO4-KNIP11",
+    category: "b3-expanded",
+    description: "KNIP11 (FII novo do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-knip11", rawName: "KNIP11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "fii",
+  },
+  {
+    id: "EXPANDIDO4-SPXI11",
+    category: "b3-expanded",
+    description: "SPXI11 (ETF novo do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-spxi11", rawName: "SPXI11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "etf",
+  },
+  {
+    id: "EXPANDIDO4-ACWI11",
+    category: "b3-expanded",
+    description: "ACWI11 (ETF novo do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-acwi11", rawName: "ACWI11", currency: "BRL", amount: 1000 },
+    expectedAssetType: "etf",
+  },
+  {
+    id: "EXPANDIDO4-AMZN34",
+    category: "b3-expanded",
+    description: "AMZN34 (BDR novo do catálogo, quarta onda) só com rawName",
+    input: { id: "diag:expandido4-amzn34", rawName: "AMZN34", currency: "BRL", amount: 1000 },
+    expectedAssetType: "international",
+  },
+  {
+    id: "EXPANDIDO4-NEGATIVO-BBAS4",
+    category: "b3-expanded",
+    description: "BBAS4 -- parece ticker B3 plausível, mas não está no catálogo",
+    input: { id: "diag:expandido4-negativo-bbas4", rawName: "BBAS4", currency: "BRL", amount: 1000 },
+  },
+  {
+    id: "EXPANDIDO4-NEGATIVO-META35",
+    category: "b3-expanded",
+    description: "META35 -- parece ticker B3 plausível, mas não está no catálogo",
+    input: { id: "diag:expandido4-negativo-meta35", rawName: "META35", currency: "BRL", amount: 1000 },
+  },
 ];
