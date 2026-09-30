@@ -530,6 +530,48 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
     }
   });
 
+  it("TASK-064B: amostra da terceira onda do catálogo B3 expandido resolve a partir de rawName sozinho", async () => {
+    const rows = await runAllFixtures();
+
+    const expanded3CoveredIds = [
+      "EXPANDIDO3-AURE3",
+      "EXPANDIDO3-CSNA3",
+      "EXPANDIDO3-VALE5",
+      "EXPANDIDO3-KNSC11",
+      "EXPANDIDO3-HGCR11",
+      "EXPANDIDO3-GOVE11",
+      "EXPANDIDO3-ECOO11",
+      "EXPANDIDO3-GOOG34",
+      "EXPANDIDO3-AMD34",
+    ];
+
+    for (const id of expanded3CoveredIds) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
+
+  it("TASK-064B: tickers plausíveis mas não catalogados (VALE6, BOVA12, GOOG35, HGCR12) continuam pendentes, nunca falso positivo", async () => {
+    const rows = await runAllFixtures();
+
+    const negatives = [
+      "EXPANDIDO3-NEGATIVO-VALE6",
+      "EXPANDIDO3-NEGATIVO-BOVA12",
+      "EXPANDIDO3-NEGATIVO-GOOG35",
+      "EXPANDIDO3-NEGATIVO-HGCR12",
+    ];
+
+    for (const id of negatives) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).not.toBe("verified");
+    }
+  });
+
   describe("TASK-058A -- diagnóstico e modelagem de Tesouro Direto", () => {
     /**
      * Diagnóstico apenas -- ver

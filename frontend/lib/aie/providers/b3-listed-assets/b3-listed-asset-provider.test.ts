@@ -154,6 +154,67 @@ describe("B3ListedAssetProvider", () => {
     },
   );
 
+  // TASK-064B: third catalog expansion wave (89 tickers total). Representative
+  // sample per category -- BOVA11 was requested again but was already
+  // catalogued, so it is not duplicated (covered by the test above).
+  it.each([
+    "AURE3",
+    "BRAP4",
+    "CCRO3",
+    "CPLE6",
+    "CSNA3",
+    "CXSE3",
+    "DIRR3",
+    "GMAT3",
+    "GOAU4",
+    "MULT3",
+    "RADL3",
+    "SBSP3",
+    "TOTS3",
+    "USIM5",
+    "VALE5",
+    "YDUQ3",
+  ])("TASK-064B: finds the stock %s by exact ticker", async (ticker) => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+    expect(result.found).toBe(true);
+    expect(result.evidence.map((item) => item.field).sort()).toEqual(["identity", "issuer"]);
+  });
+
+  it.each(["KNSC11", "HGCR11", "MCCI11", "JSRE11", "RZTR11", "LVBI11"])(
+    "TASK-064B: finds the FII %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["GOVE11", "ECOO11"])("TASK-064B: finds the ETF %s by exact ticker", async (ticker) => {
+    const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+    expect(result.found).toBe(true);
+  });
+
+  it.each(["GOOG34", "ADBE34", "ORCL34", "AMD34"])(
+    "TASK-064B: finds the BDR %s by exact ticker",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+    },
+  );
+
+  it.each(["VALE6", "BOVA12", "GOOG35", "HGCR12"])(
+    "TASK-064B: does not match the uncatalogued ticker '%s' (no false positive)",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(false);
+      expect(result.evidence).toEqual([]);
+    },
+  );
+
   it("normalizes lowercase and surrounding whitespace before matching", async () => {
     const provider = createProvider();
 

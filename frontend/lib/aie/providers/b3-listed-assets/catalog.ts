@@ -37,7 +37,11 @@ export interface B3ListedAssetEntry {
  * deliberately NOT duplicated (this catalog is a `ticker -> entry` map in
  * ./infer-asset-type.ts; a duplicate key would either be silently harmless
  * or, worse, silently mask a data mismatch), so only 26 genuinely new
- * entries were added.
+ * entries were added (35 -> 61).
+ *
+ * TASK-064B: third expansion wave, same rule. Of the 29 tickers requested,
+ * 1 (BOVA11) was already catalogued from the original 8 -- not duplicated,
+ * for the same reason; 28 genuinely new entries were added (61 -> 89).
  *
  * Every entry is public, low-churn data (which company/manager a ticker
  * refers to on the B3) -- never a quote, a price or anything needing live
@@ -551,5 +555,238 @@ export const B3_LISTED_ASSETS: readonly B3ListedAssetEntry[] = [
     legalName: "MercadoLibre, Inc. (BDR)",
     issuerEntityId: "company.mercadolibre",
     issuerName: "MercadoLibre, Inc.",
+  },
+
+  // --- TASK-064B: ações (terceira onda) ----------------------------------------------------
+  {
+    ticker: "AURE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:AURE3",
+    legalName: "Auren Energia S.A.",
+    issuerEntityId: "company.auren-energia",
+    issuerName: "Auren Energia S.A.",
+  },
+  {
+    ticker: "BRAP4",
+    assetType: "stock",
+    canonicalAssetId: "b3:BRAP4",
+    legalName: "Bradespar S.A.",
+    issuerEntityId: "company.bradespar",
+    issuerName: "Bradespar S.A.",
+  },
+  {
+    ticker: "CCRO3",
+    assetType: "stock",
+    canonicalAssetId: "b3:CCRO3",
+    legalName: "CCR S.A.",
+    issuerEntityId: "company.ccr",
+    issuerName: "CCR S.A.",
+  },
+  {
+    ticker: "CPLE6",
+    assetType: "stock",
+    canonicalAssetId: "b3:CPLE6",
+    legalName: "Companhia Paranaense de Energia - Copel",
+    issuerEntityId: "company.copel",
+    issuerName: "Companhia Paranaense de Energia - Copel",
+  },
+  {
+    ticker: "CSNA3",
+    assetType: "stock",
+    canonicalAssetId: "b3:CSNA3",
+    legalName: "Companhia Siderúrgica Nacional",
+    issuerEntityId: "company.csn",
+    issuerName: "Companhia Siderúrgica Nacional",
+  },
+  {
+    ticker: "CXSE3",
+    assetType: "stock",
+    canonicalAssetId: "b3:CXSE3",
+    legalName: "Caixa Seguridade Participações S.A.",
+    issuerEntityId: "company.caixa-seguridade",
+    issuerName: "Caixa Seguridade Participações S.A.",
+  },
+  {
+    ticker: "DIRR3",
+    assetType: "stock",
+    canonicalAssetId: "b3:DIRR3",
+    legalName: "Direcional Engenharia S.A.",
+    issuerEntityId: "company.direcional",
+    issuerName: "Direcional Engenharia S.A.",
+  },
+  {
+    ticker: "GMAT3",
+    assetType: "stock",
+    canonicalAssetId: "b3:GMAT3",
+    legalName: "Grupo Mateus S.A.",
+    issuerEntityId: "company.grupo-mateus",
+    issuerName: "Grupo Mateus S.A.",
+  },
+  {
+    ticker: "GOAU4",
+    assetType: "stock",
+    canonicalAssetId: "b3:GOAU4",
+    legalName: "Metalúrgica Gerdau S.A.",
+    issuerEntityId: "company.metalurgica-gerdau",
+    issuerName: "Metalúrgica Gerdau S.A.",
+  },
+  {
+    ticker: "MULT3",
+    assetType: "stock",
+    canonicalAssetId: "b3:MULT3",
+    legalName: "Multiplan Empreendimentos Imobiliários S.A.",
+    issuerEntityId: "company.multiplan",
+    issuerName: "Multiplan Empreendimentos Imobiliários S.A.",
+  },
+  {
+    ticker: "RADL3",
+    assetType: "stock",
+    canonicalAssetId: "b3:RADL3",
+    legalName: "Raia Drogasil S.A.",
+    issuerEntityId: "company.raia-drogasil",
+    issuerName: "Raia Drogasil S.A.",
+  },
+  {
+    ticker: "SBSP3",
+    assetType: "stock",
+    canonicalAssetId: "b3:SBSP3",
+    legalName: "Companhia de Saneamento Básico do Estado de São Paulo - Sabesp",
+    issuerEntityId: "company.sabesp",
+    issuerName: "Companhia de Saneamento Básico do Estado de São Paulo - Sabesp",
+  },
+  {
+    ticker: "TOTS3",
+    assetType: "stock",
+    canonicalAssetId: "b3:TOTS3",
+    legalName: "Totvs S.A.",
+    issuerEntityId: "company.totvs",
+    issuerName: "Totvs S.A.",
+  },
+  {
+    ticker: "USIM5",
+    assetType: "stock",
+    canonicalAssetId: "b3:USIM5",
+    legalName: "Usinas Siderúrgicas de Minas Gerais S.A. - Usiminas",
+    issuerEntityId: "company.usiminas",
+    issuerName: "Usinas Siderúrgicas de Minas Gerais S.A. - Usiminas",
+  },
+  {
+    ticker: "VALE5",
+    assetType: "stock",
+    canonicalAssetId: "b3:VALE5",
+    legalName: "Vale S.A.",
+    issuerEntityId: "company.vale",
+    issuerName: "Vale S.A.",
+  },
+  {
+    ticker: "YDUQ3",
+    assetType: "stock",
+    canonicalAssetId: "b3:YDUQ3",
+    legalName: "Yduqs Participações S.A.",
+    issuerEntityId: "company.yduqs",
+    issuerName: "Yduqs Participações S.A.",
+  },
+
+  // --- TASK-064B: FIIs (terceira onda) -----------------------------------------------------
+  {
+    ticker: "KNSC11",
+    assetType: "fii",
+    canonicalAssetId: "b3:KNSC11",
+    legalName: "Kinea Securities Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.kinea-securities",
+    issuerName: "Kinea Investimentos",
+  },
+  {
+    ticker: "HGCR11",
+    assetType: "fii",
+    canonicalAssetId: "b3:HGCR11",
+    legalName: "CSHG Recebíveis Imobiliários Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.cshg-recebiveis-imobiliarios",
+    issuerName: "CSHG (Credit Suisse Hedging-Griffo)",
+  },
+  {
+    ticker: "MCCI11",
+    assetType: "fii",
+    canonicalAssetId: "b3:MCCI11",
+    legalName: "Mauá Capital Recebíveis Imobiliários Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.maua-capital-recebiveis-imobiliarios",
+    issuerName: "Mauá Capital",
+  },
+  {
+    ticker: "JSRE11",
+    assetType: "fii",
+    canonicalAssetId: "b3:JSRE11",
+    legalName: "JS Real Estate Multigestão Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.js-real-estate-multigestao",
+    issuerName: "JS Real Estate",
+  },
+  {
+    ticker: "RZTR11",
+    assetType: "fii",
+    canonicalAssetId: "b3:RZTR11",
+    legalName: "Riza Terrax Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.riza-terrax",
+    issuerName: "Riza Asset Management",
+  },
+  {
+    ticker: "LVBI11",
+    assetType: "fii",
+    canonicalAssetId: "b3:LVBI11",
+    legalName: "VBI Logístico Fundo de Investimento Imobiliário",
+    issuerEntityId: "fund.vbi-logistico",
+    issuerName: "VBI Real Estate",
+  },
+
+  // --- TASK-064B: ETFs (terceira onda) -----------------------------------------------------
+  // BOVA11 já está catalogado desde a base original -- não duplicado aqui.
+  {
+    ticker: "GOVE11",
+    assetType: "etf",
+    canonicalAssetId: "b3:GOVE11",
+    legalName: "It Now IGCT Fundo de Índice",
+    issuerEntityId: "fund.it-now-igct",
+    issuerName: "Itaú Asset Management",
+  },
+  {
+    ticker: "ECOO11",
+    assetType: "etf",
+    canonicalAssetId: "b3:ECOO11",
+    legalName: "It Now ISE Fundo de Índice",
+    issuerEntityId: "fund.it-now-ise",
+    issuerName: "Itaú Asset Management",
+  },
+
+  // --- TASK-064B: BDRs / internacional (terceira onda) -------------------------------------
+  {
+    ticker: "GOOG34",
+    assetType: "international",
+    canonicalAssetId: "b3:GOOG34",
+    legalName: "Alphabet Inc. (BDR)",
+    issuerEntityId: "company.alphabet",
+    issuerName: "Alphabet Inc.",
+  },
+  {
+    ticker: "ADBE34",
+    assetType: "international",
+    canonicalAssetId: "b3:ADBE34",
+    legalName: "Adobe Inc. (BDR)",
+    issuerEntityId: "company.adobe",
+    issuerName: "Adobe Inc.",
+  },
+  {
+    ticker: "ORCL34",
+    assetType: "international",
+    canonicalAssetId: "b3:ORCL34",
+    legalName: "Oracle Corporation (BDR)",
+    issuerEntityId: "company.oracle",
+    issuerName: "Oracle Corporation",
+  },
+  {
+    ticker: "AMD34",
+    assetType: "international",
+    canonicalAssetId: "b3:AMD34",
+    legalName: "Advanced Micro Devices, Inc. (BDR)",
+    issuerEntityId: "company.amd",
+    issuerName: "Advanced Micro Devices, Inc.",
   },
 ];
