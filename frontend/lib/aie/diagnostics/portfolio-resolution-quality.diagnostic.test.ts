@@ -572,6 +572,18 @@ describe("TASK-051A -- diagnóstico de qualidade de resolução AIE", () => {
     }
   });
 
+  it("TASK-064B (complemento a 93): JBSS3 e SUZB3 resolvem a partir de rawName sozinho", async () => {
+    const rows = await runAllFixtures();
+
+    for (const id of ["EXPANDIDO3B-JBSS3", "EXPANDIDO3B-SUZB3"]) {
+      const row = rows.find((candidate) => candidate.id === id);
+
+      expect(row, id).toBeDefined();
+      expect(row?.afterB3Provider.status, id).toBe("verified");
+      expect(row?.afterB3Provider.diagnosis, id).toBe("resolved_expected");
+    }
+  });
+
   describe("TASK-058A -- diagnóstico e modelagem de Tesouro Direto", () => {
     /**
      * Diagnóstico apenas -- ver

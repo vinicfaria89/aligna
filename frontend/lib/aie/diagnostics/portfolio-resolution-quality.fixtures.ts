@@ -1766,4 +1766,20 @@ export const DIAGNOSTIC_FIXTURES: DiagnosticFixture[] = [
     description: "HGCR12 -- parece ticker B3 plausível, mas não está no catálogo",
     input: { id: "diag:expandido3-negativo-hgcr12", rawName: "HGCR12", currency: "BRL", amount: 1000 },
   },
+
+  // --- TASK-064B (complemento a 93): 4 ações a mais, mesmo formato acima.
+  {
+    id: "EXPANDIDO3B-JBSS3",
+    category: "b3-expanded",
+    description: "JBSS3 (ação nova do catálogo, complemento da terceira onda) só com rawName",
+    input: { id: "diag:expandido3b-jbss3", rawName: "JBSS3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
+  {
+    id: "EXPANDIDO3B-SUZB3",
+    category: "b3-expanded",
+    description: "SUZB3 (ação nova do catálogo, complemento da terceira onda) só com rawName",
+    input: { id: "diag:expandido3b-suzb3", rawName: "SUZB3", currency: "BRL", amount: 1000 },
+    expectedAssetType: "stock",
+  },
 ];

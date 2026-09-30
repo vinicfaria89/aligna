@@ -41,7 +41,9 @@ export interface B3ListedAssetEntry {
  *
  * TASK-064B: third expansion wave, same rule. Of the 29 tickers requested,
  * 1 (BOVA11) was already catalogued from the original 8 -- not duplicated,
- * for the same reason; 28 genuinely new entries were added (61 -> 89).
+ * for the same reason; 28 genuinely new entries were added (61 -> 89), plus
+ * 4 more stocks (JBSS3, PRIO3, SUZB3, NTCO3) requested afterward to round
+ * the wave out to 93 (89 -> 93).
  *
  * Every entry is public, low-churn data (which company/manager a ticker
  * refers to on the B3) -- never a quote, a price or anything needing live
@@ -788,5 +790,39 @@ export const B3_LISTED_ASSETS: readonly B3ListedAssetEntry[] = [
     legalName: "Advanced Micro Devices, Inc. (BDR)",
     issuerEntityId: "company.amd",
     issuerName: "Advanced Micro Devices, Inc.",
+  },
+
+  // --- TASK-064B: ações (terceira onda, complemento a 93) -----------------------------------
+  {
+    ticker: "JBSS3",
+    assetType: "stock",
+    canonicalAssetId: "b3:JBSS3",
+    legalName: "JBS S.A.",
+    issuerEntityId: "company.jbs",
+    issuerName: "JBS S.A.",
+  },
+  {
+    ticker: "PRIO3",
+    assetType: "stock",
+    canonicalAssetId: "b3:PRIO3",
+    legalName: "PetroRio S.A.",
+    issuerEntityId: "company.petrorio",
+    issuerName: "PetroRio S.A.",
+  },
+  {
+    ticker: "SUZB3",
+    assetType: "stock",
+    canonicalAssetId: "b3:SUZB3",
+    legalName: "Suzano S.A.",
+    issuerEntityId: "company.suzano",
+    issuerName: "Suzano S.A.",
+  },
+  {
+    ticker: "NTCO3",
+    assetType: "stock",
+    canonicalAssetId: "b3:NTCO3",
+    legalName: "Natura &Co Holding S.A.",
+    issuerEntityId: "company.natura-co",
+    issuerName: "Natura &Co Holding S.A.",
   },
 ];

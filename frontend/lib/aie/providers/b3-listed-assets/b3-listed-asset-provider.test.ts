@@ -205,6 +205,17 @@ describe("B3ListedAssetProvider", () => {
     },
   );
 
+  // TASK-064B (complemento a 93): 4 more stocks requested after the initial wave 3.
+  it.each(["JBSS3", "PRIO3", "SUZB3", "NTCO3"])(
+    "TASK-064B: finds the stock %s by exact ticker (wave 3 complement to 93)",
+    async (ticker) => {
+      const result = await createProvider().search({ assetId: "asset-1", ticker });
+
+      expect(result.found).toBe(true);
+      expect(result.evidence.map((item) => item.field).sort()).toEqual(["identity", "issuer"]);
+    },
+  );
+
   it.each(["VALE6", "BOVA12", "GOOG35", "HGCR12"])(
     "TASK-064B: does not match the uncatalogued ticker '%s' (no false positive)",
     async (ticker) => {
