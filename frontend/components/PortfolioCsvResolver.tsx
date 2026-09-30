@@ -48,12 +48,14 @@ import {
   toSnapshotItems,
   type SavedSnapshot,
   type SnapshotHistoryEntry,
+  type SnapshotItem,
   type SnapshotStatus,
 } from "@/lib/portfolio-snapshot-mapping";
 import {
   explainResolutionItem,
   type ResolutionExplanation,
 } from "@/lib/portfolio-resolution-explanations";
+import { detectPortfolioResolutionUxHint } from "@/lib/portfolio-resolution-ux-hints";
 import {
   downloadCsvFile,
   resultExportFileName,
@@ -322,20 +324,36 @@ function ItemDetails({ item }: { item: ResolvedItemView }) {
 }
 
 /**
+ * TASK-065B: `explainResolutionItem`'s suggestion, replaced by
+ * `detectPortfolioResolutionUxHint`'s when the latter finds a more specific
+ * textual clue in `item.rawName` -- title, description and severity are
+ * always the official explanation's, untouched. All detection logic stays
+ * in `detectPortfolioResolutionUxHint`; this only merges its result into
+ * the explanation already computed.
+ */
+function withUxHint(item: SnapshotItem, explanation: ResolutionExplanation): ResolutionExplanation {
+  const hint = detectPortfolioResolutionUxHint(item);
+
+  return hint ? { ...explanation, suggestion: hint.suggestion } : explanation;
+}
+
+/**
  * Reshapes a `ResolvedItemView` (the fresh-resolution shape) into the
  * minimal `SnapshotItem` fields `explainResolutionItem` reads --
  * `status`/`assetType`/`verifiedAsset`. No explanation logic lives here:
  * this only carries data across the shape boundary, the same way
  * `toDisplayRows` (portfolio-snapshot-mapping.ts) already does in the
- * opposite direction for a saved snapshot's rows.
+ * opposite direction for a saved snapshot's rows. `rawName` is the row's
+ * real raw name (not the item's, which never carries one) -- needed so the
+ * TASK-065B UX hint above can read it.
  */
-function explanationForResolvedItem(item: ResolvedItemView): ResolutionExplanation {
+function explanationForResolvedItem(item: ResolvedItemView, rawName: string): ResolutionExplanation {
   const status: SnapshotStatus =
     item.kind === "item-error" ? "item-error" : (item.status ?? "needs-more-evidence");
 
-  return explainResolutionItem({
+  const snapshotLike: SnapshotItem = {
     lineNumber: item.index + 2,
-    rawName: "",
+    rawName,
     status,
     pendingFields: item.unresolvedFields,
     sources: item.sources,
@@ -349,7 +367,9 @@ function explanationForResolvedItem(item: ResolvedItemView): ResolutionExplanati
           },
         }
       : {}),
-  });
+  };
+
+  return withUxHint(snapshotLike, explainResolutionItem(snapshotLike));
 }
 
 interface ResultRowView {
@@ -1009,7 +1029,7 @@ export default function PortfolioCsvResolver({
       line: row?.row ?? item.index + 2,
       name: row?.rawName ?? "—",
       item,
-      explanation: explanationForResolvedItem(item),
+      explanation: explanationForResolvedItem(item, row?.rawName ?? ""),
     };
   });
 
@@ -1024,7 +1044,7 @@ export default function PortfolioCsvResolver({
   const savedRows: ResultRowView[] | null = saved
     ? toDisplayRows(saved).map((row, index) => ({
         ...row,
-        explanation: explainResolutionItem(saved.items[index]),
+        explanation: withUxHint(saved.items[index], explainResolutionItem(saved.items[index])),
       }))
     : null;
 
