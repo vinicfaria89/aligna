@@ -57,6 +57,10 @@ import {
 } from "@/lib/portfolio-resolution-explanations";
 import { detectPortfolioResolutionUxHint } from "@/lib/portfolio-resolution-ux-hints";
 import {
+  buildPortfolioResolutionQualityCsv,
+  resolutionQualityExportFileName,
+} from "@/lib/portfolio-resolution-quality-export";
+import {
   downloadCsvFile,
   resultExportFileName,
   snapshotItemsToResultCsv,
@@ -1066,6 +1070,26 @@ export default function PortfolioCsvResolver({
     );
   }
 
+  // TASK-066B: same download mechanism as the results above
+  // (`downloadCsvFile`), just fed by `buildPortfolioResolutionQualityCsv`
+  // (TASK-066A) and `resolutionQualityExportFileName` instead -- no new
+  // download logic.
+  function handleExportQualityResult() {
+    downloadCsvFile(
+      resolutionQualityExportFileName(),
+      buildPortfolioResolutionQualityCsv(exportableItems),
+    );
+  }
+
+  function handleExportQualitySaved() {
+    if (!saved) return;
+
+    downloadCsvFile(
+      resolutionQualityExportFileName(),
+      buildPortfolioResolutionQualityCsv(saved.items),
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {savedNote && (
@@ -1156,6 +1180,14 @@ export default function PortfolioCsvResolver({
                 >
                   <Download size={16} aria-hidden="true" />
                   Exportar CSV
+                </button>
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={handleExportQualitySaved}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  Exportar qualidade da resolução
                 </button>
                 <button
                   type="button"
@@ -1616,6 +1648,14 @@ export default function PortfolioCsvResolver({
                 >
                   <Download size={16} aria-hidden="true" />
                   Exportar CSV
+                </button>
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={handleExportQualityResult}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  Exportar qualidade da resolução
                 </button>
               </div>
             </div>
