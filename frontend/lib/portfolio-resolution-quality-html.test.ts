@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+// @vitest-environment jsdom
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   buildPortfolioResolutionQualityHtml,
+  downloadHtmlFile,
   resolutionQualityHtmlFileName,
 } from "./portfolio-resolution-quality-html";
 
@@ -335,5 +337,49 @@ describe("buildPortfolioResolutionQualityHtml", () => {
     expect(summaryIndex).toBeGreaterThan(-1);
     expect(improvementIndex).toBeGreaterThan(summaryIndex);
     expect(assetsIndex).toBeGreaterThan(improvementIndex);
+  });
+});
+
+describe("downloadHtmlFile", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("35. creates a Blob with the html MIME type, an anchor with the right filename, clicks it once, and revokes the object URL", () => {
+    const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:sentinel-html-url");
+    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+
+    downloadHtmlFile("qualidade-resolucao-2026-09-30.html", "<!DOCTYPE html><html></html>");
+
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    const [blob] = createObjectURL.mock.calls[0] as [Blob];
+    expect(blob.type).toBe("text/html;charset=utf-8");
+
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:sentinel-html-url");
+    expect(document.querySelectorAll("a[download]")).toHaveLength(0);
+  });
+
+  it("36. uses the exact filename given, and never fetches or stores anything", () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:sentinel-html-url-2");
+    vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+
+    let downloadAttr: string | null = null;
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      downloadAttr = this.download;
+    });
+
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+
+    downloadHtmlFile("qualidade-resolucao-2026-09-30.html", "<!DOCTYPE html><html></html>");
+
+    expect(downloadAttr).toBe("qualidade-resolucao-2026-09-30.html");
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(window.localStorage.length).toBe(0);
+    expect(window.sessionStorage.length).toBe(0);
+
+    vi.unstubAllGlobals();
   });
 });

@@ -61,6 +61,11 @@ import {
   resolutionQualityExportFileName,
 } from "@/lib/portfolio-resolution-quality-export";
 import {
+  buildPortfolioResolutionQualityHtml,
+  downloadHtmlFile,
+  resolutionQualityHtmlFileName,
+} from "@/lib/portfolio-resolution-quality-html";
+import {
   downloadCsvFile,
   resultExportFileName,
   snapshotItemsToResultCsv,
@@ -1090,6 +1095,27 @@ export default function PortfolioCsvResolver({
     );
   }
 
+  // TASK-067B: same download mechanism as the quality CSV above, just fed
+  // by `buildPortfolioResolutionQualityHtml` (TASK-067A) and
+  // `resolutionQualityHtmlFileName`/`downloadHtmlFile` instead -- no new
+  // download logic (`downloadHtmlFile` itself mirrors `downloadCsvFile`,
+  // since no HTML download helper existed yet).
+  function handleExportQualityHtmlResult() {
+    downloadHtmlFile(
+      resolutionQualityHtmlFileName(),
+      buildPortfolioResolutionQualityHtml(exportableItems),
+    );
+  }
+
+  function handleExportQualityHtmlSaved() {
+    if (!saved) return;
+
+    downloadHtmlFile(
+      resolutionQualityHtmlFileName(),
+      buildPortfolioResolutionQualityHtml(saved.items),
+    );
+  }
+
   return (
     <div className="flex flex-col gap-6">
       {savedNote && (
@@ -1188,6 +1214,14 @@ export default function PortfolioCsvResolver({
                 >
                   <Download size={16} aria-hidden="true" />
                   Exportar qualidade da resolução
+                </button>
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={handleExportQualityHtmlSaved}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  Exportar HTML
                 </button>
                 <button
                   type="button"
@@ -1656,6 +1690,14 @@ export default function PortfolioCsvResolver({
                 >
                   <Download size={16} aria-hidden="true" />
                   Exportar qualidade da resolução
+                </button>
+                <button
+                  type="button"
+                  className={`btn-ghost ${FOCUS_RING}`}
+                  onClick={handleExportQualityHtmlResult}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  Exportar HTML
                 </button>
               </div>
             </div>

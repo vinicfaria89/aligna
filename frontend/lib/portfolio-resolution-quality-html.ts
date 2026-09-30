@@ -169,3 +169,41 @@ export function resolutionQualityHtmlFileName(now: Date = new Date()): string {
 
   return `qualidade-resolucao-${y}-${m}-${d}.html`;
 }
+
+/**
+ * TASK-067B: triggers a browser download of `htmlText` as `filename`. No
+ * `downloadHtmlFile` existed yet, so this follows the exact same pattern as
+ * `downloadCsvFile` (portfolio-snapshot-export.ts) -- same Blob + object
+ * URL + synthetic-click mechanism, only the MIME type differs. The only
+ * part of this module that touches the DOM; kept as one small, injectable
+ * function so a test can supply a fake `doc` and observe the Blob/anchor
+ * without a real browser download happening. Nothing is stored (no
+ * localStorage/sessionStorage) and nothing is logged.
+ */
+export function downloadHtmlFile(
+  filename: string,
+  htmlText: string,
+  doc: Document = document,
+): void {
+  const blob = new Blob([htmlText], {
+    type: "text/html;charset=utf-8",
+  });
+
+  const url = URL.createObjectURL(blob);
+
+  try {
+    const anchor = doc.createElement("a");
+
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.rel = "noopener";
+
+    doc.body.appendChild(anchor);
+
+    anchor.click();
+
+    doc.body.removeChild(anchor);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
