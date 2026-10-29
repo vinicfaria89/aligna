@@ -62,7 +62,10 @@ export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile, 
 
   const byInstitution = new Map<string, number>();
   for (const a of assets) {
-    const key = a.institution || "Instituição não informada";
+    // Missing institution data cannot be treated as one shared institution:
+    // doing so would manufacture concentration from unrelated assets.
+    const key = a.institution.trim();
+    if (!key) continue;
     byInstitution.set(key, (byInstitution.get(key) ?? 0) + a.value);
   }
   const topInstitution = Array.from(byInstitution.entries()).sort((a, b) => b[1] - a[1])[0];
@@ -74,8 +77,8 @@ export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile, 
   if (topConcentration && topConcentration.pct >= 30) {
     alerts.push({
       severity: "alto",
-      title: "Concentração elevada num único emissor",
-      body: `${topConcentration.pct.toFixed(1)}% do que você enviou está numa única instituição (${topConcentration.label}) — isso é risco de evento único, independente do seu perfil de risco.`,
+      title: "Concentração elevada numa instituição informada",
+      body: `${topConcentration.pct.toFixed(1)}% do patrimônio informado está associado à instituição ${topConcentration.label}. Essa leitura usa apenas os dados de instituição preenchidos no extrato e não confirma o emissor nem a exposição a um mesmo grupo econômico.`,
     });
   }
 
@@ -84,7 +87,7 @@ export function buildReport(assets: ExtractedAsset[], riskProfile: RiskProfile, 
     alerts.push({
       severity: "medio",
       title: "Concentração alta em renda fixa privada",
-      body: `${rendaFixaPrivada.pct.toFixed(1)}% da carteira está em renda fixa privada — vale conferir se isso está diversificado entre emissores diferentes, não só entre produtos diferentes.`,
+      body: `${rendaFixaPrivada.pct.toFixed(1)}% da carteira está em renda fixa privada — confira a diversificação entre emissores usando os dados oficiais de cada ativo.`,
     });
   }
 
@@ -220,7 +223,7 @@ export function computeScore(
       label: "Concentração",
       score: Math.round(concentracaoScore),
       weight: 0.25,
-      detail: `Maior concentração: ${concPct.toFixed(1)}% num único emissor.`,
+      detail: `Maior concentração por instituição informada: ${concPct.toFixed(1)}%. Isso não confirma o emissor nem o grupo econômico.`,
     },
     {
       label: "Diversificação",
