@@ -79,4 +79,4 @@ Há cadastro, IA de extratos, score, projeções, billing, histórico e várias 
 
 ## Limitações desta auditoria
 
-É uma revisão do código e documentação disponíveis no repositório em `master`; não cobre o backend Planejador, infraestrutura de produção, permissões reais de deployment, pentest, revisão regulatória ou validação de dados externos. Os testes do frontend devem passar no branch desta alteração, mas isso não substitui integração entre serviços nem análise de segurança de produção.
+É uma revisão do código e documentação disponíveis no repositório em `master`; não cobre o backend Planejador, infraestrutura de produção, permissões reais de deployment, pentest, revisão regulatória ou validação de dados externos. A suíte local não foi executada neste ambiente porque a instalação das dependências não concluiu; isso não substitui integração entre serviços nem análise de segurança de produção.
